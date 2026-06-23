@@ -283,7 +283,7 @@ async function fetchBrands() {
   return brands.map(brand => {
     return {
       ...brand,
-      colours: colours.filter(c => c.brand_id === brand.id)
+      colours: colours.filter(c => c.brand_id == brand.id)
     };
   });
 }
@@ -405,6 +405,7 @@ async function updateSettingsInDB(settings) {
   await supabaseClient.from('settings').upsert({ id: 1, ...settings });
 }
 
+function drawMiniBarChart(canvas, data, color = '#c9a96e') {
   if (!canvas || !canvas.getContext) return;
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;

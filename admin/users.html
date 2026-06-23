@@ -211,16 +211,16 @@ function renderTable(users) {
       <td>${statusBadge(u.status)}</td>
       <td>
         <div style="display:flex;gap:4px">
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="viewActivity(${u.id})" title="View activity">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="viewActivity('${u.id}')" title="View activity">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="resetCredits(${u.id})" title="Reset credits">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="resetCredits('${u.id}')" title="Reset credits">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
           </button>
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="toggleSuspend(${u.id})" title="${u.status === 'active' ? 'Suspend' : 'Reactivate'}" style="color:${u.status === 'active' ? 'var(--warning)' : 'var(--success)'}">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="toggleSuspend('${u.id}')" title="${u.status === 'active' ? 'Suspend' : 'Reactivate'}" style="color:${u.status === 'active' ? 'var(--warning)' : 'var(--success)'}">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/>${u.status === 'active' ? '<line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/>' : '<polygon points="5 3 19 12 5 21 5 3"/>'}</svg>
           </button>
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteUser(${u.id})" title="Delete user" style="color:var(--danger)">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteUser('${u.id}')" title="Delete user" style="color:var(--danger)">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
           </button>
         </div>
@@ -244,7 +244,7 @@ async function filterUsers() {
 
 async function viewActivity(id) {
   const users = await fetchUsers();
-  const user = users.find(u => u.id === id);
+  const user = users.find(u => u.id == id);
   if (!user) return;
   document.getElementById('activity-content').innerHTML = `
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)">
@@ -294,7 +294,7 @@ async function resetCredits(id) {
 
 async function toggleSuspend(id) {
   const users = await fetchUsers();
-  const user = users.find(u => u.id === id);
+  const user = users.find(u => u.id == id);
   if (!user) return;
   // NOTE: 'status' is mock data in our profile mapped struct unless you added it to profiles
   // Since we don't have it in supabase_schema, we will just simulate success or add it
@@ -309,7 +309,7 @@ async function toggleSuspend(id) {
 
 async function deleteUser(id) {
   const users = await fetchUsers();
-  const user = users.find(u => u.id === id);
+  const user = users.find(u => u.id == id);
   if (!user) return;
   confirmAction(`Permanently delete ${user.name}? This cannot be undone.`, async () => {
     // Note: deleting a user requires admin auth API or RLS policies.

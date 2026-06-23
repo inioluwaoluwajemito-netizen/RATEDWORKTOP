@@ -217,7 +217,7 @@ async function getAllStones() {
   
   const stones = [];
   brands.forEach(brand => {
-    const brandColours = colours.filter(c => c.brand_id === brand.id);
+    const brandColours = colours.filter(c => c.brand_id == brand.id);
     brandColours.forEach(colour => {
       stones.push({
         id: `${brand.id}-${colour.id}`,
@@ -251,7 +251,7 @@ async function getBrands() {
   return brands.map(brand => {
     return {
       ...brand,
-      colours: colours.filter(c => c.brand_id === brand.id && c.enabled)
+      colours: colours.filter(c => c.brand_id == brand.id && c.enabled)
     };
   });
 }

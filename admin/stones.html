@@ -364,7 +364,7 @@ async function renderBrands() {
     const enabledColours = brand.colours.filter(c => c.enabled).length;
     return `
     <div class="brand-card" id="brand-card-${brand.id}">
-      <div class="brand-header" onclick="toggleBrand(${brand.id})">
+      <div class="brand-header" onclick="toggleBrand('${brand.id}')">
         <div class="brand-logo-circle" style="background:${bgColor}22;color:${bgColor};font-size:15px;font-weight:800">${brand.name.substring(0,2).toUpperCase()}</div>
         <div class="brand-info">
           <div class="brand-name">${brand.name}</div>
@@ -372,13 +372,13 @@ async function renderBrands() {
         </div>
         <span class="badge ${brand.enabled ? 'badge-success' : 'badge-muted'}">${brand.enabled ? 'Active' : 'Disabled'}</span>
         <div style="display:flex;gap:4px">
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();editBrand(${brand.id})" title="Edit brand">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();editBrand('${brand.id}')" title="Edit brand">
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();toggleBrandStatus(${brand.id})" title="Toggle status" style="color:${brand.enabled ? 'var(--warning)' : 'var(--success)'}">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();toggleBrandStatus('${brand.id}')" title="Toggle status" style="color:${brand.enabled ? 'var(--warning)' : 'var(--success)'}">
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/>${brand.enabled ? '<line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/>' : '<polygon points="5 3 19 12 5 21 5 3"/>'}</svg>
           </button>
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteBrand(${brand.id})" title="Delete brand" style="color:var(--danger)">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteBrand('${brand.id}')" title="Delete brand" style="color:var(--danger)">
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
           </button>
         </div>
@@ -393,18 +393,18 @@ async function renderBrands() {
               <div class="colour-chip-sku">${c.sku}</div>
             </div>
             <label class="toggle" style="transform:scale(0.75)" onclick="event.stopPropagation()">
-              <input type="checkbox" ${c.enabled ? 'checked' : ''} onchange="toggleColourStatus(${brand.id},${c.id})"/>
+              <input type="checkbox" ${c.enabled ? 'checked' : ''} onchange="toggleColourStatus('${brand.id}','${c.id}')"/>
               <span class="toggle-slider"></span>
             </label>
-            <button class="btn btn-ghost btn-icon" onclick="editColour(${brand.id},${c.id})" style="padding:3px" title="Edit">
+            <button class="btn btn-ghost btn-icon" onclick="editColour('${brand.id}','${c.id}')" style="padding:3px" title="Edit">
               <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
-            <button class="btn btn-ghost btn-icon" onclick="deleteColour(${brand.id},${c.id})" style="padding:3px;color:var(--danger)" title="Delete">
+            <button class="btn btn-ghost btn-icon" onclick="deleteColour('${brand.id}','${c.id}')" style="padding:3px;color:var(--danger)" title="Delete">
               <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
             </button>
           </div>
         `).join('')}
-        <button class="add-colour-btn" onclick="openAddColour(${brand.id})">
+        <button class="add-colour-btn" onclick="openAddColour('${brand.id}')">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Colour
         </button>
@@ -424,7 +424,7 @@ function toggleBrand(id) {
 
 async function toggleBrandStatus(id) {
   const brands = await fetchBrands();
-  const brand = brands.find(b => b.id === id);
+  const brand = brands.find(b => b.id == id);
   if (brand) {
     brand.enabled = !brand.enabled;
     await saveBrandToDB(brand);
@@ -445,7 +445,7 @@ function openAddBrand() {
 
 async function editBrand(id) {
   const brands = await fetchBrands();
-  const brand = brands.find(b => b.id === id);
+  const brand = brands.find(b => b.id == id);
   if (!brand) return;
   document.getElementById('brand-modal-title').textContent = 'Edit Brand';
   document.getElementById('brand-edit-id').value = id;
@@ -461,7 +461,7 @@ async function saveBrand() {
   const category = document.getElementById('brand-category').value;
   const description = document.getElementById('brand-desc').value.trim();
   const enabled = document.getElementById('brand-enabled').checked;
-  const editId = document.getElementById('brand-edit-id').value ? parseInt(document.getElementById('brand-edit-id').value) : null;
+  const editId = document.getElementById('brand-edit-id').value || null;
 
   if (!name) { showToast('Please enter a brand name', 'error'); return; }
 
@@ -474,7 +474,7 @@ async function saveBrand() {
 
 async function deleteBrand(id) {
   const brands = await fetchBrands();
-  const brand = brands.find(b => b.id === id);
+  const brand = brands.find(b => b.id == id);
   confirmAction(`Delete brand "${brand?.name}" and all its colours? This cannot be undone.`, async () => {
     await deleteBrandFromDB(id);
     await renderBrands();
@@ -498,8 +498,8 @@ function openAddColour(brandId) {
 
 async function editColour(brandId, colourId) {
   const brands = await fetchBrands();
-  const brand = brands.find(b => b.id === brandId);
-  const colour = brand?.colours.find(c => c.id === colourId);
+  const brand = brands.find(b => b.id == brandId);
+  const colour = brand?.colours.find(c => c.id == colourId);
   if (!colour) return;
   document.getElementById('colour-modal-title').textContent = 'Edit Stone Colour';
   document.getElementById('colour-brand-id').value = brandId;
@@ -517,8 +517,8 @@ async function saveColour() {
   const name = document.getElementById('colour-name').value.trim();
   const sku = document.getElementById('colour-sku').value.trim();
   const enabled = document.getElementById('colour-enabled').checked;
-  const brandId = parseInt(document.getElementById('colour-brand-id').value);
-  const editId = document.getElementById('colour-edit-id').value ? parseInt(document.getElementById('colour-edit-id').value) : null;
+  const brandId = document.getElementById('colour-brand-id').value;
+  const editId = document.getElementById('colour-edit-id').value || null;
 
   if (!name) { showToast('Please enter a colour name', 'error'); return; }
 
@@ -537,8 +537,8 @@ async function saveColour() {
 
 async function toggleColourStatus(brandId, colourId) {
   const brands = await fetchBrands();
-  const brand = brands.find(b => b.id === brandId);
-  const colour = brand?.colours.find(c => c.id === colourId);
+  const brand = brands.find(b => b.id == brandId);
+  const colour = brand?.colours.find(c => c.id == colourId);
   if (colour) {
     colour.enabled = !colour.enabled;
     await saveColourToDB(colour);
@@ -550,8 +550,8 @@ async function toggleColourStatus(brandId, colourId) {
 
 async function deleteColour(brandId, colourId) {
   const brands = await fetchBrands();
-  const brand = brands.find(b => b.id === brandId);
-  const colour = brand?.colours.find(c => c.id === colourId);
+  const brand = brands.find(b => b.id == brandId);
+  const colour = brand?.colours.find(c => c.id == colourId);
   confirmAction(`Delete colour "${colour?.name}"?`, async () => {
     await deleteColourFromDB(colourId);
     await renderBrands();
