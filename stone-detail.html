@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stone Detail — RatedWorktops</title>
+  <meta name="description" content="View stone details, specifications, and start visualising in your kitchen."/>
+  <link rel="stylesheet" href="css/app.css"/>
+  <!-- Google Fonts & Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Specific Page Styles */
+    .detail-container {
+      padding: 60px 0 100px;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: flex-start;
+    }
+
+    .detail-visual-pane {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 12px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .detail-texture-box {
+      width: 100%;
+      aspect-ratio: 1/1;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(255,255,255,0.05);
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 20px 50px rgba(0,0,0,0.5);
+    }
+
+    .texture-zoom-hint {
+      position: absolute;
+      bottom: 16px; right: 16px;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .detail-info-pane {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .detail-brand-badge {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .detail-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(32px, 4vw, 44px);
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+
+    .detail-badges {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .detail-desc {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 30px;
+    }
+
+    .tech-specs-table {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .tech-spec-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tech-spec-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .spec-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .spec-value {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 16px;
+    }
+
+    /* Error state screen */
+    .detail-error {
+      text-align: center;
+      padding: 120px 20px;
+    }
+
+    @media (max-width: 900px) {
+      .detail-grid {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+      .detail-texture-box {
+        aspect-ratio: 4/3;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav" id="main-nav"></nav>
+
+  <!-- Main Detail View -->
+  <main class="page-wrap">
+    <div class="container detail-container">
+      
+      <!-- Loaded dynamically -->
+      <div id="detail-loading" style="text-align: center; padding: 100px 0; color: var(--text-muted);">
+        Loading details...
+      </div>
+
+      <!-- Error State -->
+      <div id="detail-error-view" class="detail-error" style="display: none;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; color: var(--danger)">
+          <i data-lucide="alert-triangle" style="width:28px; height:28px"></i>
+        </div>
+        <h2 class="auth-title" style="margin-bottom: 8px">Material Not Found</h2>
+        <p style="font-size: 14px; color: var(--text-muted); max-width: 440px; margin: 0 auto 24px">We couldn't locate the specified stone material. It may have been disabled or deleted by the administrator.</p>
+        <a href="stones.html" class="btn btn-primary">Return to Catalog</a>
+      </div>
+
+      <!-- Content Grid -->
+      <div class="detail-grid" id="detail-content-view" style="display: none;">
+        
+        <!-- Left Side - Visual Pattern -->
+        <div class="detail-visual-pane">
+          <div class="detail-texture-box" id="detail-texture-element">
+            <div class="texture-zoom-hint">
+              <i data-lucide="zoom-in" style="width: 13px; height: 13px"></i>
+              Texture Pattern View
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side - Specifications -->
+        <div class="detail-info-pane">
+          <div class="detail-brand-badge" id="detail-brand-name">Cosentino</div>
+          <h1 class="detail-title" id="detail-stone-name">Eternal Calacatta Gold</h1>
+          
+          <div class="detail-badges">
+            <span class="badge badge-gold" id="detail-category-badge">Quartz</span>
+            <span class="badge badge-muted" style="font-family: monospace" id="detail-sku-badge">SIL-ECG</span>
+          </div>
+
+          <p class="detail-desc" id="detail-stone-description">
+            A premium engineering quartz slab featuring a white base traversed by elegant gold and grey veins. Designed to reflect the look of natural marble with the durability and maintenance advantages of engineered quartz.
+          </p>
+
+          <div class="tech-specs-table">
+            <div class="tech-spec-row">
+              <span class="spec-label">Material Category</span>
+              <span class="spec-value" id="spec-category">Engineered Quartz</span>
+            </div>
+            <div class="tech-spec-row">
+              <span class="spec-label">Available Thicknesses</span>
+              <span class="spec-value">20mm, 30mm</span>
+            </div>
+            <div class="tech-spec-row">
+              <span class="spec-label">Recommended Finish</span>
+              <span class="spec-value">Polished, Suede</span>
+            </div>
+            <div class="tech-spec-row">
+              <span class="spec-label">Application Suitability</span>
+              <span class="spec-value">Worktops, Splashbacks, Bathrooms</span>
+            </div>
+          </div>
+
+          <div class="detail-actions">
+            <a href="#" class="btn btn-primary btn-lg" id="visualise-action-btn">
+              <i data-lucide="sparkles"></i>
+              Visualise on My Kitchen
+            </a>
+            <a href="stones.html" class="btn btn-ghost btn-lg">
+              Back to Catalog
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer" id="main-footer"></footer>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Build shared nav & footer
+      await buildNav('stones.html');
+      buildFooter();
+
+      // Retrieve ID parameter from url
+      const urlParams = new URLSearchParams(window.location.search);
+      const stoneId = urlParams.get('id');
+
+      const loader = document.getElementById('detail-loading');
+      const errorView = document.getElementById('detail-error-view');
+      const contentView = document.getElementById('detail-content-view');
+
+      if (!stoneId) {
+        loader.style.display = 'none';
+        errorView.style.display = 'block';
+        lucide.createIcons();
+        return;
+      }
+
+      // Fetch stone details
+      const stone = await getStoneById(stoneId);
+
+      if (!stone) {
+        loader.style.display = 'none';
+        errorView.style.display = 'block';
+        lucide.createIcons();
+        return;
+      }
+
+      // Populate layout
+      document.getElementById('detail-texture-element').style.background = getTexture(stone.texture);
+      document.getElementById('detail-brand-name').textContent = stone.brand;
+      document.getElementById('detail-stone-name').textContent = stone.name;
+      document.getElementById('detail-category-badge').textContent = stone.category;
+      document.getElementById('detail-sku-badge').textContent = stone.sku;
+      document.getElementById('spec-category').textContent = stone.category;
+      
+      // Update description if brand description is present
+      if (stone.description) {
+        document.getElementById('detail-stone-description').textContent = 
+          `${stone.description}. The ${stone.name} slab is a premium choice of ${stone.category.toLowerCase()} that provides a refined finish for any high-end interior.`;
+      }
+
+      // Wire up visualise CTA action link
+      document.getElementById('visualise-action-btn').href = `visualiser.html?stone=${stone.id}`;
+
+      // Show content
+      loader.style.display = 'none';
+      contentView.style.display = 'grid';
+
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>

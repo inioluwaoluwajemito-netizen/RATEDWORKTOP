@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Browse Stone Materials — RatedWorktops</title>
+  <meta name="description" content="Explore our library of premium stone brands and colours, including Quartz, Marble, Granite, and Sintered Stone."/>
+  <link rel="stylesheet" href="css/app.css"/>
+  <!-- Google Fonts & Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Specific Page Styles */
+    .stones-hero {
+      padding: 60px 0 40px;
+      background: linear-gradient(180deg, rgba(20,20,30,0.5) 0%, transparent 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 30px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      padding: 16px 20px;
+      border-radius: var(--radius-md);
+      backdrop-filter: blur(10px);
+    }
+
+    .filter-left {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      flex: 1;
+      min-width: 280px;
+    }
+
+    .filter-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .search-input-container {
+      position: relative;
+      flex: 1.5;
+      min-width: 200px;
+    }
+
+    .search-input-container svg {
+      position: absolute;
+      left: 14px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input-container input {
+      padding-left: 42px;
+    }
+
+    .brand-select {
+      flex: 1;
+      min-width: 150px;
+    }
+
+    /* Category pills */
+    .category-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 30px;
+    }
+
+    .cat-tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .cat-tab:hover {
+      background: rgba(255,255,255,0.07);
+      color: var(--text-primary);
+    }
+
+    .cat-tab.active {
+      background: var(--gold-glow);
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    /* Stone grid additions for interactive card overlays */
+    .stone-card {
+      position: relative;
+    }
+
+    .stone-card-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(9, 9, 15, 0.85);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 20px;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      z-index: 5;
+    }
+
+    .stone-card:hover .stone-card-overlay {
+      opacity: 1;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      margin-top: 20px;
+    }
+
+    .empty-state-icon {
+      width: 60px; height: 60px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted);
+      margin: 0 auto 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav" id="main-nav"></nav>
+
+  <!-- Page Content -->
+  <main class="page-wrap">
+    
+    <!-- Hero Header -->
+    <section class="stones-hero">
+      <div class="container">
+        <h1 class="section-title" style="font-size: 36px; margin-bottom: 8px">Stone Collections</h1>
+        <p class="section-desc" style="max-width: 600px">Browse our extensive library of premium kitchen stone brands. Compare marble, granite, quartzite, and quartz materials.</p>
+      </div>
+    </section>
+
+    <!-- Interactive Browse Section -->
+    <section class="container mt-8" style="min-height: 50vh">
+      
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="filter-left">
+          <!-- Text Search -->
+          <div class="search-input-container">
+            <i data-lucide="search" style="width: 17px; height: 17px"></i>
+            <input type="text" id="stone-search" placeholder="Search stone name or SKU..." oninput="handleFilters()"/>
+          </div>
+          
+          <!-- Brand Selector -->
+          <div class="brand-select">
+            <select id="brand-filter" onchange="handleFilters()">
+              <!-- Loaded dynamically -->
+            </select>
+          </div>
+        </div>
+
+        <div class="filter-right">
+          <span style="font-size: 13px; color: var(--text-muted)" id="results-count">0 materials found</span>
+        </div>
+      </div>
+
+      <!-- Categories Navigation -->
+      <div class="category-tabs" id="category-tabs-container">
+        <!-- Loaded dynamically -->
+      </div>
+
+      <!-- Stone Grid -->
+      <div class="stone-grid" id="stones-catalog-grid">
+        <!-- Loaded dynamically -->
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" id="empty-state-view" style="display: none;">
+        <div class="empty-state-icon">
+          <i data-lucide="info" style="width: 24px; height: 24px"></i>
+        </div>
+        <h3 style="font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px">No Materials Match Your Filters</h3>
+        <p style="font-size: 13.5px; color: var(--text-muted); max-width: 400px; margin: 0 auto 16px">Try clearing your search, selecting another category, or selecting "All Brands" to find what you are looking for.</p>
+        <button class="btn btn-outline btn-sm" onclick="resetFilters()">Reset All Filters</button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer" id="main-footer"></footer>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // State management
+    let activeCategory = 'All';
+    let stonesData = [];
+    let brandsList = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Build shared nav & footer
+      await buildNav('stones.html');
+      buildFooter();
+      
+      // Load initial lists
+      stonesData = await getAllStones();
+      
+      // Retrieve brands list
+      brandsList = await getBrands();
+      
+      // Retrieve categories
+      const categories = await getCategories();
+      // Temporarily store in localStorage so renderCategoryTabs can use it, or we update renderCategoryTabs to accept it.
+      // Wait, renderCategoryTabs uses store.get('categories') internally. Let's pass it if possible, but actually we should just update renderCategoryTabs in stones.html.
+      window.loadedCategories = categories;
+      
+      // Initialise components
+      renderBrandFilter();
+      renderCategoryTabs(categories);
+      renderStonesGrid();
+      
+      lucide.createIcons();
+    });
+
+    function renderBrandFilter() {
+      const select = document.getElementById('brand-filter');
+      let options = `<option value="All">All Brands</option>`;
+      
+      brandsList.forEach(brand => {
+        options += `<option value="${brand.name}">${brand.name}</option>`;
+      });
+      
+      select.innerHTML = options;
+    }
+
+    function renderCategoryTabs(categories = window.loadedCategories || []) {
+      const container = document.getElementById('category-tabs-container');
+      
+      // Sort by order
+      categories.sort((a,b) => a.display_order - b.display_order);
+      
+      let tabsHtml = `
+        <div class="cat-tab ${activeCategory === 'All' ? 'active' : ''}" onclick="selectCategory('All')">
+          <span>🌟</span> All Materials
+        </div>
+      `;
+      
+      categories.forEach(cat => {
+        tabsHtml += `
+          <div class="cat-tab ${activeCategory === cat.name ? 'active' : ''}" onclick="selectCategory('${cat.name}')">
+            <span>${cat.icon || '🪨'}</span> ${cat.name}
+          </div>
+        `;
+      });
+      
+      container.innerHTML = tabsHtml;
+    }
+
+    function selectCategory(catName) {
+      activeCategory = catName;
+      renderCategoryTabs();
+      handleFilters();
+    }
+
+    function resetFilters() {
+      document.getElementById('stone-search').value = '';
+      document.getElementById('brand-filter').value = 'All';
+      activeCategory = 'All';
+      renderCategoryTabs();
+      handleFilters();
+    }
+
+    function handleFilters() {
+      const searchVal = document.getElementById('stone-search').value.trim().toLowerCase();
+      const brandVal = document.getElementById('brand-filter').value;
+      
+      const filtered = stonesData.filter(stone => {
+        // Search text check
+        const matchesSearch = !searchVal || 
+                              stone.name.toLowerCase().includes(searchVal) || 
+                              stone.sku.toLowerCase().includes(searchVal);
+        
+        // Brand check
+        const matchesBrand = brandVal === 'All' || stone.brand === brandVal;
+        
+        // Category check
+        const matchesCat = activeCategory === 'All' || stone.category === activeCategory;
+        
+        return matchesSearch && matchesBrand && matchesCat;
+      });
+
+      renderStonesGrid(filtered);
+    }
+
+    function renderStonesGrid(filtered = stonesData) {
+      const grid = document.getElementById('stones-catalog-grid');
+      const emptyState = document.getElementById('empty-state-view');
+      const countLabel = document.getElementById('results-count');
+      
+      countLabel.textContent = `${filtered.length} material${filtered.length === 1 ? '' : 's'} found`;
+
+      if (filtered.length === 0) {
+        grid.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+      }
+      
+      grid.style.display = 'grid';
+      emptyState.style.display = 'none';
+
+      grid.innerHTML = filtered.map(stone => {
+        const textureCss = getTexture(stone.texture);
+        return `
+          <div class="stone-card">
+            <!-- Normal view state -->
+            <div class="stone-img" style="background: ${textureCss};"></div>
+            <div class="stone-card-body">
+              <div class="stone-card-name">${stone.name}</div>
+              <div class="stone-card-brand">${stone.brand}</div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px">
+                <span class="stone-card-cat">${stone.category}</span>
+                <span style="font-size:10px; color:var(--text-muted); font-family:monospace">${stone.sku}</span>
+              </div>
+            </div>
+            
+            <!-- Hover actions overlay -->
+            <div class="stone-card-overlay">
+              <div style="text-align:center; margin-bottom:12px">
+                <div style="font-size:14px; font-weight:700; color:var(--text-primary); text-shadow: 0 2px 4px rgba(0,0,0,0.8)">${stone.name}</div>
+                <div style="font-size:11px; color:var(--text-secondary); margin-top:2px">${stone.brand}</div>
+              </div>
+              <a href="stone-detail.html?id=${stone.id}" class="btn btn-ghost btn-sm w-full" style="justify-content:center">
+                <i data-lucide="eye" style="width:13px;height:13px"></i>
+                View Details
+              </a>
+              <a href="visualiser.html?stone=${stone.id}" class="btn btn-primary btn-sm w-full" style="justify-content:center">
+                <i data-lucide="sparkles" style="width:13px;height:13px"></i>
+                Visualise
+              </a>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      lucide.createIcons();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Users — RatedWorktops Admin</title>
+  <link rel="stylesheet" href="css/admin.css"/>
+</head>
+<body>
+<div class="admin-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="dashboard.html" class="logo-mark">
+        <div class="logo-icon">🪨</div>
+        <div><div class="logo-text">RatedWorktops</div><div class="logo-badge">Admin Portal</div></div>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <a href="dashboard.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
+      <a href="analytics.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Analytics</a>
+      <div class="nav-section-label">Management</div>
+      <a href="users.html" class="nav-item active"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Users</a>
+      <a href="stones.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Stone Library</a>
+      <a href="categories.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Categories</a>
+      <div class="nav-section-label">Settings</div>
+      <a href="subscriptions.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Subscriptions</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar">A</div>
+        <div class="user-info"><div class="user-name">Administrator</div><div class="user-role">Super Admin</div></div>
+        <button class="logout-btn" onclick="logout()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-btn" id="menu-toggle"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div><div class="page-title">Users</div><div class="breadcrumb"><a href="dashboard.html" style="color:var(--text-muted);text-decoration:none">Home</a><span class="sep">›</span><span style="color:var(--gold)">Users</span></div></div>
+      </div>
+      <div class="topbar-right">
+        <div style="font-size:12px;color:var(--text-muted)" id="user-summary"></div>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- Summary Stats -->
+      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px" id="user-stats"></div>
+
+      <!-- Table Card -->
+      <div class="card">
+        <div class="card-header" style="flex-wrap:wrap;gap:12px">
+          <div class="card-title">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            All Users
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <!-- Search -->
+            <div class="search-input-wrap" style="max-width:260px">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="search" id="user-search" placeholder="Search by name or email…"/>
+            </div>
+            <!-- Filter -->
+            <select id="status-filter" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;padding:9px 12px;border-radius:8px;outline:none;cursor:pointer;width:auto">
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+            </select>
+            <select id="plan-filter" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;padding:9px 12px;border-radius:8px;outline:none;cursor:pointer;width:auto">
+              <option value="all">All Plans</option>
+              <option value="Free">Free</option>
+              <option value="Pro">Pro</option>
+              <option value="Studio">Studio</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table id="users-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Plan</th>
+                <th>Credits Left</th>
+                <th>Visualisations</th>
+                <th>Downloads</th>
+                <th>Joined</th>
+                <th>Last Active</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-body"></tbody>
+          </table>
+        </div>
+
+        <div id="table-empty" class="empty-state" style="display:none">
+          <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          <h3>No users found</h3>
+          <p>Try adjusting your search or filters</p>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:16px;margin-top:16px;border-top:1px solid var(--border)">
+          <div id="table-count" style="font-size:12px;color:var(--text-muted)"></div>
+          <div style="font-size:12px;color:var(--text-muted)">Showing all results</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- View Activity Modal -->
+<div class="modal-overlay" id="activity-modal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title">User Activity</div>
+      <button class="modal-close" onclick="closeModal('activity-modal')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="activity-content"></div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('activity-modal')">Close</button></div>
+  </div>
+</div>
+
+<!-- Confirm Dialog -->
+<div class="modal-overlay" id="confirm-overlay">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Confirm Action</div>
+      <button class="modal-close" onclick="closeModal('confirm-overlay')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body"><p id="confirm-message" style="font-size:14px;color:var(--text-secondary);line-height:1.6"></p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="confirm-no">Cancel</button>
+      <button class="btn btn-danger" id="confirm-yes">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/admin.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+requireAuth();
+
+let currentUsers = [];
+
+async function renderUserStats() {
+  const users = await fetchUsers();
+  const active = users.filter(u => u.status === 'active').length;
+  const suspended = users.filter(u => u.status === 'suspended').length;
+  const paid = users.filter(u => u.plan !== 'Free').length;
+  document.getElementById('user-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-header"><div class="stat-icon blue">👥</div></div><div class="stat-value">${users.length}</div><div class="stat-label">Total Users</div></div>
+    <div class="stat-card"><div class="stat-header"><div class="stat-icon green">✅</div></div><div class="stat-value">${active}</div><div class="stat-label">Active</div></div>
+    <div class="stat-card"><div class="stat-header"><div class="stat-icon red">🚫</div></div><div class="stat-value">${suspended}</div><div class="stat-label">Suspended</div></div>
+    <div class="stat-card"><div class="stat-header"><div class="stat-icon gold">💎</div></div><div class="stat-value">${paid}</div><div class="stat-label">Paid Users</div></div>
+  `;
+  document.getElementById('user-summary').textContent = `${users.length} total users`;
+}
+
+function planBadge(plan) {
+  if (plan === 'Free') return '<span class="badge badge-muted">Free</span>';
+  if (plan === 'Pro') return '<span class="badge badge-gold">Pro</span>';
+  return '<span class="badge badge-success">Studio</span>';
+}
+
+function statusBadge(status) {
+  if (status === 'active') return '<span class="badge badge-success"><span class="badge-dot"></span>Active</span>';
+  return '<span class="badge badge-danger"><span class="badge-dot"></span>Suspended</span>';
+}
+
+function renderTable(users) {
+  const tbody = document.getElementById('users-body');
+  const empty = document.getElementById('table-empty');
+  const count = document.getElementById('table-count');
+  currentUsers = users;
+
+  if (!users.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    count.textContent = '0 users';
+    return;
+  }
+  empty.style.display = 'none';
+  count.textContent = `${users.length} user${users.length !== 1 ? 's' : ''}`;
+
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#000;flex-shrink:0">${u.name.charAt(0)}</div>
+          <div>
+            <div class="td-primary">${u.name}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${u.email}</div>
+          </div>
+        </div>
+      </td>
+      <td>${planBadge(u.plan)}</td>
+      <td><span style="font-variant-numeric:tabular-nums;color:${u.credits === 0 ? 'var(--danger)' : 'var(--text-secondary)'}">${u.credits}</span></td>
+      <td style="color:var(--text-secondary)">${u.visualisations}</td>
+      <td style="color:var(--text-secondary)">${u.downloads}</td>
+      <td style="color:var(--text-secondary)">${formatDate(u.joined)}</td>
+      <td style="color:var(--text-secondary)">${formatDate(u.lastActive)}</td>
+      <td>${statusBadge(u.status)}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="viewActivity(${u.id})" title="View activity">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="resetCredits(${u.id})" title="Reset credits">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          </button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="toggleSuspend(${u.id})" title="${u.status === 'active' ? 'Suspend' : 'Reactivate'}" style="color:${u.status === 'active' ? 'var(--warning)' : 'var(--success)'}">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/>${u.status === 'active' ? '<line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/>' : '<polygon points="5 3 19 12 5 21 5 3"/>'}</svg>
+          </button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteUser(${u.id})" title="Delete user" style="color:var(--danger)">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function filterUsers() {
+  const search = document.getElementById('user-search').value.toLowerCase();
+  const status = document.getElementById('status-filter').value;
+  const plan = document.getElementById('plan-filter').value;
+  let users = await fetchUsers();
+
+  if (search) users = users.filter(u => (u.name || '').toLowerCase().includes(search) || (u.email || '').toLowerCase().includes(search));
+  if (status !== 'all') users = users.filter(u => u.status === status);
+  if (plan !== 'all') users = users.filter(u => u.plan === plan);
+
+  renderTable(users);
+}
+
+async function viewActivity(id) {
+  const users = await fetchUsers();
+  const user = users.find(u => u.id === id);
+  if (!user) return;
+  document.getElementById('activity-content').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+      <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#000">${user.name.charAt(0)}</div>
+      <div>
+        <div style="font-size:16px;font-weight:600;color:var(--text-primary)">${user.name}</div>
+        <div style="font-size:13px;color:var(--text-muted)">${user.email}</div>
+      </div>
+      ${planBadge(user.plan)}
+    </div>
+    <div class="grid-2" style="margin-bottom:16px">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Visualisations</div>
+        <div style="font-size:24px;font-weight:700;color:var(--text-primary)">${user.visualisations}</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Downloads</div>
+        <div style="font-size:24px;font-weight:700;color:var(--text-primary)">${user.downloads}</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Shares</div>
+        <div style="font-size:24px;font-weight:700;color:var(--text-primary)">${user.shares}</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Credits Left</div>
+        <div style="font-size:24px;font-weight:700;color:${user.credits === 0 ? 'var(--danger)' : 'var(--gold)'}">${user.credits}</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text-muted)">Member Since</span><span style="color:var(--text-secondary)">${formatDate(user.joined)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text-muted)">Last Active</span><span style="color:var(--text-secondary)">${formatDate(user.lastActive)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0"><span style="color:var(--text-muted)">Account Status</span>${statusBadge(user.status)}</div>
+    </div>
+  `;
+  openModal('activity-modal');
+}
+
+async function resetCredits(id) {
+  const settings = await fetchSettings();
+  const credits = settings.freeCreditsCount || 10;
+  confirmAction(`Reset this user's credits to ${credits}?`, async () => {
+    await updateProfileInDB(id, { credits });
+    await filterUsers();
+    showToast(`Credits reset to ${credits}`);
+  });
+}
+
+async function toggleSuspend(id) {
+  const users = await fetchUsers();
+  const user = users.find(u => u.id === id);
+  if (!user) return;
+  // NOTE: 'status' is mock data in our profile mapped struct unless you added it to profiles
+  // Since we don't have it in supabase_schema, we will just simulate success or add it
+  // For now, it will only visually update if we are storing users in localStorage fallback
+  const action = user.status === 'active' ? 'suspend' : 'reactivate';
+  confirmAction(`Are you sure you want to ${action} ${user.name}?`, async () => {
+    // If you add a status column to profiles, uncomment this:
+    // await updateProfileInDB(id, { status: user.status === 'active' ? 'suspended' : 'active' });
+    showToast(`User ${action}d successfully (Mocked)`);
+  });
+}
+
+async function deleteUser(id) {
+  const users = await fetchUsers();
+  const user = users.find(u => u.id === id);
+  if (!user) return;
+  confirmAction(`Permanently delete ${user.name}? This cannot be undone.`, async () => {
+    // Note: deleting a user requires admin auth API or RLS policies.
+    // await supabaseClient.from('profiles').delete().eq('id', id);
+    showToast('User deleted (Mocked due to RLS permissions)', 'warning');
+  });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  setActiveSidebarItem();
+  await renderUserStats();
+  await filterUsers();
+  document.getElementById('user-search').addEventListener('input', filterUsers);
+  document.getElementById('status-filter').addEventListener('change', filterUsers);
+  document.getElementById('plan-filter').addEventListener('change', filterUsers);
+});
+</script>
+</body>
+</html>

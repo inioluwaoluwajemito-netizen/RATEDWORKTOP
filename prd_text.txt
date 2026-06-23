@@ -1,0 +1,55 @@
+﻿RatedWorktops – Project Requirements Document (PRD)
+Version 1.0This document defines the functional and non-functional requirements for the RatedWorktops web and mobile application.
+1. Project Overview
+RatedWorktops is an AI-powered web and mobile application that allows customers to upload a photo of their kitchen and visualise different stone materials on worktops, splashbacks and kitchen islands.
+The application replaces existing surfaces in the uploaded image with selected materials from a library of stone brands and colours.
+2. Business Objectives
+Help customers visualise worktops before purchasing.
+Promote stone brands and collections.
+Generate customer engagement and leads.
+Offer both free and subscription-based business models.
+3. Platforms
+Web application (desktop and mobile browser).
+iOS application.
+Android application.
+4. User Roles
+Customer – Upload images, generate visualisations, save projects, download and share images.
+Administrator – Manage users, subscriptions, brands, categories and analytics.
+5. Customer Features
+Registration via email/password or Google Sign-In.
+Email verification and password reset.
+Upload kitchen images (JPG, PNG . . . etc).
+Browse stone brands and stone colours.
+Select a material and generate an AI visualisation.
+Unlimited generation of visualisations, or up to (a specific number per 24 hours)
+Download generated images.
+Share images via WhatsApp, Email, Facebook, Instagram and Copy Link.
+All shared and downloaded images should include a subtle 'Created with RatedWorktops' watermark and company logo.
+Customers can save only 1–2 projects on their account to minimise storage costs.
+When the save limit is reached, users must delete an existing project before saving another (or suggest another way)
+6. Image Storage Policy
+Unsaved generated images are stored temporarily and automatically deleted after a configurable period (default 48 hours).
+Only saved projects remain in the customer account.
+7. Monetisation & Subscription
+The platform must support both free and paid operation modes.
+Free Mode: Unlimited use with subscriptions disabled.
+Paid Mode: Free credits enabled and subscription required after credits are used.
+Support monthly and annual subscription plans.
+8. Admin Portal
+Dashboard showing total users, active users, visualisations, downloads, shares and subscription revenue.
+Search, suspend and delete customers.
+View customer activity and credit usage.
+Reset customer credits if required.
+Enable or disable free credits with a simple ON/OFF toggle.
+Enable or disable subscriptions with a simple ON/OFF toggle.
+Configure number of free credits and subscription pricing.
+9. Stone Library Management
+Create, edit and delete stone brands.
+Each brand may contain approximately 100 stone colours.
+Bulk upload stone colours and images.
+Enable or disable brands and colours.
+10. Categories
+Stone brands and colours can be organised into categories.
+Examples: Marble, Granite, Quartz, Quartzite, Porcelain, Sintered Stone, Limestone, Onyx and Travertine.
+Admin can create, edit, delete, enable, disable and reorder categories.
+Search and filter by category, brand and stone name.

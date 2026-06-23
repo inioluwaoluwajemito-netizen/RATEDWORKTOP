@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Analytics — RatedWorktops Admin</title>
+  <link rel="stylesheet" href="css/admin.css"/>
+</head>
+<body>
+<div class="admin-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="dashboard.html" class="logo-mark">
+        <div class="logo-icon">🪨</div>
+        <div><div class="logo-text">RatedWorktops</div><div class="logo-badge">Admin Portal</div></div>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <a href="dashboard.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
+      <a href="analytics.html" class="nav-item active"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Analytics</a>
+      <div class="nav-section-label">Management</div>
+      <a href="users.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Users</a>
+      <a href="stones.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Stone Library</a>
+      <a href="categories.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/></svg>Categories</a>
+      <div class="nav-section-label">Settings</div>
+      <a href="subscriptions.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Subscriptions</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar">A</div>
+        <div class="user-info"><div class="user-name">Administrator</div><div class="user-role">Super Admin</div></div>
+        <button class="logout-btn" onclick="logout()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-btn" id="menu-toggle"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div><div class="page-title">Analytics</div><div class="breadcrumb"><a href="dashboard.html" style="color:var(--text-muted);text-decoration:none">Home</a><span class="sep">›</span><span style="color:var(--gold)">Analytics</span></div></div>
+      </div>
+      <div class="topbar-right">
+        <div style="font-size:12px;color:var(--text-muted)">Last 30 days</div>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- Top Stats -->
+      <div class="stats-grid" id="analytics-stats" style="margin-bottom:28px"></div>
+
+      <!-- Main Chart -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Activity Over Time
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary btn-sm metric-btn active-metric" data-metric="visualisations" onclick="setMetric(this,'visualisations')">Visualisations</button>
+            <button class="btn btn-secondary btn-sm metric-btn" data-metric="downloads" onclick="setMetric(this,'downloads')">Downloads</button>
+            <button class="btn btn-secondary btn-sm metric-btn" data-metric="shares" onclick="setMetric(this,'shares')">Shares</button>
+            <button class="btn btn-secondary btn-sm metric-btn" data-metric="newUsers" onclick="setMetric(this,'newUsers')">New Users</button>
+          </div>
+        </div>
+        <canvas id="analytics-chart" height="180" style="width:100%;display:block"></canvas>
+      </div>
+
+      <!-- Bottom Row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+
+        <!-- Share Breakdown -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              Share Channels
+            </div>
+          </div>
+          <div id="share-breakdown" style="display:flex;flex-direction:column;gap:10px"></div>
+        </div>
+
+        <!-- Top Stones -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+              Top Stones
+            </div>
+          </div>
+          <div id="top-stones" style="display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+
+        <!-- User Growth -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>
+              New Users (30d)
+            </div>
+          </div>
+          <canvas id="users-chart" height="140" style="width:100%;display:block;margin-bottom:12px"></canvas>
+          <div id="user-growth-stats" style="display:flex;gap:16px;padding-top:12px;border-top:1px solid var(--border)"></div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/admin.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+requireAuth();
+
+let currentMetric = 'visualisations';
+
+async function renderAnalyticsStats() {
+  const analytics = store.get('analytics', []);
+  const users = await fetchUsers();
+
+  const totalVis = analytics.reduce((s, d) => s + d.visualisations, 0);
+  const totalDl = analytics.reduce((s, d) => s + d.downloads, 0);
+  const totalShares = analytics.reduce((s, d) => s + d.shares, 0);
+  const totalNewUsers = analytics.reduce((s, d) => s + d.newUsers, 0);
+
+  // Week-over-week
+  const thisWeek = analytics.slice(-7);
+  const lastWeek = analytics.slice(-14, -7);
+  const weekVis = thisWeek.reduce((s, d) => s + d.visualisations, 0);
+  const prevWeekVis = lastWeek.reduce((s, d) => s + d.visualisations, 0);
+  const change = prevWeekVis ? Math.round(((weekVis - prevWeekVis) / prevWeekVis) * 100) : 0;
+
+  document.getElementById('analytics-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-header"><div class="stat-icon gold">🖼️</div><span class="stat-change ${change >= 0 ? 'up' : 'down'}">${change >= 0 ? '↑' : '↓'} ${Math.abs(change)}%</span></div><div class="stat-value">${formatNum(totalVis)}</div><div class="stat-label">Total Visualisations (30d)</div></div>
+    <div class="stat-card"><div class="stat-header"><div class="stat-icon green">⬇️</div><span class="stat-change up">↑ 18%</span></div><div class="stat-value">${formatNum(totalDl)}</div><div class="stat-label">Downloads (30d)</div></div>
+    <div class="stat-card"><div class="stat-header"><div class="stat-icon blue">📤</div><span class="stat-change up">↑ 8%</span></div><div class="stat-value">${formatNum(totalShares)}</div><div class="stat-label">Shares (30d)</div></div>
+    <div class="stat-card"><div class="stat-header"><div class="stat-icon yellow">👤</div><span class="stat-change up">↑ 5%</span></div><div class="stat-value">${formatNum(totalNewUsers)}</div><div class="stat-label">New Users (30d)</div></div>
+    <div class="stat-card"><div class="stat-header"><div class="stat-icon green">💰</div></div><div class="stat-value">${formatCurrency(users.filter(u => u.plan !== 'Free').length * 9.99)}</div><div class="stat-label">Est. Monthly Revenue</div></div>
+    <div class="stat-card"><div class="stat-header"><div class="stat-icon blue">👥</div></div><div class="stat-value">${users.length}</div><div class="stat-label">Total Users</div></div>
+  `;
+}
+
+function drawLineChart(canvasId, data, color = '#c9a96e') {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const analytics = store.get('analytics', []);
+  const W = canvas.offsetWidth || 600;
+  const H = parseInt(canvas.getAttribute('height')) || 180;
+  canvas.width = W * window.devicePixelRatio;
+  canvas.height = H * window.devicePixelRatio;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  const max = Math.max(...data, 1);
+  const pad = { top: 10, right: 10, bottom: 28, left: 36 };
+  const gW = W - pad.left - pad.right;
+  const gH = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (gH / 4) * i;
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(155,150,152,0.5)';
+    ctx.font = '9px Inter';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(max - (max / 4) * i), pad.left - 4, y + 3);
+  }
+
+  const pts = data.map((v, i) => ({
+    x: pad.left + (i / (data.length - 1)) * gW,
+    y: pad.top + gH - (v / max) * gH
+  }));
+
+  // Fill
+  const grad = ctx.createLinearGradient(0, pad.top, 0, H);
+  grad.addColorStop(0, color + '30');
+  grad.addColorStop(1, color + '00');
+  ctx.beginPath();
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, H - pad.bottom);
+  ctx.lineTo(pts[0].x, H - pad.bottom);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+
+  // Date labels
+  ctx.fillStyle = 'rgba(155,150,152,0.5)';
+  ctx.font = '9px Inter';
+  ctx.textAlign = 'center';
+  analytics.forEach((d, i) => {
+    if (i % 7 === 0 || i === data.length - 1) {
+      const x = pad.left + (i / (data.length - 1)) * gW;
+      ctx.fillText(new Date(d.date).toLocaleDateString('en-GB', { day:'numeric', month:'short' }), x, H - 6);
+    }
+  });
+}
+
+function renderMainChart() {
+  const analytics = store.get('analytics', []);
+  const data = analytics.map(d => d[currentMetric]);
+  drawLineChart('analytics-chart', data);
+}
+
+function setMetric(btn, metric) {
+  currentMetric = metric;
+  document.querySelectorAll('.metric-btn').forEach(b => {
+    b.style.color = '';
+    b.style.borderColor = '';
+    b.style.background = '';
+  });
+  btn.style.color = 'var(--gold)';
+  btn.style.borderColor = 'var(--border-gold)';
+  btn.style.background = 'var(--gold-glow)';
+  renderMainChart();
+}
+
+function renderShareBreakdown() {
+  const analytics = store.get('analytics', []);
+  const totalShares = analytics.reduce((s, d) => s + d.shares, 0);
+  const channels = [
+    { name: 'WhatsApp', pct: 38, color: '#25d366', icon: '💬' },
+    { name: 'Copy Link', pct: 28, color: '#60a5fa', icon: '🔗' },
+    { name: 'Email', pct: 16, color: '#c9a96e', icon: '📧' },
+    { name: 'Facebook', pct: 12, color: '#1877f2', icon: '👍' },
+    { name: 'Instagram', pct: 6, color: '#e1306c', icon: '📷' }
+  ];
+  document.getElementById('share-breakdown').innerHTML = channels.map(c => `
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <div style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-secondary)">${c.icon} ${c.name}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text-primary)">${c.pct}% <span style="color:var(--text-muted);font-weight:400">(${Math.round(totalShares * c.pct / 100)})</span></div>
+      </div>
+      <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${c.pct}%;background:${c.color};border-radius:99px;transition:width 0.6s ease"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function renderTopStones() {
+  const brands = await fetchBrands();
+  const allColours = [];
+  brands.forEach(b => b.colours.forEach(c => allColours.push({ ...c, brand: b.name })));
+
+  // Simulate random usage count
+  const withUsage = allColours.map(c => ({ ...c, usage: Math.floor(Math.random() * 80) + 5 }));
+  withUsage.sort((a, b) => b.usage - a.usage);
+  const top = withUsage.slice(0, 6);
+  const maxUsage = top[0]?.usage || 1;
+
+  const textures = {
+    marble: 'linear-gradient(135deg,#e8e0d4,#d4ccc2,#bfb5a8)',
+    granite: 'linear-gradient(135deg,#2a2a2a,#3d3530,#4a4540)',
+    quartz: 'linear-gradient(135deg,#f0e8d8,#e8dcc8,#d8ccb8)',
+    black: 'linear-gradient(135deg,#1a1a1a,#2d2d2d)',
+    slate: 'linear-gradient(135deg,#4a5568,#2d3748)'
+  };
+
+  document.getElementById('top-stones').innerHTML = top.map((c, i) => `
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:18px;text-align:center;font-size:11px;color:var(--text-muted);font-weight:600">${i+1}</div>
+      <div style="width:28px;height:28px;border-radius:5px;background:${textures[c.texture]||textures.marble};border:1px solid rgba(255,255,255,0.1);flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.name}</div>
+        <div style="font-size:10px;color:var(--text-muted)">${c.brand}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;font-weight:600;color:var(--gold)">${c.usage}</div>
+        <div style="font-size:9px;color:var(--text-muted)">uses</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderUserGrowth() {
+  const analytics = store.get('analytics', []);
+  const data = analytics.map(d => d.newUsers);
+  drawLineChart('users-chart', data, '#4ade80');
+
+  const total = data.reduce((s, v) => s + v, 0);
+  const thisWeek = data.slice(-7).reduce((s, v) => s + v, 0);
+  document.getElementById('user-growth-stats').innerHTML = `
+    <div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">30d Total</div><div style="font-size:18px;font-weight:700;color:var(--text-primary)">${total}</div></div>
+    <div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">This Week</div><div style="font-size:18px;font-weight:700;color:var(--success)">${thisWeek}</div></div>
+    <div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Daily Avg</div><div style="font-size:18px;font-weight:700;color:var(--text-primary)">${(total/30).toFixed(1)}</div></div>
+  `;
+}
+
+// Highlight first metric button
+document.querySelector('[data-metric="visualisations"]').style.color = 'var(--gold)';
+document.querySelector('[data-metric="visualisations"]').style.borderColor = 'var(--border-gold)';
+document.querySelector('[data-metric="visualisations"]').style.background = 'var(--gold-glow)';
+
+document.addEventListener('DOMContentLoaded', async () => {
+  setActiveSidebarItem();
+  await renderAnalyticsStats();
+  renderMainChart();
+  renderShareBreakdown();
+  await renderTopStones();
+  renderUserGrowth();
+});
+</script>
+</body>
+</html>

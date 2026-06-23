@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stone Library — RatedWorktops Admin</title>
+  <link rel="stylesheet" href="css/admin.css"/>
+  <style>
+    .brand-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: border-color var(--transition);
+    }
+    .brand-card:hover { border-color: rgba(255,255,255,0.12); }
+
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 20px;
+      cursor: pointer;
+      border-bottom: 1px solid transparent;
+      transition: background var(--transition);
+    }
+    .brand-header:hover { background: var(--bg-card-hover); }
+    .brand-header.open { border-bottom-color: var(--border); }
+
+    .brand-logo-circle {
+      width: 44px; height: 44px;
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .brand-info { flex: 1; min-width: 0; }
+    .brand-name { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+    .brand-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    .brand-chevron {
+      color: var(--text-muted);
+      transition: transform var(--transition);
+    }
+    .brand-chevron.open { transform: rotate(180deg); }
+
+    .colours-grid {
+      display: none;
+      padding: 16px 20px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .colours-grid.open { display: flex; }
+
+    .colour-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      transition: all var(--transition);
+    }
+    .colour-chip:hover { border-color: rgba(255,255,255,0.15); }
+    .colour-chip.disabled { opacity: 0.5; }
+
+    .colour-swatch {
+      width: 28px; height: 28px;
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.1);
+      flex-shrink: 0;
+    }
+
+    .colour-chip-info { flex: 1; min-width: 0; }
+    .colour-chip-name { font-size: 12px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+    .colour-chip-sku { font-size: 10px; color: var(--text-muted); font-family: monospace; }
+
+    .add-colour-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      background: none;
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all var(--transition);
+      font-family: 'Inter', sans-serif;
+    }
+    .add-colour-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+    .texture-select {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .texture-opt {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: border-color var(--transition);
+    }
+    .texture-opt:hover, .texture-opt.selected { border-color: var(--gold); }
+    .texture-opt span { display: block; width: 100%; height: 100%; border-radius: 4px; }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="dashboard.html" class="logo-mark">
+        <div class="logo-icon">🪨</div>
+        <div><div class="logo-text">RatedWorktops</div><div class="logo-badge">Admin Portal</div></div>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <a href="dashboard.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
+      <a href="analytics.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Analytics</a>
+      <div class="nav-section-label">Management</div>
+      <a href="users.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Users</a>
+      <a href="stones.html" class="nav-item active"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Stone Library</a>
+      <a href="categories.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/></svg>Categories</a>
+      <div class="nav-section-label">Settings</div>
+      <a href="subscriptions.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Subscriptions</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar">A</div>
+        <div class="user-info"><div class="user-name">Administrator</div><div class="user-role">Super Admin</div></div>
+        <button class="logout-btn" onclick="logout()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-btn" id="menu-toggle"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div><div class="page-title">Stone Library</div><div class="breadcrumb"><a href="dashboard.html" style="color:var(--text-muted);text-decoration:none">Home</a><span class="sep">›</span><span style="color:var(--gold)">Stone Library</span></div></div>
+      </div>
+      <div class="topbar-right">
+        <div class="search-input-wrap" style="max-width:220px">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" id="stone-search" placeholder="Search brands or colours…"/>
+        </div>
+        <select id="cat-filter" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;padding:8px 10px;border-radius:8px;outline:none;cursor:pointer">
+          <option value="all">All Categories</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="openAddBrand()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Brand
+        </button>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- Stats -->
+      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px" id="stone-stats"></div>
+
+      <!-- Brands List -->
+      <div style="display:flex;flex-direction:column;gap:12px" id="brands-list"></div>
+
+      <div id="brands-empty" class="empty-state" style="display:none">
+        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        <h3>No brands found</h3><p>Add a stone brand to get started, or adjust your filters.</p>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Add/Edit Brand Modal -->
+<div class="modal-overlay" id="brand-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="brand-modal-title">Add Stone Brand</div>
+      <button class="modal-close" onclick="closeModal('brand-modal')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="brand-edit-id"/>
+      <div class="form-group">
+        <label for="brand-name">Brand Name *</label>
+        <input type="text" id="brand-name" placeholder="e.g. Silestone"/>
+      </div>
+      <div class="form-group">
+        <label for="brand-category">Category *</label>
+        <select id="brand-category"></select>
+      </div>
+      <div class="form-group">
+        <label for="brand-desc">Description</label>
+        <textarea id="brand-desc" rows="2" placeholder="Brief brand description…" style="resize:vertical"></textarea>
+      </div>
+      <div class="toggle-wrap">
+        <div class="toggle-info"><div class="toggle-label" style="font-size:13px">Enabled</div><div class="toggle-desc">Visible to customers</div></div>
+        <label class="toggle"><input type="checkbox" id="brand-enabled" checked/><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('brand-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveBrand()">Save Brand</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Colour Modal -->
+<div class="modal-overlay" id="colour-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="colour-modal-title">Add Stone Colour</div>
+      <button class="modal-close" onclick="closeModal('colour-modal')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="colour-brand-id"/>
+      <input type="hidden" id="colour-edit-id"/>
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="colour-name">Colour Name *</label>
+          <input type="text" id="colour-name" placeholder="e.g. Calacatta Gold"/>
+        </div>
+        <div class="form-group">
+          <label for="colour-sku">SKU / Code</label>
+          <input type="text" id="colour-sku" placeholder="e.g. SIL-CG"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Stone Texture</label>
+        <div class="texture-select" id="texture-select">
+          <div class="texture-opt selected" data-texture="marble" onclick="selectTexture(this)"><span class="stone-marble"></span></div>
+          <div class="texture-opt" data-texture="granite" onclick="selectTexture(this)"><span class="stone-granite"></span></div>
+          <div class="texture-opt" data-texture="quartz" onclick="selectTexture(this)"><span class="stone-quartz"></span></div>
+          <div class="texture-opt" data-texture="black" onclick="selectTexture(this)"><span class="stone-black"></span></div>
+          <div class="texture-opt" data-texture="slate" onclick="selectTexture(this)"><span class="stone-slate"></span></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Select the texture type that best represents this colour</div>
+      </div>
+      <div class="toggle-wrap">
+        <div class="toggle-info"><div class="toggle-label" style="font-size:13px">Enabled</div><div class="toggle-desc">Visible to customers</div></div>
+        <label class="toggle"><input type="checkbox" id="colour-enabled" checked/><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('colour-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveColour()">Save Colour</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm -->
+<div class="modal-overlay" id="confirm-overlay">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Confirm</div>
+      <button class="modal-close" onclick="closeModal('confirm-overlay')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body"><p id="confirm-message" style="font-size:14px;color:var(--text-secondary);line-height:1.6"></p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="confirm-no">Cancel</button>
+      <button class="btn btn-danger" id="confirm-yes">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/admin.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+requireAuth();
+
+const textures = {
+  marble: 'linear-gradient(135deg,#e8e0d4 0%,#d4ccc2 30%,#e8e0d4 50%,#bfb5a8 70%,#d4ccc2 100%)',
+  granite: 'linear-gradient(135deg,#2a2a2a 0%,#3d3530 40%,#2a2828 60%,#4a4540 100%)',
+  quartz: 'linear-gradient(135deg,#f0e8d8 0%,#e8dcc8 40%,#d8ccb8 70%,#e8dcc8 100%)',
+  black: 'linear-gradient(135deg,#1a1a1a 0%,#2d2d2d 40%,#1a1a1a 100%)',
+  slate: 'linear-gradient(135deg,#4a5568 0%,#2d3748 50%,#4a5568 100%)'
+};
+
+let selectedTexture = 'marble';
+
+function selectTexture(el) {
+  document.querySelectorAll('.texture-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedTexture = el.dataset.texture;
+}
+
+async function populateCatFilter() {
+  const cats = await fetchCategories();
+  const enabledCats = cats.filter(c => c.enabled);
+  const sel = document.getElementById('cat-filter');
+  const brandSel = document.getElementById('brand-category');
+  enabledCats.forEach(c => {
+    const o = new Option(c.name, c.name);
+    sel.add(o);
+    brandSel.add(new Option(c.name, c.name));
+  });
+}
+
+async function renderStoneStats() {
+  const brands = await fetchBrands();
+  let totalB = brands.length;
+  let activeB = brands.filter(b => b.enabled).length;
+  let totalC = 0;
+  let activeC = 0;
+  brands.forEach(b => {
+    totalC += b.colours.length;
+    activeC += b.colours.filter(c => c.enabled).length;
+  });
+
+  const html = `
+    <div class="stat-card">
+      <div class="stat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></div>
+      <div class="stat-val">${totalB}</div>
+      <div class="stat-label">Total Brands</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><svg width="20" height="20" fill="none" stroke="#4ade80" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+      <div class="stat-val">${activeB}</div>
+      <div class="stat-label">Active Brands</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <div class="stat-val">${totalC}</div>
+      <div class="stat-label">Total Colours</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><svg width="20" height="20" fill="none" stroke="#4ade80" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+      <div class="stat-val">${activeC}</div>
+      <div class="stat-label">Active Colours</div>
+    </div>
+  `;
+  document.getElementById('stone-stats').innerHTML = html;
+}
+
+async function renderBrands() {
+  const search = document.getElementById('stone-search').value.toLowerCase();
+  const catFilter = document.getElementById('cat-filter').value;
+  let brands = await fetchBrands();
+
+  if (catFilter !== 'all') brands = brands.filter(b => b.category === catFilter);
+  if (search) brands = brands.filter(b =>
+    b.name.toLowerCase().includes(search) ||
+    b.colours.some(c => c.name.toLowerCase().includes(search))
+  );
+
+  const list = document.getElementById('brands-list');
+  const empty = document.getElementById('brands-empty');
+
+  if (!brands.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  const bgColors = ['#c9a96e', '#60a5fa', '#4ade80', '#f472b6', '#a78bfa', '#fb923c'];
+
+  list.innerHTML = brands.map((brand, i) => {
+    const bgColor = bgColors[i % bgColors.length];
+    const enabledColours = brand.colours.filter(c => c.enabled).length;
+    return `
+    <div class="brand-card" id="brand-card-${brand.id}">
+      <div class="brand-header" onclick="toggleBrand(${brand.id})">
+        <div class="brand-logo-circle" style="background:${bgColor}22;color:${bgColor};font-size:15px;font-weight:800">${brand.name.substring(0,2).toUpperCase()}</div>
+        <div class="brand-info">
+          <div class="brand-name">${brand.name}</div>
+          <div class="brand-meta">${brand.category} · ${brand.colours.length} colour${brand.colours.length !== 1 ? 's' : ''} (${enabledColours} active) · ${brand.description || 'No description'}</div>
+        </div>
+        <span class="badge ${brand.enabled ? 'badge-success' : 'badge-muted'}">${brand.enabled ? 'Active' : 'Disabled'}</span>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();editBrand(${brand.id})" title="Edit brand">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();toggleBrandStatus(${brand.id})" title="Toggle status" style="color:${brand.enabled ? 'var(--warning)' : 'var(--success)'}">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/>${brand.enabled ? '<line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/>' : '<polygon points="5 3 19 12 5 21 5 3"/>'}</svg>
+          </button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteBrand(${brand.id})" title="Delete brand" style="color:var(--danger)">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+          </button>
+        </div>
+        <svg class="brand-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="colours-grid" id="colours-${brand.id}">
+        ${brand.colours.map(c => `
+          <div class="colour-chip ${c.enabled ? '' : 'disabled'}">
+            <div class="colour-swatch" style="background:${textures[c.texture] || textures.marble}"></div>
+            <div class="colour-chip-info">
+              <div class="colour-chip-name">${c.name}</div>
+              <div class="colour-chip-sku">${c.sku}</div>
+            </div>
+            <label class="toggle" style="transform:scale(0.75)" onclick="event.stopPropagation()">
+              <input type="checkbox" ${c.enabled ? 'checked' : ''} onchange="toggleColourStatus(${brand.id},${c.id})"/>
+              <span class="toggle-slider"></span>
+            </label>
+            <button class="btn btn-ghost btn-icon" onclick="editColour(${brand.id},${c.id})" style="padding:3px" title="Edit">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn btn-ghost btn-icon" onclick="deleteColour(${brand.id},${c.id})" style="padding:3px;color:var(--danger)" title="Delete">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+            </button>
+          </div>
+        `).join('')}
+        <button class="add-colour-btn" onclick="openAddColour(${brand.id})">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Colour
+        </button>
+      </div>
+    </div>
+  `}).join('');
+}
+
+function toggleBrand(id) {
+  const header = document.querySelector(`#brand-card-${id} .brand-header`);
+  const colours = document.getElementById('colours-' + id);
+  const chevron = header.querySelector('.brand-chevron');
+  header.classList.toggle('open');
+  colours.classList.toggle('open');
+  chevron.classList.toggle('open');
+}
+
+async function toggleBrandStatus(id) {
+  const brands = await fetchBrands();
+  const brand = brands.find(b => b.id === id);
+  if (brand) {
+    brand.enabled = !brand.enabled;
+    await saveBrandToDB(brand);
+    await renderBrands();
+    await renderStoneStats();
+    showToast('Brand status updated');
+  }
+}
+
+function openAddBrand() {
+  document.getElementById('brand-modal-title').textContent = 'Add Stone Brand';
+  document.getElementById('brand-edit-id').value = '';
+  document.getElementById('brand-name').value = '';
+  document.getElementById('brand-desc').value = '';
+  document.getElementById('brand-enabled').checked = true;
+  openModal('brand-modal');
+}
+
+async function editBrand(id) {
+  const brands = await fetchBrands();
+  const brand = brands.find(b => b.id === id);
+  if (!brand) return;
+  document.getElementById('brand-modal-title').textContent = 'Edit Brand';
+  document.getElementById('brand-edit-id').value = id;
+  document.getElementById('brand-name').value = brand.name;
+  document.getElementById('brand-category').value = brand.category;
+  document.getElementById('brand-desc').value = brand.description || '';
+  document.getElementById('brand-enabled').checked = brand.enabled;
+  openModal('brand-modal');
+}
+
+async function saveBrand() {
+  const name = document.getElementById('brand-name').value.trim();
+  const category = document.getElementById('brand-category').value;
+  const description = document.getElementById('brand-desc').value.trim();
+  const enabled = document.getElementById('brand-enabled').checked;
+  const editId = document.getElementById('brand-edit-id').value ? parseInt(document.getElementById('brand-edit-id').value) : null;
+
+  if (!name) { showToast('Please enter a brand name', 'error'); return; }
+
+  await saveBrandToDB({ id: editId, name, category, description, enabled });
+  showToast(editId ? 'Brand updated' : 'Brand added');
+  closeModal('brand-modal');
+  await renderBrands();
+  await renderStoneStats();
+}
+
+async function deleteBrand(id) {
+  const brands = await fetchBrands();
+  const brand = brands.find(b => b.id === id);
+  confirmAction(`Delete brand "${brand?.name}" and all its colours? This cannot be undone.`, async () => {
+    await deleteBrandFromDB(id);
+    await renderBrands();
+    await renderStoneStats();
+    showToast('Brand deleted', 'warning');
+  });
+}
+
+function openAddColour(brandId) {
+  document.getElementById('colour-modal-title').textContent = 'Add Stone Colour';
+  document.getElementById('colour-brand-id').value = brandId;
+  document.getElementById('colour-edit-id').value = '';
+  document.getElementById('colour-name').value = '';
+  document.getElementById('colour-sku').value = '';
+  document.getElementById('colour-enabled').checked = true;
+  selectedTexture = 'marble';
+  document.querySelectorAll('.texture-opt').forEach(o => o.classList.remove('selected'));
+  document.querySelector('[data-texture="marble"]')?.classList.add('selected');
+  openModal('colour-modal');
+}
+
+async function editColour(brandId, colourId) {
+  const brands = await fetchBrands();
+  const brand = brands.find(b => b.id === brandId);
+  const colour = brand?.colours.find(c => c.id === colourId);
+  if (!colour) return;
+  document.getElementById('colour-modal-title').textContent = 'Edit Stone Colour';
+  document.getElementById('colour-brand-id').value = brandId;
+  document.getElementById('colour-edit-id').value = colourId;
+  document.getElementById('colour-name').value = colour.name;
+  document.getElementById('colour-sku').value = colour.sku;
+  document.getElementById('colour-enabled').checked = colour.enabled;
+  document.querySelectorAll('.texture-opt').forEach(o => o.classList.remove('selected'));
+  document.querySelector(`[data-texture="${colour.texture}"]`)?.classList.add('selected');
+  selectedTexture = colour.texture;
+  openModal('colour-modal');
+}
+
+async function saveColour() {
+  const name = document.getElementById('colour-name').value.trim();
+  const sku = document.getElementById('colour-sku').value.trim();
+  const enabled = document.getElementById('colour-enabled').checked;
+  const brandId = parseInt(document.getElementById('colour-brand-id').value);
+  const editId = document.getElementById('colour-edit-id').value ? parseInt(document.getElementById('colour-edit-id').value) : null;
+
+  if (!name) { showToast('Please enter a colour name', 'error'); return; }
+
+  if (editId) {
+    await saveColourToDB({ id: editId, name, sku, texture: selectedTexture, enabled });
+    showToast('Colour updated');
+  } else {
+    await saveColourToDB({ brand_id: brandId, name, sku, texture: selectedTexture, enabled });
+    showToast('Colour added');
+  }
+  
+  closeModal('colour-modal');
+  await renderBrands();
+  await renderStoneStats();
+}
+
+async function toggleColourStatus(brandId, colourId) {
+  const brands = await fetchBrands();
+  const brand = brands.find(b => b.id === brandId);
+  const colour = brand?.colours.find(c => c.id === colourId);
+  if (colour) {
+    colour.enabled = !colour.enabled;
+    await saveColourToDB(colour);
+    await renderBrands();
+    await renderStoneStats();
+    showToast('Colour status updated');
+  }
+}
+
+async function deleteColour(brandId, colourId) {
+  const brands = await fetchBrands();
+  const brand = brands.find(b => b.id === brandId);
+  const colour = brand?.colours.find(c => c.id === colourId);
+  confirmAction(`Delete colour "${colour?.name}"?`, async () => {
+    await deleteColourFromDB(colourId);
+    await renderBrands();
+    await renderStoneStats();
+    showToast('Colour deleted');
+  });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  setActiveSidebarItem();
+  await populateCatFilter();
+  await renderStoneStats();
+  await renderBrands();
+});
+
+// Filters
+document.getElementById('stone-search').addEventListener('input', renderBrands);
+document.getElementById('cat-filter').addEventListener('change', renderBrands);
+</script>
+</body>
+</html>

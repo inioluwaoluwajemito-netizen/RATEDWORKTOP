@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RatedWorktops — AI Kitchen Worktop Visualiser</title>
+  <meta name="description" content="Upload a photo of your kitchen and visualise premium stone worktops, splashbacks, and kitchen islands instantly with AI."/>
+  <link rel="stylesheet" href="css/app.css"/>
+  <!-- Google Fonts & Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Page Specific Hero Styles */
+    .hero-section {
+      position: relative;
+      padding: 120px 0 80px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--gold-glow);
+      border: 1px solid var(--border-gold);
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gold);
+      margin-bottom: 24px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .hero-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(36px, 6vw, 64px);
+      font-weight: 700;
+      line-height: 1.15;
+      color: var(--text-primary);
+      max-width: 900px;
+      margin-bottom: 20px;
+    }
+
+    .hero-desc {
+      font-size: clamp(15px, 2.5vw, 18px);
+      color: var(--text-secondary);
+      max-width: 650px;
+      margin-bottom: 36px;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 60px;
+      flex-wrap: wrap;
+    }
+
+    /* Floating Visualiser Mockup */
+    .hero-mockup-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+      border-radius: var(--radius-xl);
+      background: rgba(15,15,24,0.7);
+      border: 1px solid var(--border);
+      padding: 10px;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.03);
+      backdrop-filter: blur(20px);
+    }
+
+    .hero-mockup-screen {
+      position: relative;
+      aspect-ratio: 16/9;
+      background: #111116;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mockup-bg-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.65;
+      filter: brightness(0.7);
+    }
+
+    .mockup-ui-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .mockup-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mockup-badge {
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mockup-sidebar {
+      position: absolute;
+      top: 60px; left: 20px; bottom: 20px;
+      width: 220px;
+      background: rgba(9, 9, 15, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .mockup-sidebar-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .mockup-stone-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .mockup-stone-thumb {
+      width: 20px; height: 20px;
+      border-radius: 4px;
+      background: linear-gradient(135deg,#e8e0d4 0%,#bfb5a8 100%);
+    }
+
+    .mockup-btn {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: var(--gold);
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: var(--shadow-gold);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Section Styles */
+    .section-wrap {
+      padding: 100px 0;
+    }
+
+    .section-header-center {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 60px;
+    }
+
+    /* How it works */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+    }
+
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px 28px;
+      transition: all var(--transition);
+      position: relative;
+    }
+
+    .step-card:hover {
+      border-color: var(--border-gold);
+      background: var(--bg-card-hover);
+      transform: translateY(-4px);
+    }
+
+    .step-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 40px;
+      font-weight: 700;
+      color: var(--gold-glow);
+      line-height: 1;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .step-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .step-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Features Section */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: rgba(15,15,24,0.6);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      transition: all var(--transition);
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-gold);
+      box-shadow: var(--shadow-gold);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon-wrap {
+      width: 48px; height: 48px;
+      border-radius: var(--radius-md);
+      background: var(--gold-glow);
+      border: 1px solid var(--border-gold);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--gold);
+      margin-bottom: 24px;
+    }
+
+    .feature-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .feature-desc {
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Pricing styles custom */
+    .pricing-toggle {
+      display: flex;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      padding: 4px;
+      border-radius: 99px;
+      margin-bottom: 40px;
+      width: fit-content;
+    }
+
+    .toggle-btn {
+      padding: 8px 20px;
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .toggle-btn.active {
+      background: var(--gold);
+      color: #000;
+      box-shadow: 0 4px 12px rgba(201,169,110,0.25);
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      align-items: stretch;
+      width: 100%;
+    }
+
+    .price-card {
+      background: rgba(15,15,24,0.65);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 40px 32px;
+      display: flex;
+      flex-direction: column;
+      transition: all var(--transition);
+      position: relative;
+    }
+
+    .price-card.featured {
+      border-color: var(--gold);
+      background: linear-gradient(135deg, rgba(20,20,30,0.7), rgba(15,15,24,0.8));
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6), var(--shadow-gold);
+    }
+
+    .price-card.featured::before {
+      content: 'MOST POPULAR';
+      position: absolute;
+      top: -12px; left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+      color: #000;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      padding: 4px 16px;
+      border-radius: 99px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+
+    .plan-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .plan-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+      min-height: 40px;
+    }
+
+    .plan-price-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+
+    .plan-price-val {
+      font-size: 44px;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -1px;
+    }
+
+    .plan-price-period {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .plan-credits-badge {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gold);
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .plan-features-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 36px;
+      flex: 1;
+    }
+
+    .plan-features-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13.5px;
+      color: var(--text-secondary);
+    }
+
+    .plan-features-list li svg {
+      color: var(--gold);
+      flex-shrink: 0;
+    }
+
+    /* Free Mode banner style */
+    .free-mode-banner {
+      grid-column: 1 / -1;
+      background: var(--gold-glow);
+      border: 1px solid var(--border-gold);
+      border-radius: var(--radius-lg);
+      padding: 30px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .free-mode-banner h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      color: var(--text-primary);
+    }
+
+    .free-mode-banner p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      max-width: 500px;
+      line-height: 1.6;
+    }
+
+    /* Responsive */
+    @media (max-width: 992px) {
+      .steps-grid, .features-grid, .pricing-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      .hero-section {
+        padding: 100px 0 60px;
+      }
+      .mockup-sidebar {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav" id="main-nav"></nav>
+
+  <!-- Hero Section -->
+  <header class="hero-section page-wrap">
+    <div class="auth-bg"></div>
+    <div class="auth-grid"></div>
+    
+    <div class="container" style="position:relative; z-index: 10;">
+      <div class="hero-badge">
+        <i data-lucide="sparkles" style="width:14px;height:14px"></i>
+        <span>AI-Powered Surface Replacement</span>
+      </div>
+      
+      <h1 class="hero-title">Visualise Premium Stone Surfaces in Your Kitchen</h1>
+      <p class="hero-desc">Upload a photo of your kitchen, select from premium quartz, marble, or granite collections, and preview your new worktops in seconds.</p>
+      
+      <div class="hero-actions">
+        <a href="visualiser.html" class="btn btn-primary btn-xl">
+          <i data-lucide="upload-cloud"></i>
+          Try the Visualiser
+        </a>
+        <a href="stones.html" class="btn btn-ghost btn-xl">
+          Browse Stone Library
+        </a>
+      </div>
+      
+      <!-- Interactive Mockup -->
+      <div class="hero-mockup-wrap fade-up-2">
+        <div class="hero-mockup-screen">
+          <img src="https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=1200&q=80" alt="Kitchen Template" class="mockup-bg-img"/>
+          
+          <!-- Mockup Surface replacement visual simulation -->
+          <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1;" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+            <!-- Simulated worktop highlight overlay with blend mode -->
+            <polygon points="200,600 1400,600 1550,750 50,750" fill="url(#simulated-marble)" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 10px 10px rgba(0,0,0,0.3))" />
+            <defs>
+              <linearGradient id="simulated-marble" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#f5efe6" />
+                <stop offset="25%" stop-color="#dfd9cf" />
+                <stop offset="50%" stop-color="#fbfaf8" />
+                <stop offset="75%" stop-color="#cdc4b6" />
+                <stop offset="100%" stop-color="#eae4da" />
+              </linearGradient>
+            </defs>
+          </svg>
+          
+          <div class="mockup-ui-overlay">
+            <div class="mockup-top-bar">
+              <div class="mockup-badge">
+                <span style="width:6px;height:6px;border-radius:50%;background:#4ade80;display:inline-block"></span>
+                Visualizer Active
+              </div>
+              <div class="mockup-badge">
+                <i data-lucide="sparkles" style="width:12px;height:12px;color:var(--gold)"></i>
+                AI Blending On
+              </div>
+            </div>
+            
+            <div class="mockup-sidebar">
+              <span class="mockup-sidebar-title">Select Material</span>
+              <div class="mockup-stone-item" style="border-color:var(--gold)">
+                <div class="mockup-stone-thumb"></div>
+                <div style="text-align:left">
+                  <div style="font-weight:700;color:var(--text-primary)">Calacatta Gold</div>
+                  <div style="color:var(--text-muted);font-size:9px">Quartz • Silestone</div>
+                </div>
+              </div>
+              <div class="mockup-stone-item">
+                <div class="mockup-stone-thumb" style="background:linear-gradient(135deg,#2a2a2a 0%,#4a4540 100%)"></div>
+                <div style="text-align:left">
+                  <div style="font-weight:500;color:var(--text-secondary)">Laurent</div>
+                  <div style="color:var(--text-muted);font-size:9px">Sintered • Dekton</div>
+                </div>
+              </div>
+              <div class="mockup-stone-item">
+                <div class="mockup-stone-thumb" style="background:linear-gradient(135deg,#f0e8d8 0%,#d8ccb8 100%)"></div>
+                <div style="text-align:left">
+                  <div style="font-weight:500;color:var(--text-secondary)">Statuario Nuvo</div>
+                  <div style="color:var(--text-muted);font-size:9px">Quartz • Caesarstone</div>
+                </div>
+              </div>
+            </div>
+            
+            <button class="mockup-btn">
+              <i data-lucide="download" style="width:13px;height:13px"></i>
+              Download Visual
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- How It Works Section -->
+  <section class="section-wrap" id="how-it-works">
+    <div class="container">
+      <div class="section-header-center">
+        <span class="section-label">Workflow</span>
+        <h2 class="section-title">See Your Dream Kitchen in 3 Steps</h2>
+        <p class="section-desc">We make visualising kitchen countertops fast, realistic, and completely friction-free.</p>
+      </div>
+      
+      <div class="steps-grid">
+        <!-- Step 1 -->
+        <div class="step-card fade-up">
+          <div class="step-num">01</div>
+          <h3 class="step-title">Upload a Photo</h3>
+          <p class="step-desc">Upload a photo of your existing kitchen or try out our ready-to-use professional layout presets.</p>
+        </div>
+        <!-- Step 2 -->
+        <div class="step-card fade-up-2">
+          <div class="step-num">02</div>
+          <h3 class="step-title">Select Stone Material</h3>
+          <p class="step-desc">Browse through our library of premium stone brands, sorting by categories like Marble, Quartz, and Granite.</p>
+        </div>
+        <!-- Step 3 -->
+        <div class="step-card fade-up-3">
+          <div class="step-num">03</div>
+          <h3 class="step-title">Generate AI Visualisation</h3>
+          <p class="step-desc">Our surface masking AI replaces your worktops and splashbacks instantly, keeping realistic shadows and lighting.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Popular Stones Catalog Section -->
+  <section class="section-wrap" style="background:rgba(255,255,255,0.01)" id="catalog">
+    <div class="container">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:50px; flex-wrap:wrap; gap:20px">
+        <div>
+          <span class="section-label">Stone Library</span>
+          <h2 class="section-title" style="margin-bottom:0">Curated Materials</h2>
+        </div>
+        <a href="stones.html" class="btn btn-outline">
+          View Entire Library
+          <i data-lucide="arrow-right" style="width:14px;height:14px"></i>
+        </a>
+      </div>
+      
+      <div class="stone-grid" id="popular-stones-grid">
+        <!-- Loaded dynamically via JavaScript -->
+        <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px 0;">
+          Loading stones...
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Core Features Section -->
+  <section class="section-wrap" id="features">
+    <div class="container">
+      <div class="section-header-center">
+        <span class="section-label">High Fidelity</span>
+        <h2 class="section-title">Designed for Stunning Accuracy</h2>
+        <p class="section-desc">More than simple templates. Our rendering system matches textures to your room's unique geometry.</p>
+      </div>
+      
+      <div class="features-grid">
+        <!-- Feature 1 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <i data-lucide="maximize-2"></i>
+          </div>
+          <h3 class="feature-title">Multi-Surface Detection</h3>
+          <p class="feature-desc">Apply stone patterns separate or combined on worktops, islands, and full height splashbacks in one click.</p>
+        </div>
+        
+        <!-- Feature 2 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <i data-lucide="sun"></i>
+          </div>
+          <h3 class="feature-title">Natural Light Integration</h3>
+          <p class="feature-desc">Preserves room lighting, ambient glows, and reflection highlights to produce highly photo-realistic finishes.</p>
+        </div>
+        
+        <!-- Feature 3 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <i data-lucide="layers"></i>
+          </div>
+          <h3 class="feature-title">Detailed Texture Resolution</h3>
+          <p class="feature-desc">High resolution marble veins and granite grain patterns display accurately without blurring or blockiness.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Section -->
+  <section class="section-wrap" style="background:rgba(255,255,255,0.01)" id="pricing">
+    <div class="container">
+      <div class="section-header-center" style="margin-bottom:30px">
+        <span class="section-label">Plans</span>
+        <h2 class="section-title">Transparent & Flexible Options</h2>
+        <p class="section-desc">Choose the option that fits your project scope, with simple pay-as-you-go or recurring access.</p>
+      </div>
+
+      <div style="display:flex; justify-content:center">
+        <div class="pricing-toggle" id="pricing-toggle-wrap">
+          <button class="toggle-btn active" id="btn-monthly" onclick="setPricingPeriod('monthly')">Monthly</button>
+          <button class="toggle-btn" id="btn-annual" onclick="setPricingPeriod('annual')">Annual (Save 25%)</button>
+        </div>
+      </div>
+      
+      <div class="pricing-grid" id="pricing-plans-grid">
+        <!-- Cards loaded dynamically via JavaScript based on localStorage mode -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer" id="main-footer"></footer>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // Global billing period
+    let billingPeriod = 'monthly';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 1. Build Navigation and Footer from shared JS
+      await buildNav('index.html');
+      buildFooter();
+      
+      // 2. Render popular stones dynamically from seeded database
+      await renderPopularStones();
+      
+      // 3. Render pricing plans
+      renderPricingPlans();
+      
+      // Render Lucide icons
+      lucide.createIcons();
+    });
+
+    async function renderPopularStones() {
+      const grid = document.getElementById('popular-stones-grid');
+      const stones = await getAllStones();
+      
+      if (!stones || stones.length === 0) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--text-muted)">No stones available. Make sure to seed database.</div>`;
+        return;
+      }
+      
+      // Select 4 popular stones (e.g. Silestone Calacatta Gold, Dekton Laurent, Caesarstone Statuario, Calacatta Viola)
+      const popularIds = ['1-101', '2-203', '3-301', '4-403'];
+      const filtered = stones.filter(s => popularIds.includes(s.id));
+      
+      // If we don't find exactly those, just take the first 4
+      const displayStones = filtered.length > 0 ? filtered : stones.slice(0, 4);
+      
+      grid.innerHTML = displayStones.map(stone => {
+        const textureCss = getTexture(stone.texture);
+        return `
+          <a href="stone-detail.html?id=${stone.id}" class="stone-card">
+            <div class="stone-img" style="background: ${textureCss};"></div>
+            <div class="stone-card-body">
+              <div class="stone-card-name">${stone.name}</div>
+              <div class="stone-card-brand">${stone.brand}</div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px">
+                <span class="stone-card-cat">${stone.category}</span>
+                <span style="font-size:10px; color:var(--text-muted); font-family:monospace">${stone.sku}</span>
+              </div>
+            </div>
+          </a>
+        `;
+      }).join('');
+    }
+
+    function setPricingPeriod(period) {
+      billingPeriod = period;
+      document.getElementById('btn-monthly').classList.toggle('active', period === 'monthly');
+      document.getElementById('btn-annual').classList.toggle('active', period === 'annual');
+      renderPricingPlans();
+    }
+
+    function renderPricingPlans() {
+      const grid = document.getElementById('pricing-plans-grid');
+      const settings = store.get('settings', {
+        freeCreditsEnabled: true,
+        subscriptionsEnabled: true,
+        freeCreditsCount: 10,
+        monthlyPrice: 9.99,
+        annualPrice: 89.99,
+        monthlyCredits: 100,
+        annualCredits: 1500
+      });
+
+      // Case 1: Subscription model is disabled by administrator (Unlimited Free Mode)
+      if (!settings.subscriptionsEnabled) {
+        document.getElementById('pricing-toggle-wrap').style.display = 'none';
+        grid.innerHTML = `
+          <div class="free-mode-banner">
+            <i data-lucide="party-popper" style="width:40px;height:40px;color:var(--gold)"></i>
+            <h3>Unlimited Free Access Active</h3>
+            <p>RatedWorktops is currently in <strong>Free Mode</strong>. Registrations are completely free, and all accounts have unlimited access to generated visualisations. No payments or credit cards required.</p>
+            <a href="register.html" class="btn btn-primary btn-lg mt-4">Create Free Account</a>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      // Case 2: Subscriptions are active
+      document.getElementById('pricing-toggle-wrap').style.display = 'flex';
+      
+      const freeCredits = settings.freeCreditsCount || 10;
+      const isAnnual = billingPeriod === 'annual';
+      
+      // Calculate annual price
+      const displayPrice = isAnnual ? settings.annualPrice : settings.monthlyPrice;
+      const displayCredits = isAnnual ? settings.annualCredits : settings.monthlyCredits;
+      const periodLabel = isAnnual ? '/ year' : '/ month';
+      
+      // Saving calculations
+      const monthlyAnnualEquivalent = settings.monthlyPrice * 12;
+      const discountPercentage = Math.round(((monthlyAnnualEquivalent - settings.annualPrice) / monthlyAnnualEquivalent) * 100);
+
+      grid.innerHTML = `
+        <!-- Starter Plan (Free) -->
+        <div class="price-card">
+          <div class="plan-name">Starter Plan</div>
+          <p class="plan-desc">For homeowners visualising a single room or layout.</p>
+          <div class="plan-price-wrap">
+            <span class="plan-price-val">£0</span>
+          </div>
+          <div class="plan-credits-badge">
+            <i data-lucide="key" style="width:14px;height:14px"></i>
+            ${freeCredits} Visualisation Credits
+          </div>
+          <ul class="plan-features-list">
+            <li><i data-lucide="check" style="width:16px;height:16px"></i> 3 Pre-loaded kitchen layouts</li>
+            <li><i data-lucide="check" style="width:16px;height:16px"></i> Upload kitchen photos</li>
+            <li><i data-lucide="check" style="width:16px;height:16px"></i> Download and share visuals</li>
+            <li style="opacity:0.5"><i data-lucide="x" style="width:16px;height:16px;color:var(--text-muted)"></i> Save multiple projects (max 2)</li>
+          </ul>
+          <a href="register.html" class="btn btn-ghost w-full" style="justify-content:center">Start Free</a>
+        </div>
+
+        <!-- Pro Plan (Dynamic based on toggle) -->
+        <div class="price-card featured">
+          <div class="plan-name">Pro Plan</div>
+          <p class="plan-desc">Perfect for active home remodeling or renovation projects.</p>
+          <div class="plan-price-wrap">
+            <span class="plan-price-val">£${displayPrice}</span>
+            <span class="plan-price-period">${periodLabel}</span>
+          </div>
+          <div class="plan-credits-badge">
+            <i data-lucide="sparkles" style="width:14px;height:14px"></i>
+            ${displayCredits} Visualisations ${isAnnual ? '/ year' : '/ month'}
+          </div>
+          <ul class="plan-features-list">
+            <li><i data-lucide="check" style="width:16px;height:16px"></i> Everything in Starter</li>
+            <li><i data-lucide="check" style="width:16px;height:16px"></i> Save up to 2 active projects</li>
+            <li><i data-lucide="check" style="width:16px;height:16px"></i> Premium high-res downloads</li>
+            <li><i data-lucide="check" style="width:16px;height:16px"></i> Priority processing speed</li>
+          </ul>
+          <a href="register.html" class="btn btn-primary w-full" style="justify-content:center">
+            Get Pro Access
+          </a>
+        </div>
+
+        <!-- Studio Plan (Enterprise / Designers) -->
+        <div class="price-card">
+          <div class="plan-name">Studio Plan</div>
+          <p class="plan-desc">Designed for interior designers, stone fabricators and showrooms.</p>
+          <div class="plan-price-wrap">
+            <span class="plan-price-val">£49</span>
+            <span class="plan-price-period">/ month</span>
+          </div>
+          <div class="plan-credits-badge">
+            <i data-lucide="infinity" style="width:14px;height:14px"></i>
+            Unlimited Visualisations
+          </div>
+          <ul class="plan-features-list">
+            <li><i data-lucide="check" style="width:16px;height:16px"></i> Unlimited kitchen uploads</li>
+            <li><i data-lucide="check" style="width:16px;height:16px"></i> Unlimited saved projects</li>
+            <li><i data-lucide="check" style="width:16px;height:16px"></i> Custom watermark removal</li>
+            <li><i data-lucide="check" style="width:16px;height:16px"></i> API integrations & fabricator leads</li>
+          </ul>
+          <a href="register.html" class="btn btn-ghost w-full" style="justify-content:center">Contact Sales</a>
+        </div>
+      `;
+      
+      lucide.createIcons();
+    }
+  </script>
+</body>
+</html>

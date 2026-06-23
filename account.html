@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Account Settings — RatedWorktops</title>
+  <meta name="description" content="Manage your profile, active plans, and billing configurations."/>
+  <link rel="stylesheet" href="css/app.css"/>
+  <!-- Google Fonts & Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Specific Account Styles */
+    .acc-container {
+      padding: 60px 0 100px;
+    }
+
+    .acc-grid {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 40px;
+      align-items: flex-start;
+    }
+
+    /* Tabs menu */
+    .acc-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+    }
+
+    .acc-menu-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      transition: all var(--transition);
+    }
+
+    .acc-menu-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .acc-menu-btn.active {
+      color: var(--gold);
+      background: var(--gold-glow);
+      font-weight: 600;
+    }
+
+    /* Content cards */
+    .acc-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 36px;
+    }
+
+    .acc-section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 24px;
+    }
+
+    /* Metrics Grid */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .metric-box {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      text-align: center;
+    }
+
+    .metric-val {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--gold);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .metric-lbl {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Subscription info */
+    .subs-status-box {
+      background: var(--gold-glow);
+      border: 1px solid var(--border-gold);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+
+    @media (max-width: 768px) {
+      .acc-grid {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav" id="main-nav"></nav>
+
+  <!-- Account Configuration Layout -->
+  <main class="page-wrap">
+    <div class="container acc-container">
+      
+      <!-- Layout Grid -->
+      <div class="acc-grid">
+        
+        <!-- Left Side Menu Navigation -->
+        <aside class="acc-menu">
+          <button class="acc-menu-btn active" id="btn-tab-profile" onclick="switchTab('profile')">
+            <i data-lucide="user" style="width:16px;height:16px"></i>
+            My Profile
+          </button>
+          <button class="acc-menu-btn" id="btn-tab-subscription" onclick="switchTab('subscription')">
+            <i data-lucide="credit-card" style="width:16px;height:16px"></i>
+            Subscription & Credits
+          </button>
+          <button class="acc-menu-btn" id="btn-tab-security" onclick="switchTab('security')">
+            <i data-lucide="lock" style="width:16px;height:16px"></i>
+            Password & Security
+          </button>
+        </aside>
+
+        <!-- Right Side Tab Contents Panel -->
+        <div class="acc-content">
+
+          <!-- 1. Profile Tab Panel -->
+          <div class="acc-card" id="tab-profile-content">
+            <h2 class="acc-section-title">My Profile</h2>
+            
+            <form id="profile-update-form" onsubmit="updateProfile(event)">
+              <div class="form-group">
+                <label for="prof-name">Full Name</label>
+                <input type="text" id="prof-name" placeholder="John Doe" required/>
+              </div>
+
+              <div class="form-group">
+                <label for="prof-email">Email Address</label>
+                <input type="email" id="prof-email" placeholder="john@example.com" disabled style="opacity: 0.6; cursor: not-allowed;"/>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:4px">Email address cannot be changed in local demo mode.</div>
+              </div>
+
+              <div class="form-group">
+                <label>Joined Date</label>
+                <div style="font-size: 13.5px; color: var(--text-secondary)" id="prof-joined-lbl">November 2025</div>
+              </div>
+
+              <button type="submit" class="btn btn-primary" id="btn-save-profile">
+                Save Changes
+              </button>
+            </form>
+
+            <hr style="border:none; border-top:1px solid var(--border); margin: 30px 0 24px"/>
+
+            <h3 style="font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 14px">Usage Metrics</h3>
+            <div class="metrics-row">
+              <div class="metric-box">
+                <div class="metric-val" id="metric-vis-count">0</div>
+                <div class="metric-lbl">Visuals Generated</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-val" id="metric-dl-count">0</div>
+                <div class="metric-lbl">Downloads</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-val" id="metric-share-count">0</div>
+                <div class="metric-lbl">Shares Completed</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Subscription Tab Panel -->
+          <div class="acc-card" id="tab-subscription-content" style="display: none;">
+            <h2 class="acc-section-title">Subscription & Billing</h2>
+
+            <!-- Current Subscription Status card -->
+            <div class="subs-status-box" id="subs-active-status-card">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start">
+                <div>
+                  <div style="font-size:11px; font-weight:700; color:var(--gold); letter-spacing:0.5px; text-transform:uppercase">Current Active Plan</div>
+                  <h3 style="font-family:'Playfair Display', serif; font-size:24px; color:#000; margin-top:4px" id="subs-plan-lbl">Starter (Free)</h3>
+                </div>
+                <span class="badge badge-gold" id="subs-status-badge">Active</span>
+              </div>
+              
+              <div style="margin-top:20px; font-size:13px; color:rgba(0,0,0,0.7); line-height:1.6">
+                <div style="display:flex; justify-content:space-between">
+                  <span>Available Visualisation Credits:</span>
+                  <strong style="color:#000" id="subs-credits-lbl">0 Credits</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:4px" id="subs-renewal-row">
+                  <span>Billing Cycle Renewal:</span>
+                  <strong style="color:#000">One-Off Allowance</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Free Mode Active (Toggled off globally in admin) -->
+            <div id="subs-free-mode-active-banner" style="display:none; background:var(--gold-glow); border:1px solid var(--border-gold); padding:20px; border-radius:var(--radius-lg); margin-bottom:20px;">
+              <p style="font-size:13.5px; color:var(--text-secondary); line-height:1.6">
+                🎉 <strong style="color:var(--gold)">Free Mode Active:</strong> The administrator has enabled unlimited free visualisations globally. Subscription restrictions are bypassed and no credits are consumed.
+              </p>
+            </div>
+
+            <!-- Billing Upgrade Simulator options -->
+            <div id="billing-upgrade-simulator-options">
+              <h3 style="font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px" id="sim-section-header">Simulate Pricing Subscriptions</h3>
+              <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px" id="sim-section-desc">Toggle billing upgrades below to test client credit updates in the visualiser environment.</p>
+              
+              <div style="display:flex; flex-direction:column; gap:12px" id="upgrade-options-list">
+                <!-- Loaded dynamically -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Security Tab Panel -->
+          <div class="acc-card" id="tab-security-content" style="display: none;">
+            <h2 class="acc-section-title">Password & Security</h2>
+
+            <form id="password-update-form" onsubmit="updatePassword(event)">
+              <div class="form-group">
+                <label for="sec-cur-pass">Current Password</label>
+                <input type="password" id="sec-cur-pass" placeholder="••••••••" required/>
+              </div>
+
+              <div class="form-group">
+                <label for="sec-new-pass">New Password</label>
+                <input type="password" id="sec-new-pass" placeholder="At least 8 characters" required/>
+              </div>
+
+              <div class="form-group">
+                <label for="sec-confirm-pass">Confirm New Password</label>
+                <input type="password" id="sec-confirm-pass" placeholder="Repeat new password" required/>
+              </div>
+
+              <button type="submit" class="btn btn-primary">
+                Update Password
+              </button>
+            </form>
+
+            <hr style="border:none; border-top:1px solid var(--border); margin: 36px 0 24px"/>
+
+            <h3 style="font-size: 16px; font-weight: 600; color: var(--danger); margin-bottom: 8px">Danger Zone</h3>
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px">Permanently delete your RatedWorktops account and wipe all generated visual files.</p>
+            <button class="btn btn-danger" onclick="deleteAccount()">
+              Delete Account
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer" id="main-footer"></footer>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let currentUser = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Guard Check
+      currentUser = await requireAuth();
+      if (!currentUser) return;
+
+      // Navigation + Footer
+      await buildNav('account.html');
+      buildFooter();
+
+      // Profile panel populate
+      populateProfileTab();
+      
+      // Update Tab specifics
+      populateSubscriptionTab();
+
+      lucide.createIcons();
+    });
+
+    function switchTab(tabId) {
+      // Hide all panels
+      document.getElementById('tab-profile-content').style.display = 'none';
+      document.getElementById('tab-subscription-content').style.display = 'none';
+      document.getElementById('tab-security-content').style.display = 'none';
+      
+      // Remove active button classes
+      document.getElementById('btn-tab-profile').classList.remove('active');
+      document.getElementById('btn-tab-subscription').classList.remove('active');
+      document.getElementById('btn-tab-security').classList.remove('active');
+
+      // Show selected panel
+      document.getElementById(`tab-${tabId}-content`).style.display = 'block';
+      document.getElementById(`btn-tab-${tabId}`).classList.add('active');
+
+      if (tabId === 'subscription') {
+        populateSubscriptionTab();
+      }
+    }
+
+    // PROFILE TAB
+    function populateProfileTab() {
+      if (!currentUser) return;
+      
+      document.getElementById('prof-name').value = currentUser.name;
+      document.getElementById('prof-email').value = currentUser.email;
+      
+      const joinedDate = currentUser.joined ? formatDate(currentUser.joined) : 'November 2025';
+      document.getElementById('prof-joined-lbl').textContent = joinedDate;
+
+      // Metrics
+      document.getElementById('metric-vis-count').textContent = currentUser.visualisations || 0;
+      document.getElementById('metric-dl-count').textContent = currentUser.downloads || 0;
+      document.getElementById('metric-share-count').textContent = currentUser.shares || 0;
+    }
+
+    function updateProfile(e) {
+      e.preventDefault();
+      const newName = document.getElementById('prof-name').value.trim();
+      
+      if (!newName) return;
+      
+      currentUser = updateCurrentUser({ name: newName });
+      
+      // Refresh Navbar avatar & name representation
+      buildNav('account.html');
+      showToast("Profile name updated successfully!");
+    }
+
+    // SUBSCRIPTION TAB
+    function populateSubscriptionTab() {
+      const settings = store.get('settings', {});
+      const planLbl = document.getElementById('subs-plan-lbl');
+      const creditsLbl = document.getElementById('subs-credits-lbl');
+      const renewalRow = document.getElementById('subs-renewal-row');
+      const renewalParent = renewalRow.parentElement;
+      const upgradeArea = document.getElementById('billing-upgrade-simulator-options');
+      const activeCard = document.getElementById('subs-active-status-card');
+      const freeBanner = document.getElementById('subs-free-mode-active-banner');
+
+      // Case 1: Free mode active globally
+      if (!settings.subscriptionsEnabled) {
+        freeBanner.style.display = 'block';
+        activeCard.style.display = 'none';
+        upgradeArea.style.display = 'none';
+        return;
+      }
+
+      // Case 2: Subscriptions active
+      freeBanner.style.display = 'none';
+      activeCard.style.display = 'block';
+      upgradeArea.style.display = 'block';
+
+      // Set titles
+      planLbl.textContent = `${currentUser.plan} Plan`;
+      creditsLbl.textContent = `${currentUser.credits} Credits Available`;
+
+      if (currentUser.plan === 'Free') {
+        renewalRow.innerHTML = `<span>Credit Renewal Cycle:</span><strong>One-Off Sign-up Credits</strong>`;
+        
+        // Show Upgrade button configurations
+        document.getElementById('upgrade-options-list').innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.01); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
+            <div>
+              <div style="font-weight:700; color:var(--text-primary)">Upgrade to Pro (Monthly)</div>
+              <div style="font-size:11.5px; color:var(--text-muted)">Get ${settings.monthlyCredits} credits instantly for £${settings.monthlyPrice}/month</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="simulateUpgrade('Pro', 'monthly')">Upgrade</button>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.01); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
+            <div>
+              <div style="font-weight:700; color:var(--text-primary)">Upgrade to Pro (Annual)</div>
+              <div style="font-size:11.5px; color:var(--text-muted)">Get ${settings.annualCredits} credits instantly for £${settings.annualPrice}/year</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="simulateUpgrade('Pro', 'annual')">Upgrade</button>
+          </div>
+        `;
+      } else {
+        // Active Subscribed state
+        const periodStr = currentUser.billingPeriod === 'annual' ? 'Annual renewal' : 'Monthly renewal';
+        const renewalDate = new Date();
+        renewalDate.setDate(renewalDate.getDate() + 30);
+        renewalRow.innerHTML = `<span>Next Billing Renewal:</span><strong>${formatDate(renewalDate)} (${periodStr})</strong>`;
+
+        document.getElementById('upgrade-options-list').innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.01); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
+            <div>
+              <div style="font-weight:700; color:var(--text-primary)">Cancel Active Subscription</div>
+              <div style="font-size:11.5px; color:var(--text-muted)">Reverts your account to Starter Free limits immediately</div>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="simulateCancelSubscription()">Cancel Subscription</button>
+          </div>
+        `;
+      }
+    }
+
+    function simulateUpgrade(plan, period) {
+      const settings = store.get('settings', {});
+      const creditsToAdd = period === 'annual' ? settings.annualCredits : settings.monthlyCredits;
+      
+      currentUser = updateCurrentUser({
+        plan: plan,
+        billingPeriod: period,
+        credits: (currentUser.credits || 0) + creditsToAdd
+      });
+
+      showToast(`Account successfully upgraded to Pro ${period}! Loaded ${creditsToAdd} credits. 🚀`);
+      populateSubscriptionTab();
+      buildNav('account.html'); // Update header
+    }
+
+    function simulateCancelSubscription() {
+      if (!confirm("Are you sure you want to cancel your Pro subscription? You will lose any unused Pro credits.")) return;
+
+      currentUser = updateCurrentUser({
+        plan: 'Free',
+        billingPeriod: null,
+        credits: 0 // Reset credits to Starter free boundaries
+      });
+
+      showToast("Subscription cancelled. Account reverted to Free mode.");
+      populateSubscriptionTab();
+      buildNav('account.html'); // Update header
+    }
+
+    // SECURITY TAB
+    function updatePassword(e) {
+      e.preventDefault();
+      const current = document.getElementById('sec-cur-pass').value;
+      const newPass = document.getElementById('sec-new-pass').value;
+      const confirm = document.getElementById('sec-confirm-pass').value;
+
+      if (current !== currentUser.password) {
+        showToast("Incorrect current password.", "error");
+        return;
+      }
+
+      if (newPass.length < 8) {
+        showToast("New password must be at least 8 characters.", "error");
+        return;
+      }
+
+      if (newPass !== confirm) {
+        showToast("New passwords do not match.", "error");
+        return;
+      }
+
+      // Update password
+      currentUser = updateCurrentUser({ password: newPass });
+      
+      document.getElementById('sec-cur-pass').value = '';
+      document.getElementById('sec-new-pass').value = '';
+      document.getElementById('sec-confirm-pass').value = '';
+
+      showToast("Password updated successfully!");
+    }
+
+    function deleteAccount() {
+      if (!confirm("⚠️ WARNING: Are you sure you want to delete your account? This will wipe all user settings, credits, and saved visual files. This action cannot be undone.")) return;
+
+      const users = store.get('app_users', []);
+      const filtered = users.filter(u => u.id !== currentUser.id);
+      store.set('app_users', filtered);
+
+      logout();
+    }
+  </script>
+</body>
+</html>

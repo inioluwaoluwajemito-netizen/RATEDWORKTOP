@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Categories — RatedWorktops Admin</title>
+  <link rel="stylesheet" href="css/admin.css"/>
+  <style>
+    .cat-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      transition: all var(--transition);
+      cursor: grab;
+      user-select: none;
+    }
+    .cat-row:active { cursor: grabbing; }
+    .cat-row:hover { border-color: rgba(255,255,255,0.12); }
+    .cat-row.dragging { opacity: 0.4; transform: scale(0.98); }
+    .cat-row.drag-over { border-color: var(--gold); background: var(--gold-glow); }
+
+    .drag-handle {
+      color: var(--text-muted);
+      cursor: grab;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 4px;
+    }
+    .drag-handle span {
+      display: block;
+      width: 14px;
+      height: 2px;
+      background: currentColor;
+      border-radius: 1px;
+    }
+
+    .cat-icon {
+      font-size: 22px;
+      width: 40px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .cat-name {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .cat-count {
+      font-size: 12px;
+      color: var(--text-muted);
+      min-width: 70px;
+    }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="dashboard.html" class="logo-mark">
+        <div class="logo-icon">🪨</div>
+        <div><div class="logo-text">RatedWorktops</div><div class="logo-badge">Admin Portal</div></div>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <a href="dashboard.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
+      <a href="analytics.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Analytics</a>
+      <div class="nav-section-label">Management</div>
+      <a href="users.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Users</a>
+      <a href="stones.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Stone Library</a>
+      <a href="categories.html" class="nav-item active"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/></svg>Categories</a>
+      <div class="nav-section-label">Settings</div>
+      <a href="subscriptions.html" class="nav-item"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Subscriptions</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar">A</div>
+        <div class="user-info"><div class="user-name">Administrator</div><div class="user-role">Super Admin</div></div>
+        <button class="logout-btn" onclick="logout()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-btn" id="menu-toggle"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div><div class="page-title">Categories</div><div class="breadcrumb"><a href="dashboard.html" style="color:var(--text-muted);text-decoration:none">Home</a><span class="sep">›</span><span style="color:var(--gold)">Categories</span></div></div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-primary btn-sm" onclick="openModal('add-cat-modal')">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Category
+        </button>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start">
+
+        <!-- Category List -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/></svg>
+              Stone Categories
+            </div>
+            <div style="font-size:12px;color:var(--text-muted)">Drag to reorder</div>
+          </div>
+
+          <div id="categories-list" style="display:flex;flex-direction:column;gap:8px">
+            <!-- injected -->
+          </div>
+        </div>
+
+        <!-- Info Panel -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="card-title" style="margin-bottom:14px">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              About Categories
+            </div>
+            <p style="font-size:13px;color:var(--text-secondary);line-height:1.7">Categories group stone brands and colours to help customers browse and filter. Drag rows to reorder how they appear in the customer app.</p>
+            <div style="margin-top:14px;padding:12px;background:var(--gold-glow);border:1px solid var(--border-gold);border-radius:8px;font-size:12px;color:var(--text-secondary)">
+              💡 Disabled categories are hidden from customers but remain in the system.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title" style="margin-bottom:14px">
+              📊 Summary
+            </div>
+            <div id="cat-summary" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Add/Edit Category Modal -->
+<div class="modal-overlay" id="add-cat-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="cat-modal-title">Add Category</div>
+      <button class="modal-close" onclick="closeModal('add-cat-modal')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cat-edit-id"/>
+      <div class="form-group">
+        <label for="cat-name">Category Name</label>
+        <input type="text" id="cat-name" placeholder="e.g. Marble"/>
+      </div>
+      <div class="form-group">
+        <label for="cat-icon">Icon (emoji)</label>
+        <input type="text" id="cat-icon" placeholder="e.g. 🤍" maxlength="4"/>
+      </div>
+      <div class="toggle-wrap" style="margin-top:4px">
+        <div class="toggle-info">
+          <div class="toggle-label" style="font-size:13px">Enabled</div>
+          <div class="toggle-desc">Visible to customers in the app</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cat-enabled" checked/>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('add-cat-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCategory()">Save Category</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Dialog -->
+<div class="modal-overlay" id="confirm-overlay">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Confirm</div>
+      <button class="modal-close" onclick="closeModal('confirm-overlay')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body"><p id="confirm-message" style="font-size:14px;color:var(--text-secondary);line-height:1.6"></p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="confirm-no">Cancel</button>
+      <button class="btn btn-danger" id="confirm-yes">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/admin.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+requireAuth();
+
+let dragSrcIdx = null;
+
+async function renderCategories() {
+  const cats = await fetchCategories();
+  const brands = await fetchBrands();
+
+  const list = document.getElementById('categories-list');
+  list.innerHTML = cats.map((cat, idx) => `
+    <div class="cat-row" draggable="true"
+      ondragstart="onDragStart(${idx})"
+      ondragover="onDragOver(event,${idx})"
+      ondrop="onDrop(event,${idx})"
+      ondragend="onDragEnd()"
+      id="cat-row-${idx}">
+
+      <div class="drag-handle"><span></span><span></span><span></span></div>
+      <div class="cat-icon">${cat.icon}</div>
+      <div class="cat-name">${cat.name}</div>
+      <div class="cat-count">${brands.filter(b => b.category === cat.name).length} brand(s)</div>
+
+      <label class="toggle" style="flex-shrink:0" onclick="event.stopPropagation()">
+        <input type="checkbox" ${cat.enabled ? 'checked' : ''} onchange="toggleCategory(${cat.id}, this.checked)"/>
+        <span class="toggle-slider"></span>
+      </label>
+
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="editCategory(${cat.id})" title="Edit">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteCategory(${cat.id})" title="Delete" style="color:var(--danger)">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  // Summary
+  const enabled = cats.filter(c => c.enabled).length;
+  document.getElementById('cat-summary').innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text-muted)">Total Categories</span><span style="color:var(--text-primary);font-weight:600">${cats.length}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text-muted)">Enabled</span><span style="color:var(--success);font-weight:600">${enabled}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0"><span style="color:var(--text-muted)">Disabled</span><span style="color:var(--text-muted);font-weight:600">${cats.length - enabled}</span></div>
+  `;
+}
+
+async function toggleCategory(id, enabled) {
+  const cats = await fetchCategories();
+  const cat = cats.find(c => c.id === id);
+  if (cat) {
+    cat.enabled = enabled;
+    await saveCategoryToDB(cat);
+    showToast(`Category ${enabled ? 'enabled' : 'disabled'}`);
+  }
+}
+
+async function editCategory(id) {
+  const cats = await fetchCategories();
+  const cat = cats.find(c => c.id === id);
+  if (!cat) return;
+  document.getElementById('cat-modal-title').textContent = 'Edit Category';
+  document.getElementById('cat-edit-id').value = id;
+  document.getElementById('cat-name').value = cat.name;
+  document.getElementById('cat-icon').value = cat.icon;
+  document.getElementById('cat-enabled').checked = cat.enabled;
+  openModal('add-cat-modal');
+}
+
+async function saveCategory() {
+  const name = document.getElementById('cat-name').value.trim();
+  const icon = document.getElementById('cat-icon').value.trim() || '🪨';
+  const enabled = document.getElementById('cat-enabled').checked;
+  const editId = document.getElementById('cat-edit-id').value ? parseInt(document.getElementById('cat-edit-id').value) : null;
+
+  if (!name) { showToast('Please enter a category name', 'error'); return; }
+
+  const cats = await fetchCategories();
+  
+  if (editId) {
+    const cat = cats.find(c => c.id === editId);
+    if (cat) {
+      cat.name = name;
+      cat.icon = icon;
+      cat.enabled = enabled;
+      await saveCategoryToDB(cat);
+      showToast('Category updated');
+    }
+  } else {
+    const maxOrder = cats.length > 0 ? Math.max(...cats.map(c => c.display_order || 0)) : 0;
+    await saveCategoryToDB({ name, icon, enabled, display_order: maxOrder + 1 });
+    showToast('Category added');
+  }
+  closeModal('add-cat-modal');
+  document.getElementById('cat-edit-id').value = '';
+  document.getElementById('cat-name').value = '';
+  await renderCategories();
+}
+
+async function deleteCategory(id) {
+  const cats = await fetchCategories();
+  const cat = cats.find(c => c.id === id);
+  confirmAction(`Delete category "${cat?.name}"? This cannot be undone.`, async () => {
+    await deleteCategoryFromDB(id);
+    await renderCategories();
+    showToast('Category deleted', 'warning');
+  });
+}
+
+// Drag and drop reorder
+function onDragStart(idx) { dragSrcIdx = idx; }
+function onDragOver(e, idx) {
+  e.preventDefault();
+  document.querySelectorAll('.cat-row').forEach(r => r.classList.remove('drag-over'));
+  document.getElementById('cat-row-' + idx)?.classList.add('drag-over');
+}
+async function onDrop(e, idx) {
+  e.preventDefault();
+  if (dragSrcIdx === null || dragSrcIdx === idx) return;
+  const cats = await fetchCategories();
+  const [moved] = cats.splice(dragSrcIdx, 1);
+  cats.splice(idx, 0, moved);
+  
+  // Update order in DB
+  for (let i = 0; i < cats.length; i++) {
+    cats[i].display_order = i + 1;
+    await saveCategoryToDB(cats[i]);
+  }
+  
+  await renderCategories();
+  showToast('Order saved');
+}
+function onDragEnd() {
+  dragSrcIdx = null;
+  document.querySelectorAll('.cat-row').forEach(r => r.classList.remove('drag-over', 'dragging'));
+}
+
+// Open add modal reset
+document.getElementById('add-cat-modal').addEventListener('click', () => {});
+document.querySelector('[onclick="openModal(\'add-cat-modal\')"]')?.addEventListener('click', () => {
+  document.getElementById('cat-modal-title').textContent = 'Add Category';
+  document.getElementById('cat-edit-id').value = '';
+  document.getElementById('cat-name').value = '';
+  document.getElementById('cat-icon').value = '';
+  document.getElementById('cat-enabled').checked = true;
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+  setActiveSidebarItem();
+  await renderCategories();
+});
+</script>
+</body>
+</html>

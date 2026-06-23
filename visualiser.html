@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kitchen Visualiser — RatedWorktops</title>
+  <link rel="stylesheet" href="css/app.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .vis-navbar {
+      height: 60px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: var(--bg-card);
+      flex-shrink: 0;
+    }
+
+    .vis-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--gold);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .vis-nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .credits-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--gold-glow);
+      border: 1px solid var(--border-gold);
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gold);
+    }
+
+    .vis-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .vis-sidebar {
+      width: 320px;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .filter-select {
+      flex: 1;
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .stone-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      align-content: flex-start;
+    }
+
+    .stone-item {
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .stone-item:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .stone-item.selected {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 1px var(--gold);
+    }
+
+    .stone-thumb {
+      height: 80px;
+      background: #333;
+      position: relative;
+    }
+
+    .stone-info {
+      padding: 8px;
+      text-align: center;
+    }
+
+    .stone-name {
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stone-brand {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    /* Main Canvas */
+    .vis-main {
+      flex: 1;
+      position: relative;
+      background: #0d0d12;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .upload-area {
+      width: 100%;
+      max-width: 800px;
+      height: 500px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-xl);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.02);
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-area:hover, .upload-area.dragover {
+      border-color: var(--gold);
+      background: var(--gold-glow);
+    }
+
+    .upload-icon {
+      width: 48px;
+      height: 48px;
+      color: var(--gold);
+      margin-bottom: 16px;
+    }
+
+    .upload-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .upload-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .preview-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+      z-index: 10;
+      background: #000;
+    }
+
+    /* AI Processing Overlay */
+    .processing-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 20;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    .action-bar {
+      margin-top: 24px;
+      display: flex;
+      gap: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .action-bar.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Simulated Highlight */
+    .simulated-highlight {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 15;
+      display: none;
+    }
+
+    /* Notification container */
+    #toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="vis-navbar">
+    <a href="index.html" class="vis-logo">
+      <span>🪨</span> RatedWorktops
+    </a>
+    
+    <div class="vis-nav-actions">
+      <div class="credits-badge">
+        <i data-lucide="zap" style="width:14px;height:14px"></i>
+        <span id="credits-count">...</span> Credits
+      </div>
+      <button class="btn" style="background:transparent;border:1px solid var(--border);color:var(--text-primary);padding:8px 14px" id="logout-btn">
+        Log Out
+      </button>
+    </div>
+  </nav>
+
+  <div class="vis-layout">
+    <!-- Sidebar -->
+    <aside class="vis-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">Select Material</div>
+        <div class="filter-group">
+          <select class="filter-select" id="filter-category">
+            <option value="all">All Categories</option>
+          </select>
+          <select class="filter-select" id="filter-brand">
+            <option value="all">All Brands</option>
+          </select>
+        </div>
+        <div style="position: relative; margin-top: 8px;">
+          <i data-lucide="search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text-muted)"></i>
+          <input type="text" id="search-stone" class="filter-select" style="width: 100%; padding-left: 32px;" placeholder="Search stones by name...">
+        </div>
+      </div>
+      
+      <div class="stone-list" id="stone-list">
+        <!-- Stones populated by JS -->
+        <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);font-size:12px">Loading materials...</div>
+      </div>
+    </aside>
+
+    <!-- Main Canvas -->
+    <main class="vis-main">
+      <div class="upload-area" id="upload-area">
+        <i data-lucide="image-plus" class="upload-icon"></i>
+        <div class="upload-title">Upload Kitchen Photo</div>
+        <div class="upload-desc">Drag and drop or click to browse</div>
+        <input type="file" id="file-input" style="display:none" accept="image/jpeg,image/png,image/webp"/>
+        
+        <img id="preview-image" class="preview-image" src="" alt="Kitchen Preview"/>
+        
+        <!-- Mock processing overlay -->
+        <div class="processing-overlay" id="processing-overlay">
+          <div class="spinner"></div>
+          <div style="font-weight:600;font-size:16px;margin-bottom:8px">AI Analysing Kitchen...</div>
+          <div style="color:var(--text-muted);font-size:13px" id="processing-text">Detecting worktop surfaces</div>
+        </div>
+
+        <!-- Mock Highlight Polygon (Will be positioned randomly over image) -->
+        <svg class="simulated-highlight" id="simulated-highlight" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <polygon points="10,60 90,60 95,75 5,75" fill="var(--gold)" opacity="0.4" style="mix-blend-mode: overlay;" />
+        </svg>
+      </div>
+
+      <div class="action-bar" id="action-bar">
+        <button class="btn" style="background:transparent;border:1px solid var(--border);color:var(--text-primary)" id="reset-btn">
+          <i data-lucide="refresh-cw" style="width:16px;height:16px"></i> Start Over
+        </button>
+        <button class="btn btn-primary" id="generate-btn" style="min-width: 200px; justify-content: center;">
+          <i data-lucide="sparkles" style="width:16px;height:16px"></i> Generate AI Render
+        </button>
+
+        <div id="post-render-actions" style="display:none; gap:12px">
+          <button class="btn" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary)" id="download-btn">
+            <i data-lucide="download" style="width:16px;height:16px"></i> Download
+          </button>
+          <button class="btn" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary)" id="share-btn">
+            <i data-lucide="share-2" style="width:16px;height:16px"></i> Share
+          </button>
+          <button class="btn btn-primary" id="save-btn">
+            <i data-lucide="bookmark" style="width:16px;height:16px"></i> Save Project
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Share Modal -->
+  <div class="modal-overlay" id="share-modal">
+    <div class="modal" style="width: 400px; text-align: center;">
+      <h2 style="margin-top:0; font-family:'Playfair Display',serif; font-size:24px;">Share your design</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:24px;">Show off your new kitchen worktop!</p>
+      
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+        <button class="btn" style="background:#25D366; color:#fff; justify-content:center; border:none;" onclick="showToast('Opening WhatsApp...', 'success'); document.getElementById('share-modal').classList.remove('open')">
+          WhatsApp
+        </button>
+        <button class="btn" style="background:#1877F2; color:#fff; justify-content:center; border:none;" onclick="showToast('Opening Facebook...', 'success'); document.getElementById('share-modal').classList.remove('open')">
+          Facebook
+        </button>
+        <button class="btn" style="background:#000; border:1px solid #333; color:#fff; justify-content:center;" onclick="showToast('Opening X...', 'success'); document.getElementById('share-modal').classList.remove('open')">
+          X (Twitter)
+        </button>
+        <button class="btn" style="background:#ea4335; color:#fff; justify-content:center; border:none;" onclick="showToast('Opening Email...', 'success'); document.getElementById('share-modal').classList.remove('open')">
+          Email
+        </button>
+      </div>
+      
+      <button class="btn" style="width:100%; justify-content:center; background:transparent; border:1px solid var(--border); color:var(--text-primary);" onclick="showToast('Link copied to clipboard!', 'success'); document.getElementById('share-modal').classList.remove('open')">
+        <i data-lucide="link" style="width:16px;height:16px"></i> Copy Link
+      </button>
+
+      <button class="btn" style="margin-top:16px; width:100%; justify-content:center; background:transparent; border:none; color:var(--text-muted);" onclick="document.getElementById('share-modal').classList.remove('open')">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/app.js"></script>
+  <script src="js/visualiser.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

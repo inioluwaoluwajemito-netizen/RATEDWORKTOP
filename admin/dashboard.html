@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — RatedWorktops Admin</title>
+  <link rel="stylesheet" href="css/admin.css"/>
+</head>
+<body>
+<div class="admin-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="dashboard.html" class="logo-mark">
+        <div class="logo-icon">🪨</div>
+        <div>
+          <div class="logo-text">RatedWorktops</div>
+          <div class="logo-badge">Admin Portal</div>
+        </div>
+      </a>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <a href="dashboard.html" class="nav-item" id="nav-dashboard">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a href="analytics.html" class="nav-item" id="nav-analytics">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Analytics
+      </a>
+
+      <div class="nav-section-label">Management</div>
+      <a href="users.html" class="nav-item" id="nav-users">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        Users
+        <span class="nav-badge" id="sidebar-user-count">–</span>
+      </a>
+      <a href="stones.html" class="nav-item" id="nav-stones">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Stone Library
+      </a>
+      <a href="categories.html" class="nav-item" id="nav-categories">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Categories
+      </a>
+
+      <div class="nav-section-label">Settings</div>
+      <a href="subscriptions.html" class="nav-item" id="nav-subscriptions">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        Subscriptions
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar">A</div>
+        <div class="user-info">
+          <div class="user-name">Administrator</div>
+          <div class="user-role">Super Admin</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Sign out">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-btn" id="menu-toggle" aria-label="Toggle menu">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="breadcrumb"><span>Home</span><span class="sep">›</span><span style="color:var(--gold)">Dashboard</span></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-btn" title="Notifications">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <div class="notif-dot"></div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted)" id="topbar-date"></div>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <main class="page-content">
+
+      <!-- Welcome Banner -->
+      <div style="background:linear-gradient(135deg,rgba(201,169,110,0.1),rgba(201,169,110,0.04));border:1px solid var(--border-gold);border-radius:var(--radius-lg);padding:22px 28px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <div>
+          <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Good <span id="greeting-time">morning</span>, Admin 👋</div>
+          <div style="font-size:13px;color:var(--text-muted)">Here's what's happening with RatedWorktops today.</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <a href="users.html" class="btn btn-secondary btn-sm">View Users</a>
+          <a href="stones.html" class="btn btn-primary btn-sm">Manage Stones</a>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid" id="stats-grid">
+        <!-- injected by JS -->
+      </div>
+
+      <!-- Charts Row -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:24px">
+
+        <!-- Visualisations Chart -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Visualisations — Last 30 Days
+            </div>
+            <select id="chart-metric" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;padding:5px 10px;border-radius:6px;outline:none;cursor:pointer">
+              <option value="visualisations">Visualisations</option>
+              <option value="downloads">Downloads</option>
+              <option value="shares">Shares</option>
+              <option value="newUsers">New Users</option>
+            </select>
+          </div>
+          <canvas id="main-chart" width="600" height="160" style="width:100%;height:160px"></canvas>
+          <div style="display:flex;gap:24px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div>
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Total</div>
+              <div id="chart-total" style="font-size:18px;font-weight:700;color:var(--text-primary)">–</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Daily Avg</div>
+              <div id="chart-avg" style="font-size:18px;font-weight:700;color:var(--gold)">–</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Peak Day</div>
+              <div id="chart-peak" style="font-size:18px;font-weight:700;color:var(--text-primary)">–</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plan Breakdown -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 118 2.83M22 12A10 10 0 0012 2v10z"/></svg>
+              User Plans
+            </div>
+          </div>
+          <div id="plan-breakdown" style="display:flex;flex-direction:column;gap:10px">
+            <!-- injected -->
+          </div>
+          <canvas id="donut-canvas" width="180" height="180" style="display:block;margin:16px auto 0"></canvas>
+        </div>
+      </div>
+
+      <!-- Bottom Row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+        <!-- Recent Users -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              Recent Users
+            </div>
+            <a href="users.html" class="btn btn-ghost btn-sm">View all →</a>
+          </div>
+          <div id="recent-users"><!-- injected --></div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              Quick Actions
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px" id="quick-actions">
+            <a href="stones.html" class="btn btn-secondary" style="justify-content:flex-start;gap:12px">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+              Add New Stone Colour
+            </a>
+            <a href="users.html" class="btn btn-secondary" style="justify-content:flex-start;gap:12px">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>
+              Search a User
+            </a>
+            <a href="subscriptions.html" class="btn btn-secondary" style="justify-content:flex-start;gap:12px">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Subscription Settings
+            </a>
+            <a href="categories.html" class="btn btn-secondary" style="justify-content:flex-start;gap:12px">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/></svg>
+              Manage Categories
+            </a>
+            <a href="analytics.html" class="btn btn-secondary" style="justify-content:flex-start;gap:12px">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              View Full Analytics
+            </a>
+          </div>
+
+          <!-- Settings Summary -->
+          <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Platform Status</div>
+            <div style="display:flex;flex-direction:column;gap:8px" id="platform-status"></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/admin.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+requireAuth();
+
+// Greeting
+const hr = new Date().getHours();
+document.getElementById('greeting-time').textContent = hr < 12 ? 'morning' : hr < 17 ? 'afternoon' : 'evening';
+document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
+
+// Stats
+async function renderStats() {
+  const stats = await getStats();
+  const grid = document.getElementById('stats-grid');
+  const items = [
+    { label:'Total Users', value: stats.totalUsers, icon:'👥', cls:'blue', change:'+12%', dir:'up' },
+    { label:'Active Users', value: stats.activeUsers, icon:'✅', cls:'green', change:'+5%', dir:'up' },
+    { label:'Visualisations', value: formatNum(stats.totalVisualisations), icon:'🖼️', cls:'gold', change:'+24%', dir:'up' },
+    { label:'Downloads', value: formatNum(stats.totalDownloads), icon:'⬇️', cls:'yellow', change:'+18%', dir:'up' },
+    { label:'Shares', value: formatNum(stats.totalShares), icon:'📤', cls:'blue', change:'+8%', dir:'up' },
+    { label:'Est. Revenue', value: formatCurrency(stats.revenue), icon:'💰', cls:'green', change:'+3%', dir:'up' }
+  ];
+  grid.innerHTML = items.map(s => `
+    <div class="stat-card">
+      <div class="stat-header">
+        <div class="stat-icon ${s.cls}">${s.icon}</div>
+        <span class="stat-change ${s.dir}">${s.dir === 'up' ? '↑' : '↓'} ${s.change}</span>
+      </div>
+      <div class="stat-value">${s.value}</div>
+      <div class="stat-label">${s.label}</div>
+    </div>
+  `).join('');
+}
+
+// Main chart (canvas line chart)
+function renderMainChart(metric = 'visualisations') {
+  const analytics = store.get('analytics', []);
+  const canvas = document.getElementById('main-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 600;
+  const H = 160;
+  canvas.width = W * window.devicePixelRatio;
+  canvas.height = H * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  const data = analytics.map(d => d[metric]);
+  const max = Math.max(...data, 1);
+  const pad = { top: 10, right: 10, bottom: 30, left: 36 };
+  const gW = W - pad.left - pad.right;
+  const gH = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (gH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+    const val = Math.round(max - (max / 4) * i);
+    ctx.fillStyle = 'rgba(155,150,152,0.6)';
+    ctx.font = '10px Inter';
+    ctx.textAlign = 'right';
+    ctx.fillText(val, pad.left - 6, y + 3);
+  }
+
+  // Points
+  const pts = data.map((v, i) => ({
+    x: pad.left + (i / (data.length - 1)) * gW,
+    y: pad.top + gH - (v / max) * gH
+  }));
+
+  // Fill gradient
+  const grad = ctx.createLinearGradient(0, pad.top, 0, H - pad.bottom);
+  grad.addColorStop(0, 'rgba(201,169,110,0.25)');
+  grad.addColorStop(1, 'rgba(201,169,110,0)');
+  ctx.beginPath();
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length - 1].x, H - pad.bottom);
+  ctx.lineTo(pts[0].x, H - pad.bottom);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = '#c9a96e';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+
+  // Date labels (every 5)
+  ctx.fillStyle = 'rgba(155,150,152,0.6)';
+  ctx.font = '9px Inter';
+  ctx.textAlign = 'center';
+  analytics.forEach((d, i) => {
+    if (i % 5 === 0 || i === analytics.length - 1) {
+      const x = pad.left + (i / (analytics.length - 1)) * gW;
+      const label = new Date(d.date).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+      ctx.fillText(label, x, H - 6);
+    }
+  });
+
+  // Stats
+  const total = data.reduce((s, v) => s + v, 0);
+  const avg = (total / data.length).toFixed(1);
+  const peak = Math.max(...data);
+  document.getElementById('chart-total').textContent = formatNum(total);
+  document.getElementById('chart-avg').textContent = avg;
+  document.getElementById('chart-peak').textContent = peak;
+}
+
+// Plan donut
+async function renderPlanChart() {
+  const users = await fetchUsers();
+  const plans = { Free: 0, Pro: 0, Studio: 0 };
+  users.forEach(u => { if (plans[u.plan] !== undefined) plans[u.plan]++; });
+
+  const total = users.length;
+  const colors = { Free: '#60a5fa', Pro: '#c9a96e', Studio: '#4ade80' };
+
+  document.getElementById('plan-breakdown').innerHTML = Object.entries(plans).map(([name, count]) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px">
+      <div style="width:10px;height:10px;border-radius:50%;background:${colors[name]};flex-shrink:0"></div>
+      <div style="flex:1;font-size:13px;color:var(--text-primary);font-weight:500">${name}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary)">${count}</div>
+      <div style="font-size:11px;color:var(--text-muted)">${total ? Math.round(count/total*100) : 0}%</div>
+    </div>
+  `).join('');
+
+  // Simple donut canvas
+  const canvas = document.getElementById('donut-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const cx = 90, cy = 90, r = 70, iR = 45;
+  let startAngle = -Math.PI / 2;
+  ctx.clearRect(0, 0, 180, 180);
+  const entries = Object.entries(plans);
+  entries.forEach(([name, count]) => {
+    const slice = (count / (total || 1)) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, startAngle, startAngle + slice);
+    ctx.closePath();
+    ctx.fillStyle = colors[name];
+    ctx.fill();
+    startAngle += slice;
+  });
+  // Inner circle cutout
+  ctx.beginPath();
+  ctx.arc(cx, cy, iR, 0, Math.PI * 2);
+  ctx.fillStyle = '#111118';
+  ctx.fill();
+  // Center text
+  ctx.fillStyle = '#f0ede8';
+  ctx.font = 'bold 20px Inter';
+  ctx.textAlign = 'center';
+  ctx.fillText(total, cx, cy + 2);
+  ctx.fillStyle = 'rgba(155,150,152,0.8)';
+  ctx.font = '10px Inter';
+  ctx.fillText('users', cx, cy + 16);
+}
+
+// Recent Users
+async function renderRecentUsers() {
+  const users = await fetchUsers();
+  const recentUsers = users.slice(-5).reverse();
+  document.getElementById('recent-users').innerHTML = recentUsers.map(u => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#000;flex-shrink:0">${(u.name || 'U').charAt(0)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.name}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${u.email}</div>
+      </div>
+      <span class="badge ${u.plan === 'Free' ? 'badge-muted' : u.plan === 'Pro' ? 'badge-gold' : 'badge-success'}">${u.plan}</span>
+    </div>
+  `).join('');
+}
+
+// Platform status
+async function renderPlatformStatus() {
+  const settings = await fetchSettings();
+  document.getElementById('platform-status').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px">
+      <span style="color:var(--text-secondary)">Free Credits</span>
+      <span class="badge ${settings.freeCreditsEnabled ? 'badge-success' : 'badge-danger'}">${settings.freeCreditsEnabled ? '● Active' : '○ Disabled'}</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px">
+      <span style="color:var(--text-secondary)">Subscriptions</span>
+      <span class="badge ${settings.subscriptionsEnabled ? 'badge-success' : 'badge-danger'}">${settings.subscriptionsEnabled ? '● Active' : '○ Disabled'}</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px">
+      <span style="color:var(--text-secondary)">Free Credit Amount</span>
+      <span style="color:var(--gold);font-weight:600">${settings.freeCreditsCount} credits</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px">
+      <span style="color:var(--text-secondary)">Storage Expiry</span>
+      <span style="color:var(--text-secondary);font-weight:600">${settings.tempStorageHours}h</span>
+    </div>
+  `;
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', async () => {
+  const users = await fetchUsers();
+  document.getElementById('sidebar-user-count').textContent = users.length;
+  
+  await renderStats();
+  renderMainChart();
+  await renderPlanChart();
+  await renderRecentUsers();
+  await renderPlatformStatus();
+});
+
+document.getElementById('chart-metric').addEventListener('change', (e) => {
+  renderMainChart(e.target.value);
+});
+</script>
+</body>
+</html>
