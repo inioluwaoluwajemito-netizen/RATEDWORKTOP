@@ -381,6 +381,13 @@ function setupActionListeners() {
     }
     lucide.createIcons();
   });
+
+  // Close modals on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+  });
 }
 
 function resetSaveBtn(btn) {
