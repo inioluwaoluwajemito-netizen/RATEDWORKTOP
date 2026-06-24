@@ -350,16 +350,16 @@
       document.getElementById('metric-share-count').textContent = currentUser.shares || 0;
     }
 
-    function updateProfile(e) {
+    async function updateProfile(e) {
       e.preventDefault();
       const newName = document.getElementById('prof-name').value.trim();
       
       if (!newName) return;
       
-      currentUser = updateCurrentUser({ name: newName });
+      currentUser = await updateCurrentUser({ name: newName });
       
       // Refresh Navbar avatar & name representation
-      buildNav('account.html');
+      await buildNav('account.html');
       showToast("Profile name updated successfully!");
     }
 
@@ -430,11 +430,11 @@
       }
     }
 
-    function simulateUpgrade(plan, period) {
+    async function simulateUpgrade(plan, period) {
       const settings = store.get('settings', {});
       const creditsToAdd = period === 'annual' ? settings.annualCredits : settings.monthlyCredits;
       
-      currentUser = updateCurrentUser({
+      currentUser = await updateCurrentUser({
         plan: plan,
         billingPeriod: period,
         credits: (currentUser.credits || 0) + creditsToAdd
@@ -442,13 +442,13 @@
 
       showToast(`Account successfully upgraded to Pro ${period}! Loaded ${creditsToAdd} credits. 🚀`);
       populateSubscriptionTab();
-      buildNav('account.html'); // Update header
+      await buildNav('account.html'); // Update header
     }
 
-    function simulateCancelSubscription() {
+    async function simulateCancelSubscription() {
       if (!confirm("Are you sure you want to cancel your Pro subscription? You will lose any unused Pro credits.")) return;
 
-      currentUser = updateCurrentUser({
+      currentUser = await updateCurrentUser({
         plan: 'Free',
         billingPeriod: null,
         credits: 0 // Reset credits to Starter free boundaries
@@ -456,20 +456,16 @@
 
       showToast("Subscription cancelled. Account reverted to Free mode.");
       populateSubscriptionTab();
-      buildNav('account.html'); // Update header
+      await buildNav('account.html'); // Update header
     }
 
     // SECURITY TAB
-    function updatePassword(e) {
+    async function updatePassword(e) {
       e.preventDefault();
       const current = document.getElementById('sec-cur-pass').value;
       const newPass = document.getElementById('sec-new-pass').value;
       const confirm = document.getElementById('sec-confirm-pass').value;
-
-      if (current !== currentUser.password) {
-        showToast("Incorrect current password.", "error");
-        return;
-      }
+      const btn = e.target.querySelector('button[type="submit"]');
 
       if (newPass.length < 8) {
         showToast("New password must be at least 8 characters.", "error");
@@ -481,24 +477,53 @@
         return;
       }
 
-      // Update password
-      currentUser = updateCurrentUser({ password: newPass });
+      btn.disabled = true;
+      btn.textContent = "Updating...";
+
+      if (supabaseClient) {
+        // Validate current password by trying to re-authenticate
+        const { error: signInError } = await supabaseClient.auth.signInWithPassword({
+          email: currentUser.email,
+          password: current
+        });
+        if (signInError) {
+          showToast("Incorrect current password.", "error");
+          btn.disabled = false;
+          btn.textContent = "Update Password";
+          return;
+        }
+
+        // Now update the password
+        const { error } = await supabaseClient.auth.updateUser({ password: newPass });
+        if (error) {
+          showToast(error.message, "error");
+          btn.disabled = false;
+          btn.textContent = "Update Password";
+          return;
+        }
+      }
       
       document.getElementById('sec-cur-pass').value = '';
       document.getElementById('sec-new-pass').value = '';
       document.getElementById('sec-confirm-pass').value = '';
 
+      btn.disabled = false;
+      btn.textContent = "Update Password";
       showToast("Password updated successfully!");
     }
 
-    function deleteAccount() {
+    async function deleteAccount() {
       if (!confirm("⚠️ WARNING: Are you sure you want to delete your account? This will wipe all user settings, credits, and saved visual files. This action cannot be undone.")) return;
 
-      const users = store.get('app_users', []);
-      const filtered = users.filter(u => u.id !== currentUser.id);
-      store.set('app_users', filtered);
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from('profiles').delete().eq('id', currentUser.id);
+        if (error) {
+          showToast("Failed to delete account data.", "error");
+          return;
+        }
+      }
 
-      logout();
+      await logout();
     }
   </script>
 </body>
