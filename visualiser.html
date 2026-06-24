@@ -378,21 +378,21 @@
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:24px;">Show off your new kitchen worktop!</p>
       
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
-        <button class="btn" style="background:#25D366; color:#fff; justify-content:center; border:none;" onclick="showToast('Opening WhatsApp...', 'success'); document.getElementById('share-modal').classList.remove('open')">
+        <button class="btn" id="share-whatsapp" style="background:#25D366; color:#fff; justify-content:center; border:none;">
           WhatsApp
         </button>
-        <button class="btn" style="background:#1877F2; color:#fff; justify-content:center; border:none;" onclick="showToast('Opening Facebook...', 'success'); document.getElementById('share-modal').classList.remove('open')">
+        <button class="btn" id="share-facebook" style="background:#1877F2; color:#fff; justify-content:center; border:none;">
           Facebook
         </button>
-        <button class="btn" style="background:#000; border:1px solid #333; color:#fff; justify-content:center;" onclick="showToast('Opening X...', 'success'); document.getElementById('share-modal').classList.remove('open')">
+        <button class="btn" id="share-x" style="background:#000; border:1px solid #333; color:#fff; justify-content:center;">
           X (Twitter)
         </button>
-        <button class="btn" style="background:#ea4335; color:#fff; justify-content:center; border:none;" onclick="showToast('Opening Email...', 'success'); document.getElementById('share-modal').classList.remove('open')">
+        <button class="btn" id="share-email" style="background:#ea4335; color:#fff; justify-content:center; border:none;">
           Email
         </button>
       </div>
       
-      <button class="btn" style="width:100%; justify-content:center; background:transparent; border:1px solid var(--border); color:var(--text-primary);" onclick="showToast('Link copied to clipboard!', 'success'); document.getElementById('share-modal').classList.remove('open')">
+      <button class="btn" id="share-copy-link" style="width:100%; justify-content:center; background:transparent; border:1px solid var(--border); color:var(--text-primary);">
         <i data-lucide="link" style="width:16px;height:16px"></i> Copy Link
       </button>
 
