@@ -153,15 +153,10 @@ function renderStones() {
     el.className = 'stone-item';
     if (selectedStone && selectedStone.id === stone.id) el.classList.add('selected');
     
-    // Assign a rough color based on texture type (since we don't have images)
-    let bg = '#444';
-    if (stone.texture === 'marble') bg = '#f0f0f0';
-    if (stone.texture === 'quartz') bg = '#dcdcdc';
-    if (stone.texture === 'granite') bg = '#3d3d3d';
-    if (stone.texture === 'black') bg = '#1a1a1a';
+    const imgUrl = getStoneImage(stone.sku);
 
     el.innerHTML = `
-      <div class="stone-thumb" style="background:${bg}"></div>
+      <div class="stone-thumb" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
       <div class="stone-info">
         <div class="stone-name" title="${stone.name}">${stone.name}</div>
         <div class="stone-brand">${stone.brandName}</div>
@@ -275,12 +270,16 @@ function setupActionListeners() {
     // 2. Hide Processing
     processingOverlay.style.display = 'none';
 
-    // 3. Show Simulated Highlight based on selected stone
-    let highlightColor = '#ffffff';
-    if (selectedStone.texture === 'black' || selectedStone.texture === 'granite') highlightColor = '#111111';
-    else if (selectedStone.texture === 'slate') highlightColor = '#333333';
-    
-    simulatedHighlight.innerHTML = `<polygon points="10,60 90,60 95,75 5,75" fill="${highlightColor}" opacity="0.6" style="mix-blend-mode: multiply;" />`;
+    // 3. Show Simulated Highlight with actual stone texture pattern
+    const imgUrl = getStoneImage(selectedStone.sku);
+    simulatedHighlight.innerHTML = `
+      <defs>
+        <pattern id="stone-pattern" patternUnits="userSpaceOnUse" width="80" height="80">
+          <image href="${imgUrl}" x="0" y="0" width="80" height="80" />
+        </pattern>
+      </defs>
+      <polygon points="10,60 90,60 95,75 5,75" fill="url(#stone-pattern)" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.35));" />
+    `;
     simulatedHighlight.style.display = 'block';
 
     // 4. Deduct Credit
@@ -364,36 +363,94 @@ function setupActionListeners() {
       canvas.width = img.width;
       canvas.height = img.height;
       
-      // Draw original image
-      ctx.drawImage(img, 0, 0);
+      const stoneImg = new Image();
+      stoneImg.crossOrigin = "Anonymous";
+      stoneImg.onload = () => {
+        // Draw original image
+        ctx.drawImage(img, 0, 0);
 
-      // Simulate drawing the highlight polygon (very rough approximation for the download)
-      ctx.fillStyle = selectedStone.texture === 'black' ? 'rgba(17, 17, 17, 0.4)' : 'rgba(255, 255, 255, 0.4)';
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.beginPath();
-      ctx.moveTo(img.width * 0.1, img.height * 0.6);
-      ctx.lineTo(img.width * 0.9, img.height * 0.6);
-      ctx.lineTo(img.width * 0.95, img.height * 0.75);
-      ctx.lineTo(img.width * 0.05, img.height * 0.75);
-      ctx.fill();
-      
-      // Draw watermark
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.font = `bold ${Math.floor(img.width * 0.03)}px 'Playfair Display'`;
-      ctx.textAlign = 'right';
-      ctx.fillText('🪨 Created with RatedWorktops', img.width - 20, img.height - 20);
+        // Create pattern from stone texture image
+        const pattern = ctx.createPattern(stoneImg, 'repeat');
+        ctx.fillStyle = pattern;
+        
+        // Draw the stone pattern on worktop polygon
+        ctx.globalCompositeOperation = 'overlay';
+        ctx.beginPath();
+        ctx.moveTo(img.width * 0.1, img.height * 0.6);
+        ctx.lineTo(img.width * 0.9, img.height * 0.6);
+        ctx.lineTo(img.width * 0.95, img.height * 0.75);
+        ctx.lineTo(img.width * 0.05, img.height * 0.75);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Draw watermark on top of everything
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = `bold ${Math.floor(img.width * 0.03)}px 'Playfair Display'`;
+        ctx.textAlign = 'right';
+        ctx.fillText('🪨 Created with RatedWorktops', img.width - 20, img.height - 20);
 
-      // Trigger download
-      const link = document.createElement('a');
-      link.download = `ratedworktops-${selectedStone.name.replace(/\\s+/g, '-').toLowerCase()}.jpg`;
-      link.href = canvas.toDataURL('image/jpeg', 0.9);
-      link.click();
-      
-      showToast('Image downloaded successfully!', 'success');
+        // Trigger download
+        const link = document.createElement('a');
+        link.download = `ratedworktops-${selectedStone.name.replace(/\s+/g, '-').toLowerCase()}.jpg`;
+        link.href = canvas.toDataURL('image/jpeg', 0.9);
+        link.click();
+        
+        showToast('Image downloaded successfully!', 'success');
+      };
+      stoneImg.src = getStoneImage(selectedStone.sku);
     };
     img.src = previewImage.src;
-  });
+  });});
+
+  // Helper to generate rendered base64 for saving
+  function getRenderedCanvas() {
+    return new Promise((resolve) => {
+      if (!previewImage.src || !selectedStone) {
+        resolve(null);
+        return;
+      }
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        const stoneImg = new Image();
+        stoneImg.crossOrigin = "Anonymous";
+        stoneImg.onload = () => {
+          ctx.drawImage(img, 0, 0);
+
+          const pattern = ctx.createPattern(stoneImg, 'repeat');
+          ctx.fillStyle = pattern;
+          
+          ctx.globalCompositeOperation = 'overlay';
+          ctx.beginPath();
+          ctx.moveTo(img.width * 0.1, img.height * 0.6);
+          ctx.lineTo(img.width * 0.9, img.height * 0.6);
+          ctx.lineTo(img.width * 0.95, img.height * 0.75);
+          ctx.lineTo(img.width * 0.05, img.height * 0.75);
+          ctx.closePath();
+          ctx.fill();
+          
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+          ctx.font = `bold ${Math.floor(img.width * 0.03)}px 'Playfair Display'`;
+          ctx.textAlign = 'right';
+          ctx.fillText('🪨 Created with RatedWorktops', img.width - 20, img.height - 20);
+
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        };
+        stoneImg.onerror = () => resolve(previewImage.src);
+        stoneImg.src = getStoneImage(selectedStone.sku);
+      };
+      img.onerror = () => resolve(null);
+      img.src = previewImage.src;
+    });
+  }
 
   document.getElementById('save-btn').addEventListener('click', async () => {
     const btn = document.getElementById('save-btn');
@@ -418,18 +475,22 @@ function setupActionListeners() {
       return;
     }
 
-    // 2. Insert new project
+    // 2. Generate rendered canvas base64 image
+    const renderedImage = await getRenderedCanvas() || previewImage.src;
+
+    // 3. Insert new project
     const { error: insertErr } = await supabaseClient
       .from('projects')
       .insert([{
         user_id: currentUser.id,
         stone_name: selectedStone.name,
         brand_name: selectedStone.brandName,
-        image_url: previewImage.src // Storing base64 text for MVP
+        image_url: renderedImage
       }]);
 
     if (insertErr) {
       showToast('Failed to save project. ' + insertErr.message, 'error');
+      resetSaveBtn(btn);
     } else {
       showToast('Project saved successfully!', 'success');
       btn.innerHTML = `<i data-lucide="check" style="width:16px;height:16px"></i> Saved`;

@@ -262,7 +262,7 @@ async function getCategories() {
   return data || [];
 }
 
-// ── Texture CSS ───────────────────────────────
+// ── Texture CSS & Image Mappings ───────────────
 const TEXTURES = {
   marble: 'linear-gradient(135deg,#e8e0d4 0%,#d4ccc2 25%,#ece4d8 50%,#bfb5a8 75%,#d4ccc2 100%)',
   granite: 'linear-gradient(135deg,#2a2a2a 0%,#3d3530 35%,#2a2828 55%,#4a4540 100%)',
@@ -272,8 +272,22 @@ const TEXTURES = {
   default: 'linear-gradient(135deg,#c9a96e,#a07840)'
 };
 
+const STONE_IMAGES = {
+  'SIL-ECG': 'images/stones/eternal_calacatta_gold.png',
+  'SIL-NP': 'images/stones/nebula_pearl.png',
+  'SIL-IB': 'images/stones/iconic_black.png',
+  'DEK-KR': 'images/stones/kreta.png',
+  'DEK-OP': 'images/stones/opera.png',
+  'CAE-SN': 'images/stones/statuario_nuvo.png',
+  'CAE-VN': 'images/stones/vanilla_noir.png'
+};
+
 function getTexture(key) {
   return TEXTURES[key] || TEXTURES.default;
+}
+
+function getStoneImage(sku) {
+  return STONE_IMAGES[sku] || 'images/stones/eternal_calacatta_gold.png';
 }
 
 // ── Navigation build ──────────────────────────

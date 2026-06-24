@@ -719,18 +719,18 @@
         return;
       }
       
-      // Select 4 popular stones (e.g. Silestone Calacatta Gold, Dekton Laurent, Caesarstone Statuario, Calacatta Viola)
-      const popularIds = ['1-101', '2-203', '3-301', '4-403'];
+      // Select 4 popular stones (Eternal Calacatta Gold, Nebula Pearl, Opera, Statuario Nuvo)
+      const popularIds = ['1-1', '1-2', '2-5', '3-6'];
       const filtered = stones.filter(s => popularIds.includes(s.id));
       
       // If we don't find exactly those, just take the first 4
       const displayStones = filtered.length > 0 ? filtered : stones.slice(0, 4);
       
       grid.innerHTML = displayStones.map(stone => {
-        const textureCss = getTexture(stone.texture);
+        const imgUrl = getStoneImage(stone.sku);
         return `
           <a href="stone-detail.html?id=${stone.id}" class="stone-card">
-            <div class="stone-img" style="background: ${textureCss};"></div>
+            <div class="stone-img" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
             <div class="stone-card-body">
               <div class="stone-card-name">${stone.name}</div>
               <div class="stone-card-brand">${stone.brand}</div>

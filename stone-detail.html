@@ -278,7 +278,11 @@
       }
 
       // Populate layout
-      document.getElementById('detail-texture-element').style.background = getTexture(stone.texture);
+      const imgUrl = getStoneImage(stone.sku);
+      const detailEl = document.getElementById('detail-texture-element');
+      detailEl.style.backgroundImage = `url('${imgUrl}')`;
+      detailEl.style.backgroundSize = 'cover';
+      detailEl.style.backgroundPosition = 'center';
       document.getElementById('detail-brand-name').textContent = stone.brand;
       document.getElementById('detail-stone-name').textContent = stone.name;
       document.getElementById('detail-category-badge').textContent = stone.category;
