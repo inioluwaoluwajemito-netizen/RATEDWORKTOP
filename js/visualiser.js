@@ -68,9 +68,9 @@ async function loadProfile() {
 }
 
 async function loadFiltersAndStones() {
-  // Fetch categories
-  const { data: cats } = await supabaseClient.from('categories').select('*').order('display_order');
-  if (cats) {
+  // Fetch categories using shared app helper
+  const cats = await getCategories();
+  if (cats && cats.length) {
     allCategories = cats;
     cats.forEach(c => {
       const opt = document.createElement('option');
@@ -80,9 +80,9 @@ async function loadFiltersAndStones() {
     });
   }
 
-  // Fetch brands & their stones
-  const { data: brands } = await supabaseClient.from('brands').select('*, colours(*)');
-  if (brands) {
+  // Fetch brands & their stones using shared app helper
+  const brands = await getBrands();
+  if (brands && brands.length) {
     allBrands = brands;
     brands.forEach(b => {
       const opt = document.createElement('option');
