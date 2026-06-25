@@ -89,6 +89,20 @@ async function updateCurrentUser(updates) {
   return data;
 }
 
+async function uploadFileToStorage(bucket, path, file) {
+  if (!supabaseClient) return { ok: false, error: 'Database disconnected' };
+  const { data, error } = await supabaseClient.storage.from(bucket).upload(path, file, {
+    upsert: true,
+    contentType: file.type || 'image/jpeg'
+  });
+  if (error) {
+    console.error('Storage upload error:', error);
+    return { ok: false, error: error.message };
+  }
+  const { data: { publicUrl } } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+  return { ok: true, url: publicUrl };
+}
+
 // ── Seed demo data ────────────────────────────
 function seedAppData() {
   // Seed settings from admin (or defaults)

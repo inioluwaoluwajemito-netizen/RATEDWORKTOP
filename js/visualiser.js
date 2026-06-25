@@ -9,6 +9,11 @@ let allCategories = [];
 let allStones = [];
 let selectedStone = null;
 
+// Shape Drawing State
+let isDrawMode = false;
+let points = [];
+let originalFileUrl = null;
+
 // DOM Elements
 const creditsCountEl = document.getElementById('credits-count');
 const stoneListEl = document.getElementById('stone-list');
@@ -25,6 +30,12 @@ const generateBtn = document.getElementById('generate-btn');
 const processingOverlay = document.getElementById('processing-overlay');
 const processingText = document.getElementById('processing-text');
 const simulatedHighlight = document.getElementById('simulated-highlight');
+
+const drawingCanvas = document.getElementById('drawing-canvas');
+const drawModeBtn = document.getElementById('draw-mode-btn');
+const clearPointsBtn = document.getElementById('clear-points-btn');
+const drawingTip = document.getElementById('drawing-tip');
+const drawingToolbar = document.getElementById('drawing-toolbar');
 
 document.addEventListener('DOMContentLoaded', async () => {
   // 1. Check Authentication
@@ -47,6 +58,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 5. Setup Action Listeners
   setupActionListeners();
 
+  // 6. Setup Shape Drawing Listeners
+  setupDrawingListeners();
+
   // Setup Logout
   document.getElementById('logout-btn').addEventListener('click', async () => {
     await supabaseClient.auth.signOut();
@@ -68,7 +82,6 @@ async function loadProfile() {
 }
 
 async function loadFiltersAndStones() {
-  // Fetch categories using shared app helper
   const cats = await getCategories();
   if (cats && cats.length) {
     allCategories = cats;
@@ -80,7 +93,6 @@ async function loadFiltersAndStones() {
     });
   }
 
-  // Fetch brands & their stones using shared app helper
   const brands = await getBrands();
   if (brands && brands.length) {
     allBrands = brands;
@@ -90,7 +102,6 @@ async function loadFiltersAndStones() {
       opt.textContent = b.name;
       filterBrand.appendChild(opt);
 
-      // Flatten colours
       if (b.colours) {
         b.colours.forEach(c => {
           allStones.push({
@@ -112,7 +123,6 @@ async function loadFiltersAndStones() {
     searchInput.addEventListener('input', renderStones);
   }
 
-  // Pre-select stone from URL query param if present
   const urlParams = new URLSearchParams(window.location.search);
   const stoneIdParam = urlParams.get('stone');
   if (stoneIdParam) {
@@ -121,7 +131,6 @@ async function loadFiltersAndStones() {
     const stone = allStones.find(s => s.id == colourId);
     if (stone) {
       selectedStone = stone;
-      // Select appropriate brand & category filters if available
       filterCategory.value = stone.categoryName;
       filterBrand.value = stone.brandName;
       renderStones();
@@ -174,7 +183,10 @@ function renderStones() {
 }
 
 function setupUploadListeners() {
-  uploadArea.addEventListener('click', () => {
+  uploadArea.addEventListener('click', (e) => {
+    if (e.target.closest('#drawing-canvas') || e.target.closest('#drawing-toolbar') || e.target.closest('#action-bar')) {
+      return;
+    }
     if (!previewImage.src || previewImage.style.display === 'none') {
       fileInput.click();
     }
@@ -202,10 +214,23 @@ function setupUploadListeners() {
   });
 }
 
-function handleFile(file) {
+async function handleFile(file) {
   if (!file.type.startsWith('image/')) {
     showToast('Please upload a valid image file.', 'error');
     return;
+  }
+
+  showToast('Uploading to secure database storage...', 'info');
+
+  const uuid = Math.random().toString(36).substring(2, 15);
+  const path = `originals/${currentUser.id}/${uuid}.jpg`;
+  const uploadRes = await uploadFileToStorage('ratedworktops', path, file);
+
+  if (uploadRes.ok) {
+    originalFileUrl = uploadRes.url;
+    showToast('Image uploaded successfully!', 'success');
+  } else {
+    console.warn('Storage upload failed, falling back to client-side:', uploadRes.error);
   }
   
   const reader = new FileReader();
@@ -213,15 +238,106 @@ function handleFile(file) {
     previewImage.src = e.target.result;
     previewImage.style.display = 'block';
     
-    // Hide the upload prompt UI inside the area
     uploadArea.querySelector('.upload-icon').style.display = 'none';
     uploadArea.querySelector('.upload-title').style.display = 'none';
     uploadArea.querySelector('.upload-desc').style.display = 'none';
+    
+    drawingToolbar.style.display = 'flex';
     
     actionBar.classList.add('visible');
     simulatedHighlight.style.display = 'none';
   };
   reader.readAsDataURL(file);
+}
+
+function setupDrawingListeners() {
+  drawingCanvas.addEventListener('click', (e) => {
+    if (!isDrawMode) return;
+    const rect = drawingCanvas.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    points.push({ x, y });
+    
+    clearPointsBtn.style.display = 'inline-flex';
+    redrawCanvas();
+  });
+
+  drawModeBtn.addEventListener('click', () => {
+    isDrawMode = !isDrawMode;
+    if (isDrawMode) {
+      drawingCanvas.style.display = 'block';
+      drawingCanvas.style.pointerEvents = 'auto';
+      drawModeBtn.classList.remove('btn-ghost');
+      drawModeBtn.classList.add('btn-primary');
+      drawModeBtn.innerHTML = `<i data-lucide="check" style="width:13px;height:13px;"></i> Done Drawing`;
+      drawingTip.textContent = 'Click on countertop corners. When finished, click "Done Drawing"';
+    } else {
+      drawingCanvas.style.pointerEvents = 'none';
+      drawModeBtn.classList.remove('btn-primary');
+      drawModeBtn.classList.add('btn-ghost');
+      drawModeBtn.innerHTML = `<i data-lucide="pen-tool" style="width:13px;height:13px;"></i> Draw Shape`;
+      drawingTip.textContent = points.length >= 3 ? 'Countertop shape configured!' : 'Countertop outline set!';
+    }
+    lucide.createIcons();
+    redrawCanvas();
+  });
+
+  clearPointsBtn.addEventListener('click', () => {
+    points = [];
+    clearPointsBtn.style.display = 'none';
+    drawingTip.textContent = 'Click on photo to trace countertop';
+    redrawCanvas();
+  });
+
+  window.addEventListener('resize', redrawCanvas);
+}
+
+function redrawCanvas() {
+  if (!drawingCanvas || drawingCanvas.style.display === 'none') return;
+  
+  const ctx = drawingCanvas.getContext('2d');
+  const w = drawingCanvas.clientWidth;
+  const h = drawingCanvas.clientHeight;
+  
+  drawingCanvas.width = w;
+  drawingCanvas.height = h;
+  
+  ctx.clearRect(0, 0, w, h);
+  
+  if (points.length === 0) return;
+  
+  ctx.beginPath();
+  const firstX = (points[0].x / 100) * w;
+  const firstY = (points[0].y / 100) * h;
+  ctx.moveTo(firstX, firstY);
+  
+  for (let i = 1; i < points.length; i++) {
+    const px = (points[i].x / 100) * w;
+    const py = (points[i].y / 100) * h;
+    ctx.lineTo(px, py);
+  }
+  
+  if (points.length >= 3) {
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(201, 169, 110, 0.2)';
+    ctx.fill();
+  }
+  
+  ctx.strokeStyle = '#c9a96e';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  points.forEach((pt) => {
+    const px = (pt.x / 100) * w;
+    const py = (pt.y / 100) * h;
+    ctx.beginPath();
+    ctx.arc(px, py, 5, 0, 2 * Math.PI);
+    ctx.fillStyle = '#c9a96e';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
 }
 
 function setupActionListeners() {
@@ -233,6 +349,15 @@ function setupActionListeners() {
     uploadArea.querySelector('.upload-icon').style.display = 'block';
     uploadArea.querySelector('.upload-title').style.display = 'block';
     uploadArea.querySelector('.upload-desc').style.display = 'block';
+    
+    drawingToolbar.style.display = 'none';
+    drawingCanvas.style.display = 'none';
+    clearPointsBtn.style.display = 'none';
+    drawingTip.textContent = 'Click on photo to trace countertop';
+    
+    points = [];
+    isDrawMode = false;
+    originalFileUrl = null;
     
     actionBar.classList.remove('visible');
     simulatedHighlight.style.display = 'none';
@@ -256,33 +381,35 @@ function setupActionListeners() {
       return;
     }
 
-    // 1. Show Processing
     processingOverlay.style.display = 'flex';
-    processingText.textContent = 'Analysing worktop surfaces...';
+    processingText.textContent = 'Analysing countertop shape...';
 
-    // Mock processing steps
     await new Promise(r => setTimeout(r, 1200));
     processingText.textContent = `Applying ${selectedStone.name}...`;
     await new Promise(r => setTimeout(r, 1500));
     processingText.textContent = 'Rendering shadows & lighting...';
     await new Promise(r => setTimeout(r, 1000));
 
-    // 2. Hide Processing
     processingOverlay.style.display = 'none';
 
-    // 3. Show Simulated Highlight with actual stone texture pattern
     const imgUrl = getStoneImage(selectedStone.sku);
+    let polygonPoints = "10,60 90,60 95,75 5,75";
+    if (points.length >= 3) {
+      polygonPoints = points.map(p => `${p.x},${p.y}`).join(" ");
+    }
+
     simulatedHighlight.innerHTML = `
       <defs>
         <pattern id="stone-pattern" patternUnits="userSpaceOnUse" width="80" height="80">
           <image href="${imgUrl}" x="0" y="0" width="80" height="80" />
         </pattern>
       </defs>
-      <polygon points="10,60 90,60 95,75 5,75" fill="url(#stone-pattern)" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.35));" />
+      <polygon points="${polygonPoints}" fill="url(#stone-pattern)" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.35));" />
     `;
+    
+    drawingCanvas.style.display = 'none';
     simulatedHighlight.style.display = 'block';
 
-    // 4. Deduct Credit
     const newCredits = currentProfile.credits - 1;
     const { error } = await supabaseClient
       .from('profiles')
@@ -300,8 +427,6 @@ function setupActionListeners() {
       showToast('Failed to update credits.', 'error');
     }
   });
-
-  // --- Post-Render Handlers ---
 
   document.getElementById('share-btn').addEventListener('click', () => {
     document.getElementById('share-modal').classList.add('open');
@@ -353,7 +478,6 @@ function setupActionListeners() {
     if (!previewImage.src) return;
     showToast('Preparing your image...', 'info');
 
-    // Create a canvas to draw the image + watermark
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
@@ -366,31 +490,33 @@ function setupActionListeners() {
       const stoneImg = new Image();
       stoneImg.crossOrigin = "Anonymous";
       stoneImg.onload = () => {
-        // Draw original image
         ctx.drawImage(img, 0, 0);
 
-        // Create pattern from stone texture image
         const pattern = ctx.createPattern(stoneImg, 'repeat');
         ctx.fillStyle = pattern;
         
-        // Draw the stone pattern on worktop polygon
         ctx.globalCompositeOperation = 'overlay';
         ctx.beginPath();
-        ctx.moveTo(img.width * 0.1, img.height * 0.6);
-        ctx.lineTo(img.width * 0.9, img.height * 0.6);
-        ctx.lineTo(img.width * 0.95, img.height * 0.75);
-        ctx.lineTo(img.width * 0.05, img.height * 0.75);
+        if (points.length >= 3) {
+          ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
+          for (let i = 1; i < points.length; i++) {
+            ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
+          }
+        } else {
+          ctx.moveTo(img.width * 0.1, img.height * 0.6);
+          ctx.lineTo(img.width * 0.9, img.height * 0.6);
+          ctx.lineTo(img.width * 0.95, img.height * 0.75);
+          ctx.lineTo(img.width * 0.05, img.height * 0.75);
+        }
         ctx.closePath();
         ctx.fill();
         
-        // Draw watermark on top of everything
         ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.font = `bold ${Math.floor(img.width * 0.03)}px 'Playfair Display'`;
         ctx.textAlign = 'right';
         ctx.fillText('🪨 Created with RatedWorktops', img.width - 20, img.height - 20);
 
-        // Trigger download
         const link = document.createElement('a');
         link.download = `ratedworktops-${selectedStone.name.replace(/\s+/g, '-').toLowerCase()}.jpg`;
         link.href = canvas.toDataURL('image/jpeg', 0.9);
@@ -401,63 +527,13 @@ function setupActionListeners() {
       stoneImg.src = getStoneImage(selectedStone.sku);
     };
     img.src = previewImage.src;
-  });});
-
-  // Helper to generate rendered base64 for saving
-  function getRenderedCanvas() {
-    return new Promise((resolve) => {
-      if (!previewImage.src || !selectedStone) {
-        resolve(null);
-        return;
-      }
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        
-        const stoneImg = new Image();
-        stoneImg.crossOrigin = "Anonymous";
-        stoneImg.onload = () => {
-          ctx.drawImage(img, 0, 0);
-
-          const pattern = ctx.createPattern(stoneImg, 'repeat');
-          ctx.fillStyle = pattern;
-          
-          ctx.globalCompositeOperation = 'overlay';
-          ctx.beginPath();
-          ctx.moveTo(img.width * 0.1, img.height * 0.6);
-          ctx.lineTo(img.width * 0.9, img.height * 0.6);
-          ctx.lineTo(img.width * 0.95, img.height * 0.75);
-          ctx.lineTo(img.width * 0.05, img.height * 0.75);
-          ctx.closePath();
-          ctx.fill();
-          
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-          ctx.font = `bold ${Math.floor(img.width * 0.03)}px 'Playfair Display'`;
-          ctx.textAlign = 'right';
-          ctx.fillText('🪨 Created with RatedWorktops', img.width - 20, img.height - 20);
-
-          resolve(canvas.toDataURL('image/jpeg', 0.9));
-        };
-        stoneImg.onerror = () => resolve(previewImage.src);
-        stoneImg.src = getStoneImage(selectedStone.sku);
-      };
-      img.onerror = () => resolve(null);
-      img.src = previewImage.src;
-    });
-  }
+  });
 
   document.getElementById('save-btn').addEventListener('click', async () => {
     const btn = document.getElementById('save-btn');
     btn.innerHTML = `<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0"></div> Saving...`;
     btn.disabled = true;
 
-    // 1. Check existing projects count
     const { data: existing, error: countErr } = await supabaseClient
       .from('projects')
       .select('id')
@@ -475,37 +551,107 @@ function setupActionListeners() {
       return;
     }
 
-    // 2. Generate rendered canvas base64 image
-    const renderedImage = await getRenderedCanvas() || previewImage.src;
+    getRenderedCanvasBlob().then(async (blob) => {
+      if (!blob) {
+        showToast('Failed to compile render canvas.', 'error');
+        resetSaveBtn(btn);
+        return;
+      }
 
-    // 3. Insert new project
-    const { error: insertErr } = await supabaseClient
-      .from('projects')
-      .insert([{
-        user_id: currentUser.id,
-        stone_name: selectedStone.name,
-        brand_name: selectedStone.brandName,
-        image_url: renderedImage
-      }]);
+      showToast('Saving design file to cloud storage...', 'info');
+      const uuid = Math.random().toString(36).substring(2, 15);
+      const path = `outputs/${currentUser.id}/${uuid}.jpg`;
+      const uploadRes = await uploadFileToStorage('ratedworktops', path, blob);
 
-    if (insertErr) {
-      showToast('Failed to save project. ' + insertErr.message, 'error');
-      resetSaveBtn(btn);
-    } else {
-      showToast('Project saved successfully!', 'success');
-      btn.innerHTML = `<i data-lucide="check" style="width:16px;height:16px"></i> Saved`;
-      btn.style.background = '#4ade80';
-      btn.style.borderColor = '#4ade80';
-      btn.style.color = '#000';
-    }
-    lucide.createIcons();
+      if (uploadRes.ok) {
+        const { error: insertErr } = await supabaseClient
+          .from('projects')
+          .insert([{
+            user_id: currentUser.id,
+            stone_name: selectedStone.name,
+            brand_name: selectedStone.brandName,
+            image_url: uploadRes.url
+          }]);
+
+        if (insertErr) {
+          showToast('Failed to save project database row. ' + insertErr.message, 'error');
+          resetSaveBtn(btn);
+        } else {
+          showToast('Project saved successfully!', 'success');
+          btn.innerHTML = `<i data-lucide="check" style="width:16px;height:16px"></i> Saved`;
+          btn.style.background = '#4ade80';
+          btn.style.borderColor = '#4ade80';
+          btn.style.color = '#000';
+        }
+      } else {
+        showToast('Failed to upload rendered image. ' + uploadRes.error, 'error');
+        resetSaveBtn(btn);
+      }
+      lucide.createIcons();
+    });
   });
 
-  // Close modals on overlay click
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) overlay.classList.remove('open');
     });
+  });
+}
+
+function getRenderedCanvasBlob() {
+  return new Promise((resolve) => {
+    if (!previewImage.src || !selectedStone) {
+      resolve(null);
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      const stoneImg = new Image();
+      stoneImg.crossOrigin = "Anonymous";
+      stoneImg.onload = () => {
+        ctx.drawImage(img, 0, 0);
+
+        const pattern = ctx.createPattern(stoneImg, 'repeat');
+        ctx.fillStyle = pattern;
+        
+        ctx.globalCompositeOperation = 'overlay';
+        ctx.beginPath();
+        if (points.length >= 3) {
+          ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
+          for (let i = 1; i < points.length; i++) {
+            ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
+          }
+        } else {
+          ctx.moveTo(img.width * 0.1, img.height * 0.6);
+          ctx.lineTo(img.width * 0.9, img.height * 0.6);
+          ctx.lineTo(img.width * 0.95, img.height * 0.75);
+          ctx.lineTo(img.width * 0.05, img.height * 0.75);
+        }
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = `bold ${Math.floor(img.width * 0.03)}px 'Playfair Display'`;
+        ctx.textAlign = 'right';
+        ctx.fillText('🪨 Created with RatedWorktops', img.width - 20, img.height - 20);
+
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, 'image/jpeg', 0.9);
+      };
+      stoneImg.onerror = () => resolve(null);
+      stoneImg.src = getStoneImage(selectedStone.sku);
+    };
+    img.onerror = () => resolve(null);
+    img.src = previewImage.src;
   });
 }
 
