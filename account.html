@@ -432,7 +432,7 @@
         `;
       } else {
         // Active Subscribed state
-        const periodStr = currentUser.billingPeriod === 'annual' ? 'Annual renewal' : 'Monthly renewal';
+        const periodStr = currentUser.billing_period === 'annual' ? 'Annual renewal' : 'Monthly renewal';
         const renewalDate = new Date();
         renewalDate.setDate(renewalDate.getDate() + 30);
         renewalRow.innerHTML = `<span>Next Billing Renewal:</span><strong>${formatDate(renewalDate)} (${periodStr})</strong>`;
@@ -496,7 +496,7 @@
       
       currentUser = await updateCurrentUser({
         plan: plan,
-        billingPeriod: period,
+        billing_period: period,
         credits: (currentUser.credits || 0) + creditsToAdd
       });
 
@@ -510,7 +510,7 @@
 
       currentUser = await updateCurrentUser({
         plan: 'Free',
-        billingPeriod: null,
+        billing_period: null,
         credits: 0 // Reset credits to Starter free boundaries
       });
 
