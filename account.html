@@ -292,6 +292,7 @@
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://js.stripe.com/v3/"></script>
   <script src="js/app.js"></script>
   <script>
     let currentUser = null;
@@ -391,24 +392,42 @@
       planLbl.textContent = `${currentUser.plan} Plan`;
       creditsLbl.textContent = `${currentUser.credits} Credits Available`;
 
+      // Render checkout mode selection
+      let modeHtml = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; padding:12px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:var(--radius-sm)">
+          <div>
+            <div style="font-size:13px; font-weight:600; color:var(--text-primary)">Checkout Billing Mode</div>
+            <div style="font-size:11px; color:var(--text-muted)">Toggle between live Stripe payment links and local sandbox simulator</div>
+          </div>
+          <select id="checkout-mode-select" style="background:var(--bg-dark); border:1px solid var(--border); color:var(--text-primary); padding:6px 10px; border-radius:6px; font-size:12px; outline:none; max-width:160px;" onchange="toggleCheckoutMode()">
+            <option value="stripe" ${store.get('checkout_mode', 'stripe') === 'stripe' ? 'selected' : ''}>Stripe Checkout</option>
+            <option value="simulator" ${store.get('checkout_mode') === 'simulator' ? 'selected' : ''}>Local Sandbox</option>
+          </select>
+        </div>
+      `;
+
       if (currentUser.plan === 'Free') {
         renewalRow.innerHTML = `<span>Credit Renewal Cycle:</span><strong>One-Off Sign-up Credits</strong>`;
         
+        const isStripe = store.get('checkout_mode', 'stripe') === 'stripe';
+        const actionLabel = isStripe ? 'Upgrade' : 'Simulate';
+        const actionFn = isStripe ? 'redirectToStripe' : 'simulateUpgrade';
+        
         // Show Upgrade button configurations
-        document.getElementById('upgrade-options-list').innerHTML = `
+        document.getElementById('upgrade-options-list').innerHTML = modeHtml + `
           <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.01); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
             <div>
               <div style="font-weight:700; color:var(--text-primary)">Upgrade to Pro (Monthly)</div>
               <div style="font-size:11.5px; color:var(--text-muted)">Get ${settings.monthlyCredits} credits instantly for £${settings.monthlyPrice}/month</div>
             </div>
-            <button class="btn btn-primary btn-sm" onclick="simulateUpgrade('Pro', 'monthly')">Upgrade</button>
+            <button class="btn btn-primary btn-sm" onclick="${actionFn}('Pro', 'monthly')">${actionLabel}</button>
           </div>
           <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.01); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
             <div>
               <div style="font-weight:700; color:var(--text-primary)">Upgrade to Pro (Annual)</div>
               <div style="font-size:11.5px; color:var(--text-muted)">Get ${settings.annualCredits} credits instantly for £${settings.annualPrice}/year</div>
             </div>
-            <button class="btn btn-primary btn-sm" onclick="simulateUpgrade('Pro', 'annual')">Upgrade</button>
+            <button class="btn btn-primary btn-sm" onclick="${actionFn}('Pro', 'annual')">${actionLabel}</button>
           </div>
         `;
       } else {
@@ -418,16 +437,57 @@
         renewalDate.setDate(renewalDate.getDate() + 30);
         renewalRow.innerHTML = `<span>Next Billing Renewal:</span><strong>${formatDate(renewalDate)} (${periodStr})</strong>`;
 
-        document.getElementById('upgrade-options-list').innerHTML = `
+        const isStripe = store.get('checkout_mode', 'stripe') === 'stripe';
+        const cancelLabel = isStripe ? 'Manage in Stripe' : 'Cancel Subscription';
+        const cancelFn = isStripe ? 'redirectToCustomerPortal' : 'simulateCancelSubscription';
+
+        document.getElementById('upgrade-options-list').innerHTML = modeHtml + `
           <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.01); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
             <div>
-              <div style="font-weight:700; color:var(--text-primary)">Cancel Active Subscription</div>
-              <div style="font-size:11.5px; color:var(--text-muted)">Reverts your account to Starter Free limits immediately</div>
+              <div style="font-weight:700; color:var(--text-primary)">Stripe Customer Billing Portal</div>
+              <div style="font-size:11.5px; color:var(--text-muted)">Manage subscription renewals, payment options, and view invoices</div>
             </div>
-            <button class="btn btn-danger btn-sm" onclick="simulateCancelSubscription()">Cancel Subscription</button>
+            <button class="btn btn-outline btn-sm" onclick="${cancelFn}()">${cancelLabel}</button>
           </div>
         `;
       }
+    }
+
+    // Stripe checkout configuration
+    const STRIPE_MONTHLY_LINK = 'https://buy.stripe.com/test_5kgaFh9N00';
+    const STRIPE_ANNUAL_LINK = 'https://buy.stripe.com/test_8sQbJl9N01';
+    const STRIPE_CUSTOMER_PORTAL = 'https://billing.stripe.com/p/session/test_customer_portal_session';
+
+    function toggleCheckoutMode() {
+      const select = document.getElementById('checkout-mode-select');
+      if (select) {
+        store.set('checkout_mode', select.value);
+        populateSubscriptionTab();
+      }
+    }
+
+    function redirectToStripe(plan, period) {
+      if (!currentUser) return;
+      const link = period === 'annual' ? STRIPE_ANNUAL_LINK : STRIPE_MONTHLY_LINK;
+      
+      // Append client_reference_id (Supabase User ID) so checkout webhooks can credit the correct profile.
+      // We also prefill the customer's email address.
+      const checkoutUrl = `${link}?client_reference_id=${currentUser.id}&prefilled_email=${encodeURIComponent(currentUser.email)}`;
+      
+      showToast("Redirecting to Stripe checkout...", "info");
+      setTimeout(() => {
+        window.location.href = checkoutUrl;
+      }, 1200);
+    }
+
+    function redirectToCustomerPortal() {
+      if (!currentUser) return;
+      // Stripe customer portal handles cancellation and card updates
+      const portalUrl = `${STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(currentUser.email)}`;
+      showToast("Redirecting to your Stripe billing portal...", "info");
+      setTimeout(() => {
+        window.location.href = portalUrl;
+      }, 1200);
     }
 
     async function simulateUpgrade(plan, period) {

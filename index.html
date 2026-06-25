@@ -15,54 +15,94 @@
     /* Page Specific Hero Styles */
     .hero-section {
       position: relative;
-      padding: 120px 0 80px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 140px 0 100px;
+      background-image: linear-gradient(to right, rgba(9, 9, 15, 0.95) 20%, rgba(9, 9, 15, 0.6) 60%, rgba(9, 9, 15, 0.3) 100%), url('https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=1800&q=80');
+      background-size: cover;
+      background-position: center;
       overflow: hidden;
+    }
+
+    .hero-container {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 24px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      text-align: center;
-    }
-    
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      background: var(--gold-glow);
-      border: 1px solid var(--border-gold);
-      border-radius: 99px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--gold);
-      margin-bottom: 24px;
-      animation: fadeUp 0.6s ease both;
+      align-items: flex-start;
+      text-align: left;
+      position: relative;
+      z-index: 10;
     }
 
-    .hero-title {
-      font-family: 'Playfair Display', serif;
-      font-size: clamp(36px, 6vw, 64px);
+    .hero-badge-sub {
+      font-size: 11px;
       font-weight: 700;
-      line-height: 1.15;
-      color: var(--text-primary);
-      max-width: 900px;
-      margin-bottom: 20px;
+      color: var(--gold);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      font-family: 'Inter', sans-serif;
     }
 
-    .hero-desc {
-      font-size: clamp(15px, 2.5vw, 18px);
+    .hero-title-main {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(38px, 5.5vw, 68px);
+      font-weight: 700;
+      line-height: 1.12;
+      color: var(--text-primary);
+      max-width: 720px;
+      margin-bottom: 24px;
+    }
+
+    .hero-title-main span {
+      color: var(--gold);
+    }
+
+    .hero-desc-main {
+      font-size: clamp(14px, 2vw, 17px);
       color: var(--text-secondary);
-      max-width: 650px;
-      margin-bottom: 36px;
+      max-width: 600px;
+      margin-bottom: 40px;
       line-height: 1.7;
     }
 
-    .hero-actions {
+    .hero-actions-row {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 16px;
-      margin-bottom: 60px;
+      gap: 20px;
+      margin-bottom: 12px;
       flex-wrap: wrap;
+    }
+
+    .hero-actions-row .btn-primary {
+      padding: 14px 28px;
+      font-size: 14.5px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-gold);
+    }
+
+    .hero-link {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      transition: color 0.15s;
+    }
+
+    .hero-link:hover {
+      color: var(--gold);
+    }
+
+    .hero-info-text {
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      font-family: monospace;
+      letter-spacing: 0.5px;
     }
 
     /* Floating Visualiser Mockup */
@@ -478,92 +518,24 @@
   <nav class="nav" id="main-nav"></nav>
 
   <!-- Hero Section -->
-  <header class="hero-section page-wrap">
-    <div class="auth-bg"></div>
-    <div class="auth-grid"></div>
-    
-    <div class="container" style="position:relative; z-index: 10;">
-      <div class="hero-badge">
-        <i data-lucide="sparkles" style="width:14px;height:14px"></i>
-        <span>AI-Powered Surface Replacement</span>
+  <header class="hero-section">
+    <div class="hero-container">
+      <div class="hero-badge-sub">
+        The Rated Worktops Visualizer
       </div>
       
-      <h1 class="hero-title">Visualise Premium Stone Surfaces in Your Kitchen</h1>
-      <p class="hero-desc">Upload a photo of your kitchen, select from premium quartz, marble, or granite collections, and preview your new worktops in seconds.</p>
+      <h1 class="hero-title-main">See your kitchen in <span>real stone</span>, before you buy it.</h1>
       
-      <div class="hero-actions">
-        <a href="visualiser.html" class="btn btn-primary btn-xl">
-          <i data-lucide="upload-cloud"></i>
-          Try the Visualiser
-        </a>
-        <a href="stones.html" class="btn btn-ghost btn-xl">
-          Browse Stone Library
-        </a>
-      </div>
+      <p class="hero-desc-main">
+        Upload a photo of your kitchen, choose a stone from our gallery, and our visualizer renders your worktop and splashback in the exact material – photorealistic, in seconds.
+      </p>
       
-      <!-- Interactive Mockup -->
-      <div class="hero-mockup-wrap fade-up-2">
-        <div class="hero-mockup-screen">
-          <img src="https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=1200&q=80" alt="Kitchen Template" class="mockup-bg-img"/>
-          
-          <!-- Mockup Surface replacement visual simulation -->
-          <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1;" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
-            <!-- Simulated worktop highlight overlay with blend mode -->
-            <polygon points="200,600 1400,600 1550,750 50,750" fill="url(#simulated-marble)" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 10px 10px rgba(0,0,0,0.3))" />
-            <defs>
-              <linearGradient id="simulated-marble" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#f5efe6" />
-                <stop offset="25%" stop-color="#dfd9cf" />
-                <stop offset="50%" stop-color="#fbfaf8" />
-                <stop offset="75%" stop-color="#cdc4b6" />
-                <stop offset="100%" stop-color="#eae4da" />
-              </linearGradient>
-            </defs>
-          </svg>
-          
-          <div class="mockup-ui-overlay">
-            <div class="mockup-top-bar">
-              <div class="mockup-badge">
-                <span style="width:6px;height:6px;border-radius:50%;background:#4ade80;display:inline-block"></span>
-                Visualizer Active
-              </div>
-              <div class="mockup-badge">
-                <i data-lucide="sparkles" style="width:12px;height:12px;color:var(--gold)"></i>
-                AI Blending On
-              </div>
-            </div>
-            
-            <div class="mockup-sidebar">
-              <span class="mockup-sidebar-title">Select Material</span>
-              <div class="mockup-stone-item" style="border-color:var(--gold)">
-                <div class="mockup-stone-thumb"></div>
-                <div style="text-align:left">
-                  <div style="font-weight:700;color:var(--text-primary)">Calacatta Gold</div>
-                  <div style="color:var(--text-muted);font-size:9px">Quartz • Silestone</div>
-                </div>
-              </div>
-              <div class="mockup-stone-item">
-                <div class="mockup-stone-thumb" style="background:linear-gradient(135deg,#2a2a2a 0%,#4a4540 100%)"></div>
-                <div style="text-align:left">
-                  <div style="font-weight:500;color:var(--text-secondary)">Laurent</div>
-                  <div style="color:var(--text-muted);font-size:9px">Sintered • Dekton</div>
-                </div>
-              </div>
-              <div class="mockup-stone-item">
-                <div class="mockup-stone-thumb" style="background:linear-gradient(135deg,#f0e8d8 0%,#d8ccb8 100%)"></div>
-                <div style="text-align:left">
-                  <div style="font-weight:500;color:var(--text-secondary)">Statuario Nuvo</div>
-                  <div style="color:var(--text-muted);font-size:9px">Quartz • Caesarstone</div>
-                </div>
-              </div>
-            </div>
-            
-            <button class="mockup-btn">
-              <i data-lucide="download" style="width:13px;height:13px"></i>
-              Download Visual
-            </button>
-          </div>
-        </div>
+      <div class="hero-actions-row">
+        <a href="register.html" class="btn btn-primary btn-lg" style="display:inline-flex; align-items:center; gap:8px;">
+          Try with 3 free credits <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+        </a>
+        <a href="#how-it-works" class="hero-link">See how it works</a>
+        <span class="hero-info-text" style="margin-left:8px;">No card needed. Cancel anytime.</span>
       </div>
     </div>
   </header>

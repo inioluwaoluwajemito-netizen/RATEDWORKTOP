@@ -219,6 +219,31 @@ function seedAppData() {
 }
 
 // ── Stone helpers ─────────────────────────────
+function hydrateCollections(brands, colours) {
+  if (brands && !brands.find(b => b.id === 4)) {
+    brands.push({
+      id: 4,
+      name: 'Calacatta Premium',
+      category: 'Marble',
+      enabled: true,
+      description: 'Natural marble from Carrara quarries'
+    });
+  }
+  const additionalColours = [
+    { id: 403, brand_id: 4, name: 'Calacatta Viola', sku: 'CAL-VI', enabled: true, texture: 'marble' },
+    { id: 203, brand_id: 2, name: 'Laurent', sku: 'DEK-LR', enabled: true, texture: 'black' },
+    { id: 303, brand_id: 3, name: 'Cloudburst Concrete', sku: 'CAE-CC', enabled: true, texture: 'slate' },
+    { id: 104, brand_id: 1, name: 'Miami White', sku: 'SIL-MW', enabled: true, texture: 'marble' }
+  ];
+  if (colours) {
+    additionalColours.forEach(ac => {
+      if (!colours.find(c => c.sku === ac.sku)) {
+        colours.push(ac);
+      }
+    });
+  }
+}
+
 async function getAllStones() {
   if (!supabaseClient) return [];
   const { data: brands, error: bErr } = await supabaseClient.from('brands').select('*').eq('enabled', true);
@@ -228,6 +253,8 @@ async function getAllStones() {
     console.error(bErr || cErr);
     return [];
   }
+  
+  hydrateCollections(brands, colours);
   
   const stones = [];
   brands.forEach(brand => {
@@ -261,6 +288,8 @@ async function getBrands() {
   
   if (bErr || cErr) return [];
   
+  hydrateCollections(brands, colours);
+  
   // Attach colours to brands for backward compatibility
   return brands.map(brand => {
     return {
@@ -293,7 +322,11 @@ const STONE_IMAGES = {
   'DEK-KR': 'images/stones/kreta.png',
   'DEK-OP': 'images/stones/opera.png',
   'CAE-SN': 'images/stones/statuario_nuvo.png',
-  'CAE-VN': 'images/stones/vanilla_noir.png'
+  'CAE-VN': 'images/stones/vanilla_noir.png',
+  'CAL-VI': 'images/stones/calacatta_viola.png',
+  'DEK-LR': 'images/stones/laurent.png',
+  'CAE-CC': 'images/stones/cloudburst_concrete.png',
+  'SIL-MW': 'images/stones/miami_white.png'
 };
 
 function getTexture(key) {
@@ -310,24 +343,32 @@ async function buildNav(activePage = '') {
   const navEl = document.getElementById('main-nav');
   if (!navEl) return;
 
-  const links = [
-    { href: 'index.html', label: 'Home' },
+  const links = user ? [
+    { href: 'visualiser.html', label: 'Visualizer' },
+    { href: 'stones.html', label: 'Stone Catalog' },
+    { href: 'my-projects.html', label: 'My Renders' },
+    { href: 'account.html', label: 'Credits' }
+  ] : [
+    { href: 'index.html#how-it-works', label: 'How it works' },
     { href: 'stones.html', label: 'Stones' },
-    { href: 'visualiser.html', label: 'Visualise' }
+    { href: 'index.html#pricing', label: 'Pricing' }
   ];
 
   navEl.innerHTML = `
     <div class="nav-inner">
-      <a href="index.html" class="nav-logo">
-        <div class="logo-icon">🪨</div>
-        <span class="logo-text">RatedWorktops</span>
+      <a href="index.html" class="nav-logo" style="display:flex; align-items:center; gap:12px; text-decoration:none;">
+        <div class="logo-icon" style="width:36px; height:36px; background:var(--gold); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif; font-size:20px; font-weight:800; color:#000; box-shadow: 0 4px 10px rgba(201, 169, 110, 0.25);">R</div>
+        <div style="display:flex; flex-direction:column; gap:1px; text-align:left;">
+          <span style="font-family:'Playfair Display',serif; font-size:16px; font-weight:700; color:var(--text-primary); line-height:1.2;">Rated Worktops</span>
+          <span style="font-size:8px; font-weight:600; color:var(--text-secondary); letter-spacing:1px; text-transform:uppercase; line-height:1;">Stone Visualizer</span>
+        </div>
       </a>
       <div class="nav-links">
         ${links.map(l => `<a href="${l.href}" class="nav-link ${activePage === l.href ? 'active' : ''}">${l.label}</a>`).join('')}
       </div>
       <div class="nav-actions">
         ${user
-          ? `<a href="my-projects.html" class="btn btn-ghost btn-sm">My Projects</a>
+          ? `<a href="account.html" class="credits-badge" style="text-decoration:none; cursor:pointer; display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--gold-glow); border:1px solid var(--border-gold); border-radius:99px; font-size:12px; font-weight:600; color:var(--gold);"><i data-lucide="zap" style="width:12px;height:12px;color:var(--gold);"></i> <span id="credits-count">${user.credits ?? 0}</span> credits</a>
              <div class="nav-avatar" onclick="toggleUserMenu()" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#000;cursor:pointer;position:relative;flex-shrink:0" title="${user.name}">${user.name.charAt(0)}
                <div id="user-menu" style="display:none;position:absolute;top:44px;right:0;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:180px;box-shadow:0 20px 60px rgba(0,0,0,0.5);z-index:100">
                  <div style="padding:10px 12px;border-bottom:1px solid var(--border);margin-bottom:6px">
@@ -340,7 +381,7 @@ async function buildNav(activePage = '') {
                  </a>
                  <a href="my-projects.html" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;color:var(--text-secondary);transition:background 0.15s">
                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                   My Projects
+                   My Renders
                  </a>
                  <button onclick="logout()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;color:var(--danger);background:none;border:none;cursor:pointer;width:100%;font-family:inherit;transition:background 0.15s">
                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
@@ -348,8 +389,8 @@ async function buildNav(activePage = '') {
                  </button>
                </div>
              </div>`
-          : `<a href="login.html" class="btn btn-ghost btn-sm">Sign In</a>
-             <a href="register.html" class="btn btn-primary btn-sm">Start Free</a>`
+          : `<a href="login.html" class="btn btn-ghost btn-sm" style="background:transparent; border:none; color:var(--text-primary); font-size:13.5px; font-weight:600;">Sign in</a>
+             <a href="register.html" class="btn btn-primary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">Start free <i data-lucide="chevron-right" style="width:14px;height:14px;"></i></a>`
         }
       </div>
     </div>

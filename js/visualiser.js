@@ -61,23 +61,73 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 6. Setup Shape Drawing Listeners
   setupDrawingListeners();
 
+  // Mode Selection Tabs Wire Up
+  const modeAutoBtn = document.getElementById('mode-auto-btn');
+  const modeHybridBtn = document.getElementById('mode-hybrid-btn');
+  const modeDescText = document.getElementById('mode-desc-text');
+
+  if (modeAutoBtn && modeHybridBtn) {
+    modeAutoBtn.addEventListener('click', () => {
+      modeAutoBtn.classList.add('active');
+      modeHybridBtn.classList.remove('active');
+      if (modeDescText) modeDescText.textContent = 'AI detects worktop & splashback surfaces automatically.';
+    });
+
+    modeHybridBtn.addEventListener('click', () => {
+      modeHybridBtn.classList.add('active');
+      modeAutoBtn.classList.remove('active');
+      if (modeDescText) modeDescText.textContent = 'Manual coordinates tracing mixed with AI boundary alignment.';
+    });
+  }
+
   // Setup Logout
   document.getElementById('logout-btn').addEventListener('click', async () => {
     await supabaseClient.auth.signOut();
     window.location.href = 'index.html';
   });
+
+  // Setup Mobile Nav Tabs
+  setupMobileNavListeners();
 });
 
 async function loadProfile() {
-  const { data, error } = await supabaseClient
+  let { data, error } = await supabaseClient
     .from('profiles')
     .select('credits')
     .eq('id', currentUser.id)
-    .single();
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error loading profile:', error.message);
+  }
+
+  // Fallback: If no profile exists yet (e.g. first-time Google Sign-In user), create one
+  if (!data) {
+    const defaultName = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || 'Google User';
+    const { data: newProfile, error: insertErr } = await supabaseClient
+      .from('profiles')
+      .insert([{
+        id: currentUser.id,
+        name: defaultName,
+        email: currentUser.email,
+        plan: 'Free',
+        credits: 10
+      }])
+      .select('credits')
+      .single();
+
+    if (insertErr) {
+      console.error('Error creating default profile for OAuth login:', insertErr.message);
+    } else {
+      data = newProfile;
+    }
+  }
 
   if (data) {
     currentProfile = data;
     creditsCountEl.textContent = data.credits;
+    const sidebarCredits = document.getElementById('credits-count-sidebar');
+    if (sidebarCredits) sidebarCredits.textContent = data.credits;
   }
 }
 
@@ -134,6 +184,7 @@ async function loadFiltersAndStones() {
       filterCategory.value = stone.categoryName;
       filterBrand.value = stone.brandName;
       renderStones();
+      updateSelectedMaterialCard(stone);
     }
   }
 }
@@ -176,15 +227,48 @@ function renderStones() {
       document.querySelectorAll('.stone-item').forEach(i => i.classList.remove('selected'));
       el.classList.add('selected');
       selectedStone = stone;
+      updateSelectedMaterialCard(stone);
     });
 
     stoneListEl.appendChild(el);
   });
 }
 
+function updateSelectedMaterialCard(stone) {
+  const container = document.getElementById('selected-material-container');
+  if (!container) return;
+
+  if (!stone) {
+    container.innerHTML = `
+      <div id="selected-material-card" class="material-card-empty">
+        <i data-lucide="info" style="width:16px;height:16px;color:var(--text-secondary);"></i>
+        <span>Pick a stone from the catalog</span>
+      </div>
+    `;
+  } else {
+    const imgUrl = getStoneImage(stone.sku);
+    container.innerHTML = `
+      <div id="selected-material-card" class="material-card-selected fade-up" style="animation-duration: 0.3s;">
+        <div class="material-card-header">
+          <div class="material-card-thumb" style="background-image: url('${imgUrl}');"></div>
+          <div class="material-card-details">
+            <div class="material-card-name" title="${stone.name}">${stone.name}</div>
+            <div class="material-card-brand">${stone.brandName}</div>
+          </div>
+        </div>
+        <div class="material-card-specs">
+          <span>Category: ${stone.categoryName}</span>
+          <span style="font-family: monospace;">SKU: ${stone.sku}</span>
+        </div>
+      </div>
+    `;
+  }
+  lucide.createIcons();
+}
+
 function setupUploadListeners() {
   uploadArea.addEventListener('click', (e) => {
-    if (e.target.closest('#drawing-canvas') || e.target.closest('#drawing-toolbar') || e.target.closest('#action-bar')) {
+    if (e.target.closest('#drawing-canvas') || e.target.closest('#drawing-toolbar') || e.target.closest('.vis-control-panel')) {
       return;
     }
     if (!previewImage.src || previewImage.style.display === 'none') {
@@ -359,14 +443,26 @@ function setupActionListeners() {
     isDrawMode = false;
     originalFileUrl = null;
     
-    actionBar.classList.remove('visible');
+    if (actionBar) actionBar.classList.remove('visible');
     simulatedHighlight.style.display = 'none';
     
-    generateBtn.style.display = 'flex';
+    // Hide drawing components if active
+    drawingCanvas.style.display = 'none';
+
+    // Show pre-render controls
+    const preRenderControls = document.getElementById('pre-render-controls');
+    if (preRenderControls) preRenderControls.style.display = 'flex';
+
     generateBtn.disabled = false;
     generateBtn.innerHTML = `<i data-lucide="sparkles" style="width:16px;height:16px"></i> Generate AI Render`;
     
     document.getElementById('post-render-actions').style.display = 'none';
+    
+    // Reset selected stone display and selection state
+    selectedStone = null;
+    document.querySelectorAll('.stone-item').forEach(i => i.classList.remove('selected'));
+    updateSelectedMaterialCard(null);
+
     lucide.createIcons();
   });
 
@@ -419,9 +515,13 @@ function setupActionListeners() {
     if (!error) {
       currentProfile.credits = newCredits;
       creditsCountEl.textContent = newCredits;
+      const sidebarCredits = document.getElementById('credits-count-sidebar');
+      if (sidebarCredits) sidebarCredits.textContent = newCredits;
+      
       showToast('Visualisation complete! 1 credit deducted.', 'success');
       
-      generateBtn.style.display = 'none';
+      const preRenderControls = document.getElementById('pre-render-controls');
+      if (preRenderControls) preRenderControls.style.display = 'none';
       document.getElementById('post-render-actions').style.display = 'flex';
     } else {
       showToast('Failed to update credits.', 'error');
@@ -659,4 +759,41 @@ function resetSaveBtn(btn) {
   btn.disabled = false;
   btn.innerHTML = `<i data-lucide="bookmark" style="width:16px;height:16px"></i> Save Project`;
   lucide.createIcons();
+}
+
+function setupMobileNavListeners() {
+  const tabCatalog = document.getElementById('nav-tab-catalog');
+  const tabCanvas = document.getElementById('nav-tab-canvas');
+  const tabControls = document.getElementById('nav-tab-controls');
+
+  const visSidebar = document.getElementById('vis-sidebar');
+  const visMain = document.getElementById('vis-main');
+  const visControlPanel = document.getElementById('vis-control-panel');
+
+  if (!tabCatalog || !tabCanvas || !tabControls) return;
+
+  function switchTab(activeTabBtn, activePanel) {
+    // Remove active class from all tabs
+    tabCatalog.classList.remove('active');
+    tabCanvas.classList.remove('active');
+    tabControls.classList.remove('active');
+
+    // Remove active-tab class from all panels
+    visSidebar.classList.remove('active-tab');
+    visMain.classList.remove('active-tab');
+    visControlPanel.classList.remove('active-tab');
+
+    // Set active
+    activeTabBtn.classList.add('active');
+    activePanel.classList.add('active-tab');
+
+    // Redraw canvas context on transition to ensure correct scaling/coordinates matching
+    setTimeout(() => {
+      redrawCanvas();
+    }, 50);
+  }
+
+  tabCatalog.addEventListener('click', () => switchTab(tabCatalog, visSidebar));
+  tabCanvas.addEventListener('click', () => switchTab(tabCanvas, visMain));
+  tabControls.addEventListener('click', () => switchTab(tabControls, visControlPanel));
 }

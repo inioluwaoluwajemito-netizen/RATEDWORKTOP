@@ -280,6 +280,258 @@
       flex-direction: column;
       gap: 10px;
     }
+
+    /* Right Control Panel Styles */
+    .vis-control-panel {
+      width: 300px;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      padding: 24px;
+    }
+
+    .control-section {
+      margin-bottom: 24px;
+    }
+
+    .control-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    /* Mode Tabs */
+    .mode-tabs {
+      display: flex;
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+      margin-bottom: 8px;
+    }
+
+    .mode-tab {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .mode-tab.active {
+      background: var(--gold);
+      color: #000;
+    }
+
+    .mode-desc {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* Material Selection Card */
+    .material-card-empty {
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 32px 16px;
+      color: var(--text-muted);
+      font-size: 12.5px;
+      text-align: center;
+    }
+
+    .material-card-selected {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-gold);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .material-card-header {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .material-card-thumb {
+      width: 50px;
+      height: 50px;
+      border-radius: 6px;
+      background-size: cover;
+      background-position: center;
+      border: 1px solid var(--border);
+    }
+
+    .material-card-details {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .material-card-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .material-card-brand {
+      font-size: 11px;
+      color: var(--gold);
+      margin-top: 2px;
+    }
+
+    .material-card-specs {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      margin-top: 4px;
+    }
+
+    /* Control Footer */
+    .control-footer {
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: auto;
+    }
+
+    .credit-cost-label {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+    }
+
+    .top-up-link {
+      text-align: center;
+      font-size: 12px;
+      color: var(--gold);
+      font-weight: 600;
+      text-decoration: none;
+      display: block;
+      transition: color 0.15s;
+      margin-top: 4px;
+    }
+
+    .top-up-link:hover {
+      color: var(--gold-light);
+    }
+
+    /* Mobile Navigation Bar */
+    .mobile-nav-bar {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: rgba(15, 15, 22, 0.95);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      justify-content: space-around;
+      align-items: center;
+      z-index: 100;
+      padding: 0 16px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+    }
+
+    .mobile-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex: 1;
+      height: 100%;
+    }
+
+    .mobile-nav-item.active {
+      color: var(--gold);
+    }
+
+    .mobile-nav-item svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Mobile media query */
+    @media (max-width: 900px) {
+      body {
+        padding-bottom: 64px;
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+      }
+
+      .vis-navbar {
+        padding: 0 16px;
+      }
+
+      .vis-layout {
+        flex-direction: column;
+        height: calc(100vh - 124px); /* navbar 60px + mobile bottom nav 64px */
+        overflow: hidden;
+      }
+
+      .vis-sidebar, .vis-main, .vis-control-panel {
+        display: none !important;
+        width: 100% !important;
+        height: 100% !important;
+        flex: 1 !important;
+        border: none !important;
+      }
+
+      .vis-sidebar.active-tab, .vis-main.active-tab, .vis-control-panel.active-tab {
+        display: flex !important;
+      }
+
+      .mobile-nav-bar {
+        display: flex !important;
+      }
+
+      /* Adjust internal workspace dimensions for mobile screen constraints */
+      .upload-area {
+        height: 100% !important;
+        max-height: 100% !important;
+        border-radius: 12px;
+      }
+
+      .stone-list {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      }
+    }
   </style>
 </head>
 <body>
@@ -302,7 +554,7 @@
 
   <div class="vis-layout">
     <!-- Sidebar -->
-    <aside class="vis-sidebar">
+    <aside class="vis-sidebar" id="vis-sidebar">
       <div class="sidebar-header">
         <div class="sidebar-title">Select Material</div>
         <div class="filter-group">
@@ -326,7 +578,7 @@
     </aside>
 
     <!-- Main Canvas -->
-    <main class="vis-main">
+    <main class="vis-main active-tab" id="vis-main">
       <div class="upload-area" id="upload-area" style="position:relative;">
         <!-- Floating Drawing Toolbar -->
         <div id="drawing-toolbar" style="display:none; position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:25; background:rgba(15,15,24,0.85); backdrop-filter:blur(12px); border:1px solid var(--border); padding:6px 14px; border-radius:30px; align-items:center; gap:8px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
@@ -361,28 +613,61 @@
           <polygon points="10,60 90,60 95,75 5,75" fill="var(--gold)" opacity="0.4" style="mix-blend-mode: overlay;" />
         </svg>
       </div>
+    </main>
 
-      <div class="action-bar" id="action-bar">
-        <button class="btn" style="background:transparent;border:1px solid var(--border);color:var(--text-primary)" id="reset-btn">
-          <i data-lucide="refresh-cw" style="width:16px;height:16px"></i> Start Over
-        </button>
-        <button class="btn btn-primary" id="generate-btn" style="min-width: 200px; justify-content: center;">
-          <i data-lucide="sparkles" style="width:16px;height:16px"></i> Generate AI Render
-        </button>
+    <!-- Right Control Panel -->
+    <aside class="vis-control-panel" id="vis-control-panel">
+      <div class="control-section">
+        <h3 class="control-title">Mode</h3>
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="mode-auto-btn">Auto</button>
+          <button class="mode-tab" id="mode-hybrid-btn">Hybrid</button>
+        </div>
+        <p class="mode-desc" id="mode-desc-text">AI detects worktop & splashback surfaces automatically.</p>
+      </div>
 
-        <div id="post-render-actions" style="display:none; gap:12px">
-          <button class="btn" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary)" id="download-btn">
-            <i data-lucide="download" style="width:16px;height:16px"></i> Download
+      <div class="control-section" style="flex: 1; display: flex; flex-direction: column;">
+        <h3 class="control-title">Selected Material</h3>
+        <div id="selected-material-container" style="flex: 1; display: flex; flex-direction: column;">
+          <div id="selected-material-card" class="material-card-empty">
+            <i data-lucide="info" style="width:16px;height:16px;color:var(--text-secondary);"></i>
+            <span>Pick a stone from the catalog</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="control-footer">
+        <!-- Pre-render options wrapper -->
+        <div id="pre-render-controls" style="display: flex; flex-direction: column; gap: 10px;">
+          <button class="btn btn-primary w-full" id="generate-btn" style="height:44px; justify-content:center;">
+            <i data-lucide="sparkles" style="width:16px;height:16px"></i> Generate AI Render
           </button>
-          <button class="btn" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary)" id="share-btn">
-            <i data-lucide="share-2" style="width:16px;height:16px"></i> Share
-          </button>
-          <button class="btn btn-primary" id="save-btn">
+          
+          <div class="credit-cost-label">
+            Costs 1 credit · Balance: <span id="credits-count-sidebar">...</span>
+          </div>
+          <a href="account.html" class="top-up-link">Top up credits →</a>
+        </div>
+
+        <!-- Post-render options wrapper -->
+        <div id="post-render-actions" style="display:none; flex-direction:column; gap:12px;">
+          <button class="btn btn-primary w-full" id="save-btn" style="height:42px; justify-content:center;">
             <i data-lucide="bookmark" style="width:16px;height:16px"></i> Save Project
+          </button>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-ghost flex-1" id="download-btn" style="justify-content:center;">
+              <i data-lucide="download" style="width:14px;height:14px"></i> Download
+            </button>
+            <button class="btn btn-ghost flex-1" id="share-btn" style="justify-content:center;">
+              <i data-lucide="share-2" style="width:14px;height:14px"></i> Share
+            </button>
+          </div>
+          <button class="btn btn-ghost w-full" id="reset-btn" style="height:38px; justify-content:center; border-color:transparent; color:var(--text-secondary);">
+            <i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Start Over
           </button>
         </div>
       </div>
-    </main>
+    </aside>
   </div>
 
   <!-- Share Modal -->
@@ -414,6 +699,22 @@
         Cancel
       </button>
     </div>
+  </div>
+
+  <!-- Mobile Bottom Navigation Bar -->
+  <div class="mobile-nav-bar" id="mobile-nav-bar">
+    <button class="mobile-nav-item" id="nav-tab-catalog">
+      <i data-lucide="layout-grid"></i>
+      <span>Catalog</span>
+    </button>
+    <button class="mobile-nav-item active" id="nav-tab-canvas">
+      <i data-lucide="image"></i>
+      <span>Canvas</span>
+    </button>
+    <button class="mobile-nav-item" id="nav-tab-controls">
+      <i data-lucide="sliders"></i>
+      <span>Controls</span>
+    </button>
   </div>
 
   <div id="toast-container"></div>
