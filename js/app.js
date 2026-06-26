@@ -253,7 +253,13 @@ function hydrateCollections(brands, colours) {
     });
   }
   const additionalColours = [
-    { id: 403, brand_id: 4, name: 'Calacatta Viola', sku: 'CAL-VI', enabled: true, texture: 'marble' },
+    { id: 401, brand_id: 4, name: 'Calacatta Gold', sku: 'CAL-GD', enabled: true, texture: 'marble' },
+    { id: 402, brand_id: 4, name: 'Carrara White Marble', sku: 'CAL-CW', enabled: true, texture: 'marble' },
+    { id: 403, brand_id: 4, name: 'Nero Marquina', sku: 'CAL-NM', enabled: true, texture: 'marble' },
+    { id: 404, brand_id: 4, name: 'Arabescato Vagli', sku: 'CAL-AV', enabled: true, texture: 'marble' },
+    { id: 205, brand_id: 2, name: 'Charcoal Granite', sku: 'DEK-CG', enabled: true, texture: 'granite' },
+    
+    { id: 405, brand_id: 4, name: 'Calacatta Viola', sku: 'CAL-VI', enabled: true, texture: 'marble' },
     { id: 203, brand_id: 2, name: 'Laurent', sku: 'DEK-LR', enabled: true, texture: 'black' },
     { id: 303, brand_id: 3, name: 'Cloudburst Concrete', sku: 'CAE-CC', enabled: true, texture: 'slate' },
     { id: 104, brand_id: 1, name: 'Miami White', sku: 'SIL-MW', enabled: true, texture: 'marble' }
@@ -346,6 +352,11 @@ const STONE_IMAGES = {
   'DEK-OP': 'images/stones/opera.png',
   'CAE-SN': 'images/stones/statuario_nuvo.png',
   'CAE-VN': 'images/stones/vanilla_noir.png',
+  'CAL-GD': 'images/stones/eternal_calacatta_gold.png',
+  'CAL-CW': 'images/stones/carrara_white_marble.png',
+  'CAL-NM': 'images/stones/nero_marquina.png',
+  'CAL-AV': 'images/stones/arabescato_vagli.png',
+  'DEK-CG': 'images/stones/charcoal_granite.png',
   'CAL-VI': 'images/stones/calacatta_viola.png',
   'DEK-LR': 'images/stones/laurent.png',
   'CAE-CC': 'images/stones/cloudburst_concrete.png',
@@ -383,7 +394,7 @@ async function buildNav(activePage = '') {
         <div class="logo-icon" style="width:36px; height:36px; background:var(--gold); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif; font-size:20px; font-weight:800; color:#000; box-shadow: 0 4px 10px rgba(201, 169, 110, 0.25);">R</div>
         <div style="display:flex; flex-direction:column; gap:1px; text-align:left;">
           <span style="font-family:'Playfair Display',serif; font-size:16px; font-weight:700; color:var(--text-primary); line-height:1.2;">Rated Worktops</span>
-          <span style="font-size:8px; font-weight:600; color:var(--text-secondary); letter-spacing:1px; text-transform:uppercase; line-height:1;">Stone Visualizer</span>
+          <span style="font-size:8px; font-weight:600; color:var(--text-secondary); letter-spacing:1px; text-transform:uppercase; line-height:1;">STONE VISUALIZER</span>
         </div>
       </a>
       <div class="nav-links">

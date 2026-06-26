@@ -223,11 +223,13 @@ function renderStones() {
     
     const imgUrl = getStoneImage(stone.sku);
 
+    const categoryLabel = (stone.categoryName || stone.category || 'Marble').toUpperCase();
+    const finishLabel = (stone.texture === 'granite' || stone.texture === 'slate') ? 'HONED' : 'POLISHED';
     el.innerHTML = `
       <div class="stone-thumb" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
       <div class="stone-info">
         <div class="stone-name" title="${stone.name}">${stone.name}</div>
-        <div class="stone-brand">${stone.brandName}</div>
+        <div class="stone-brand">${categoryLabel} · ${finishLabel}</div>
       </div>
     `;
 

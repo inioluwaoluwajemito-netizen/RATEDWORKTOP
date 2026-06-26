@@ -124,7 +124,7 @@ button { font-family: inherit; }
 }
 
 .nav-link:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
-.nav-link.active { color: var(--gold); }
+.nav-link.active { color: var(--text-primary); font-weight: 600; }
 
 .nav-actions {
   display: flex;
