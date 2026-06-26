@@ -71,7 +71,30 @@ async function registerUser({ name, email, password }) {
 
 async function loginUser({ email, password }) {
   if (!supabaseClient) return { ok: false, error: 'Database disconnected' };
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  
+  let { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  
+  // Auto-registration fallback for the demo account
+  if (error && error.message === 'Invalid login credentials' && email === 'demo@ratedworktops.com') {
+    console.log('Demo account not found in Supabase Auth. Registering it automatically...');
+    
+    // Register the demo account automatically with default stats
+    const regResult = await registerUser({
+      name: 'Sophie Anderson',
+      email: 'demo@ratedworktops.com',
+      password: 'Demo123'
+    });
+    
+    if (regResult.ok) {
+      // Re-attempt sign in after auto-registration
+      const retry = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (!retry.error) {
+        return { ok: true, user: retry.data.user };
+      }
+      error = retry.error;
+    }
+  }
+  
   if (error) return { ok: false, error: error.message };
   return { ok: true, user: data.user };
 }
