@@ -3,9 +3,685 @@
    ============================================ */
 
 // ── Supabase Initialization ───────────────────
-const supabaseUrl = 'https://cvzeelapjwdvpotuvbrz.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2emVlbGFwandkdnBvdHV2YnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODI0NzAsImV4cCI6MjA5Nzc1ODQ3MH0.1zhb3W30NmK8wwW5q6_eJ_ExHd0zoyWhYvCG7w5T3S4';
-const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
+// We mock Supabase to run completely local storage/client-side.
+class MockSupabaseQuery {
+  constructor(table) {
+    this.table = table;
+    this.filters = [];
+    this.orderByField = null;
+    this.orderByAsc = true;
+    this.limitCount = null;
+    this.isSingle = false;
+    this.insertRows = null;
+    this.updateChanges = null;
+    this.deleteFlag = false;
+    this.upsertRow = null;
+  }
+  
+  select(cols) {
+    return this;
+  }
+  
+  eq(col, val) {
+    this.filters.push({ col, val, op: 'eq' });
+    return this;
+  }
+  
+  order(col, options) {
+    this.orderByField = col;
+    this.orderByAsc = options ? (options.ascending !== false) : true;
+    return this;
+  }
+  
+  limit(count) {
+    this.limitCount = count;
+    return this;
+  }
+  
+  single() {
+    this.isSingle = true;
+    return this;
+  }
+  
+  insert(rows) {
+    this.insertRows = rows;
+    return this;
+  }
+  
+  update(changes) {
+    this.updateChanges = changes;
+    return this;
+  }
+  
+  delete() {
+    this.deleteFlag = true;
+    return this;
+  }
+  
+  upsert(row) {
+    this.upsertRow = row;
+    return this;
+  }
+  
+  async then(resolve, reject) {
+    try {
+      const res = await this.execute();
+      resolve(res);
+    } catch (e) {
+      if (reject) reject(e);
+      else resolve({ data: null, error: e });
+    }
+  }
+  
+  async execute() {
+    let key = 'rw_' + this.table;
+    let data = [];
+    
+    try {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        data = JSON.parse(stored);
+      } else {
+        if (this.table === 'brands') {
+          data = JSON.parse(localStorage.getItem('rw_brands')) || [];
+        } else if (this.table === 'categories') {
+          data = JSON.parse(localStorage.getItem('rw_categories')) || [];
+        } else if (this.table === 'settings') {
+          const s = JSON.parse(localStorage.getItem('rw_settings')) || {};
+          data = [s];
+        } else if (this.table === 'profiles') {
+          const appUsers = JSON.parse(localStorage.getItem('rw_app_users')) || [];
+          data = appUsers.map(u => ({
+            id: u.id,
+            name: u.name,
+            full_name: u.name,
+            email: u.email,
+            plan: u.plan || 'Free',
+            credits: u.credits !== undefined ? u.credits : 10,
+            created_at: u.joined || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }));
+        } else if (this.table === 'colours') {
+          const brands = JSON.parse(localStorage.getItem('rw_brands')) || [];
+          const cols = [];
+          brands.forEach(b => {
+            if (b.colours) {
+              b.colours.forEach(c => {
+                cols.push({ ...c, brand_id: b.id });
+              });
+            }
+          });
+          data = cols;
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing table ' + this.table, e);
+    }
+    
+    if (this.table === 'settings' && (!data || data.length === 0)) {
+      const defSettings = {
+        freeCreditsEnabled: true,
+        subscriptionsEnabled: true,
+        freeCreditsCount: 10,
+        monthlyPrice: 9.99,
+        annualPrice: 89.99,
+        monthlyCredits: 100,
+        annualCredits: 1500,
+        tempStorageHours: 48,
+        maxSavedProjects: 2
+      };
+      data = [defSettings];
+      localStorage.setItem('rw_settings', JSON.stringify(defSettings));
+    }
+    
+    if (this.table === 'settings' && !Array.isArray(data)) {
+      data = [data];
+    }
+    
+    // Write Actions
+    if (this.insertRows) {
+      const rows = Array.isArray(this.insertRows) ? this.insertRows : [this.insertRows];
+      const rowsWithIds = rows.map(r => {
+        const nr = { ...r };
+        if (!nr.id) {
+          nr.id = Date.now() + Math.floor(Math.random() * 1000);
+        }
+        if (!nr.created_at) {
+          nr.created_at = new Date().toISOString();
+        }
+        return nr;
+      });
+      data = data.concat(rowsWithIds);
+      localStorage.setItem(key, JSON.stringify(data));
+      
+      if (this.table === 'profiles') syncProfilesToUsers(data);
+      if (this.table === 'colours') syncColoursToBrands(data);
+      
+      return { data: this.isSingle ? rowsWithIds[0] : (Array.isArray(this.insertRows) ? rowsWithIds : rowsWithIds[0]), error: null };
+    }
+    
+    if (this.updateChanges) {
+      data = data.map(item => {
+        let match = true;
+        for (const filter of this.filters) {
+          if (filter.op === 'eq' && item[filter.col] != filter.val) {
+            match = false;
+            break;
+          }
+        }
+        if (match) {
+          const newItem = { ...item, ...this.updateChanges };
+          newItem.updated_at = new Date().toISOString();
+          return newItem;
+        }
+        return item;
+      });
+      localStorage.setItem(key, JSON.stringify(data));
+      
+      if (this.table === 'profiles') syncProfilesToUsers(data);
+      if (this.table === 'colours') syncColoursToBrands(data);
+      
+      const matchedItems = data.filter(item => {
+        for (const filter of this.filters) {
+          if (filter.op === 'eq' && item[filter.col] != filter.val) return false;
+        }
+        return true;
+      });
+      return { data: this.isSingle ? matchedItems[0] : matchedItems, error: null };
+    }
+    
+    if (this.deleteFlag) {
+      data = data.filter(item => {
+        let match = true;
+        for (const filter of this.filters) {
+          if (filter.op === 'eq' && item[filter.col] != filter.val) {
+            match = false;
+            break;
+          }
+        }
+        return !match;
+      });
+      localStorage.setItem(key, JSON.stringify(data));
+      
+      if (this.table === 'profiles') syncProfilesToUsers(data);
+      if (this.table === 'colours') syncColoursToBrands(data);
+      
+      return { data: null, error: null };
+    }
+    
+    if (this.upsertRow) {
+      const rows = Array.isArray(this.upsertRow) ? this.upsertRow : [this.upsertRow];
+      rows.forEach(r => {
+        const idx = data.findIndex(item => item.id == r.id);
+        if (idx >= 0) {
+          data[idx] = { ...data[idx], ...r };
+        } else {
+          data.push({ ...r, id: r.id || Date.now() + Math.floor(Math.random() * 1000) });
+        }
+      });
+      localStorage.setItem(key, JSON.stringify(data));
+      
+      if (this.table === 'profiles') syncProfilesToUsers(data);
+      if (this.table === 'colours') syncColoursToBrands(data);
+      if (this.table === 'settings') {
+        const row = Array.isArray(this.upsertRow) ? this.upsertRow[0] : this.upsertRow;
+        localStorage.setItem('rw_settings', JSON.stringify(row));
+      }
+      
+      return { data: Array.isArray(this.upsertRow) ? rows : rows[0], error: null };
+    }
+    
+    // Read Actions
+    let result = [...data];
+    for (const filter of this.filters) {
+      if (filter.op === 'eq') {
+        result = result.filter(item => item[filter.col] == filter.val);
+      }
+    }
+    
+    if (this.orderByField) {
+      result.sort((a, b) => {
+        const valA = a[this.orderByField];
+        const valB = b[this.orderByField];
+        if (valA < valB) return this.orderByAsc ? -1 : 1;
+        if (valA > valB) return this.orderByAsc ? 1 : -1;
+        return 0;
+      });
+    }
+    
+    if (this.limitCount !== null) {
+      result = result.slice(0, this.limitCount);
+    }
+    
+    if (this.isSingle) {
+      return { data: result[0] || null, error: null };
+    }
+    
+    if (this.table === 'settings') {
+      return { data: result[0] || {}, error: null };
+    }
+    
+    return { data: result, error: null };
+  }
+}
+
+function syncProfilesToUsers(profiles) {
+  const appUsers = profiles.map(p => ({
+    id: p.id,
+    name: p.name || p.full_name || 'Unknown',
+    email: p.email,
+    password: p.password || 'Demo123',
+    plan: p.plan || 'Free',
+    credits: p.credits !== undefined ? p.credits : 10,
+    visualisations: p.visualisations || 0,
+    downloads: p.downloads || 0,
+    shares: p.shares || 0,
+    joined: p.created_at || new Date().toISOString(),
+    verified: true
+  }));
+  localStorage.setItem('rw_app_users', JSON.stringify(appUsers));
+  
+  const adminUsers = profiles.map(p => ({
+    id: p.id,
+    name: p.name || p.full_name || 'Unknown',
+    email: p.email,
+    plan: p.plan || 'Free',
+    credits: p.credits !== undefined ? p.credits : 10,
+    visualisations: p.visualisations || 0,
+    downloads: p.downloads || 0,
+    shares: p.shares || 0,
+    status: p.status || 'active',
+    joined: (p.created_at || new Date().toISOString()).split('T')[0],
+    lastActive: (p.updated_at || new Date().toISOString()).split('T')[0]
+  }));
+  localStorage.setItem('rw_users', JSON.stringify(adminUsers));
+}
+
+function syncColoursToBrands(colours) {
+  const brands = JSON.parse(localStorage.getItem('rw_brands')) || [];
+  const updatedBrands = brands.map(brand => {
+    return {
+      ...brand,
+      colours: colours.filter(c => c.brand_id == brand.id)
+    };
+  });
+  localStorage.setItem('rw_brands', JSON.stringify(updatedBrands));
+}
+
+function initProfilesTable() {
+  let profiles = [];
+  const storedProfiles = localStorage.getItem('rw_profiles');
+  if (storedProfiles) {
+    try {
+      profiles = JSON.parse(storedProfiles);
+    } catch (e) {
+      profiles = [];
+    }
+  }
+  
+  const appUsers = JSON.parse(localStorage.getItem('rw_app_users')) || [];
+  const adminUsers = JSON.parse(localStorage.getItem('rw_users')) || [];
+  const userMap = {};
+  
+  adminUsers.forEach(u => {
+    userMap[u.email] = {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      plan: u.plan || 'Free',
+      credits: u.credits !== undefined ? u.credits : 10,
+      visualisations: u.visualisations || 0,
+      downloads: u.downloads || 0,
+      shares: u.shares || 0,
+      status: u.status || 'active',
+      created_at: u.joined ? new Date(u.joined).toISOString() : new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  });
+  
+  appUsers.forEach(u => {
+    userMap[u.email] = {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      password: u.password,
+      plan: u.plan || 'Free',
+      credits: u.credits !== undefined ? u.credits : 10,
+      visualisations: u.visualisations || 0,
+      downloads: u.downloads || 0,
+      shares: u.shares || 0,
+      status: u.status || 'active',
+      created_at: u.joined ? new Date(u.joined).toISOString() : new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  });
+  
+  if (!userMap['demo@ratedworktops.com']) {
+    userMap['demo@ratedworktops.com'] = {
+      id: 1,
+      name: 'Sophie Anderson',
+      email: 'demo@ratedworktops.com',
+      password: 'Demo123',
+      plan: 'Pro',
+      credits: 78,
+      visualisations: 23,
+      downloads: 15,
+      shares: 8,
+      status: 'active',
+      created_at: new Date('2025-11-14').toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  }
+  
+  if (!userMap['admin@ratedworktops.com']) {
+    userMap['admin@ratedworktops.com'] = {
+      id: 999,
+      name: 'Site Administrator',
+      email: 'admin@ratedworktops.com',
+      password: 'Admin123',
+      plan: 'Admin',
+      credits: 9999,
+      visualisations: 0,
+      downloads: 0,
+      shares: 0,
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  }
+  
+  profiles.forEach(p => {
+    if (p.email) {
+      userMap[p.email] = {
+        ...(userMap[p.email] || {}),
+        ...p
+      };
+    }
+  });
+  
+  const finalProfiles = Object.values(userMap);
+  localStorage.setItem('rw_profiles', JSON.stringify(finalProfiles));
+  syncProfilesToUsers(finalProfiles);
+}
+
+function initBrandsAndColours() {
+  const storedBrands = localStorage.getItem('rw_brands');
+  let brands = [];
+  if (storedBrands) {
+    try {
+      brands = JSON.parse(storedBrands);
+    } catch (e) {
+      brands = [];
+    }
+  }
+  
+  if (brands.length === 0) {
+    brands = [
+      {
+        id: 1, name: 'Silestone', category: 'Quartz', enabled: true,
+        logo: '', description: 'Premium quartz surfaces by Cosentino',
+        colours: [
+          { id: 101, name: 'Eternal Calacatta Gold', sku: 'SIL-ECG', enabled: true, texture: 'marble', price: '' },
+          { id: 102, name: 'Nebula Pearl', sku: 'SIL-NP', enabled: true, texture: 'quartz', price: '' },
+          { id: 103, name: 'Iconic Black', sku: 'SIL-IB', enabled: true, texture: 'black', price: '' },
+          { id: 104, name: 'Miami White', sku: 'SIL-MW', enabled: true, texture: 'marble', price: '' },
+        ]
+      },
+      {
+        id: 2, name: 'Dekton', category: 'Sintered Stone', enabled: true,
+        logo: '', description: 'Ultra-compact surface by Cosentino',
+        colours: [
+          { id: 201, name: 'Kreta', sku: 'DEK-KR', enabled: true, texture: 'slate', price: '' },
+          { id: 202, name: 'Opera', sku: 'DEK-OP', enabled: true, texture: 'marble', price: '' },
+          { id: 203, name: 'Laurent', sku: 'DEK-LR', enabled: true, texture: 'black', price: '' },
+          { id: 205, name: 'Charcoal Granite', sku: 'DEK-CG', enabled: true, texture: 'granite', price: '' }
+        ]
+      },
+      {
+        id: 3, name: 'Caesarstone', category: 'Quartz', enabled: true,
+        logo: '', description: 'Global leader in quartz surfaces',
+        colours: [
+          { id: 301, name: 'Statuario Nuvo', sku: 'CAE-SN', enabled: true, texture: 'marble', price: '' },
+          { id: 302, name: 'Vanilla Noir', sku: 'CAE-VN', enabled: true, texture: 'granite', price: '' },
+          { id: 303, name: 'Cloudburst Concrete', sku: 'CAE-CC', enabled: true, texture: 'slate', price: '' },
+        ]
+      },
+      {
+        id: 4, name: 'Calacatta Premium', category: 'Marble', enabled: true,
+        logo: '', description: 'Natural marble from Carrara quarries',
+        colours: [
+          { id: 401, name: 'Calacatta Gold', sku: 'CAL-GD', enabled: true, texture: 'marble', price: '' },
+          { id: 402, name: 'Carrara White Marble', sku: 'CAL-CW', enabled: true, texture: 'marble', price: '' },
+          { id: 403, name: 'Nero Marquina', sku: 'CAL-NM', enabled: true, texture: 'marble', price: '' },
+          { id: 404, name: 'Arabescato Vagli', sku: 'CAL-AV', enabled: true, texture: 'marble', price: '' },
+          { id: 405, name: 'Calacatta Viola', sku: 'CAL-VI', enabled: true, texture: 'marble', price: '' }
+        ]
+      }
+    ];
+    localStorage.setItem('rw_brands', JSON.stringify(brands));
+  }
+  
+  let colours = [];
+  const storedColours = localStorage.getItem('rw_colours');
+  if (storedColours) {
+    try {
+      colours = JSON.parse(storedColours);
+    } catch (e) {
+      colours = [];
+    }
+  }
+  
+  if (colours.length === 0) {
+    brands.forEach(b => {
+      if (b.colours) {
+        b.colours.forEach(c => {
+          colours.push({ ...c, brand_id: b.id });
+        });
+      }
+    });
+    localStorage.setItem('rw_colours', JSON.stringify(colours));
+  }
+}
+
+class MockSupabaseClient {
+  constructor() {
+    this.auth = {
+      getSession: async () => {
+        const sessionStr = localStorage.getItem('rw_session');
+        if (!sessionStr) return { data: { session: null }, error: null };
+        try {
+          const session = JSON.parse(sessionStr);
+          return { data: { session }, error: null };
+        } catch (e) {
+          return { data: { session: null }, error: null };
+        }
+      },
+      signUp: async ({ email, password, options }) => {
+        initProfilesTable();
+        let profiles = JSON.parse(localStorage.getItem('rw_profiles')) || [];
+        if (profiles.find(p => p.email === email)) {
+          return { data: { user: null }, error: { message: 'User already exists' } };
+        }
+        
+        const name = (options && options.data && options.data.name) ? options.data.name : email.split('@')[0];
+        const newUser = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          name,
+          email,
+          password,
+          plan: 'Free',
+          credits: 10,
+          visualisations: 0,
+          downloads: 0,
+          shares: 0,
+          status: 'active',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        profiles.push(newUser);
+        localStorage.setItem('rw_profiles', JSON.stringify(profiles));
+        syncProfilesToUsers(profiles);
+        
+        const session = {
+          user: {
+            id: newUser.id,
+            email: newUser.email,
+            user_metadata: { name: newUser.name }
+          },
+          access_token: 'mock-token-' + newUser.id,
+          expires_at: Math.floor(Date.now() / 1000) + 3600
+        };
+        localStorage.setItem('rw_session', JSON.stringify(session));
+        return { data: { user: session.user, session }, error: null };
+      },
+      signInWithPassword: async ({ email, password }) => {
+        initProfilesTable();
+        let profiles = JSON.parse(localStorage.getItem('rw_profiles')) || [];
+        const user = profiles.find(p => p.email === email);
+        if (!user || user.password !== password) {
+          return { data: { user: null, session: null }, error: { message: 'Invalid login credentials' } };
+        }
+        if (user.status === 'suspended') {
+          return { data: { user: null, session: null }, error: { message: 'Your account has been suspended' } };
+        }
+        
+        const session = {
+          user: {
+            id: user.id,
+            email: user.email,
+            user_metadata: { name: user.name }
+          },
+          access_token: 'mock-token-' + user.id,
+          expires_at: Math.floor(Date.now() / 1000) + 3600
+        };
+        localStorage.setItem('rw_session', JSON.stringify(session));
+        return { data: { user: session.user, session }, error: null };
+      },
+      signInWithOAuth: async ({ provider, options }) => {
+        initProfilesTable();
+        let profiles = JSON.parse(localStorage.getItem('rw_profiles')) || [];
+        let googleUser = profiles.find(p => p.email === 'demo@ratedworktops.com');
+        if (!googleUser) {
+          googleUser = {
+            id: 1,
+            name: 'Sophie Anderson',
+            email: 'demo@ratedworktops.com',
+            password: 'Demo123',
+            plan: 'Pro',
+            credits: 78,
+            visualisations: 23,
+            downloads: 15,
+            shares: 8,
+            status: 'active',
+            created_at: new Date('2025-11-14').toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          profiles.push(googleUser);
+          localStorage.setItem('rw_profiles', JSON.stringify(profiles));
+          syncProfilesToUsers(profiles);
+        }
+        
+        const session = {
+          user: {
+            id: googleUser.id,
+            email: googleUser.email,
+            user_metadata: { name: googleUser.name }
+          },
+          access_token: 'mock-token-' + googleUser.id,
+          expires_at: Math.floor(Date.now() / 1000) + 3600
+        };
+        localStorage.setItem('rw_session', JSON.stringify(session));
+        
+        if (options && options.redirectTo) {
+          window.location.href = options.redirectTo;
+        }
+        return { data: { user: session.user, session }, error: null };
+      },
+      signOut: async () => {
+        localStorage.removeItem('rw_session');
+        return { error: null };
+      },
+      updateUser: async (attributes) => {
+        initProfilesTable();
+        const sessionStr = localStorage.getItem('rw_session');
+        if (!sessionStr) return { data: { user: null }, error: { message: 'No active session' } };
+        
+        const session = JSON.parse(sessionStr);
+        let profiles = JSON.parse(localStorage.getItem('rw_profiles')) || [];
+        const userIdx = profiles.findIndex(p => p.id == session.user.id);
+        
+        if (userIdx >= 0) {
+          if (attributes.password) {
+            profiles[userIdx].password = attributes.password;
+          }
+          if (attributes.data && attributes.data.name) {
+            profiles[userIdx].name = attributes.data.name;
+            session.user.user_metadata.name = attributes.data.name;
+            localStorage.setItem('rw_session', JSON.stringify(session));
+          }
+          localStorage.setItem('rw_profiles', JSON.stringify(profiles));
+          syncProfilesToUsers(profiles);
+          return { data: { user: session.user }, error: null };
+        }
+        return { data: { user: null }, error: { message: 'User not found' } };
+      },
+      resetPasswordForEmail: async (email, options) => {
+        return { data: {}, error: null };
+      }
+    };
+    
+    this.storage = {
+      from: (bucket) => {
+        return {
+          upload: async (path, file, options) => {
+            return new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const base64data = reader.result;
+                try {
+                  localStorage.setItem('rw_storage_' + bucket + '_' + path, base64data);
+                } catch (e) {
+                  console.warn('LocalStorage limit exceeded for file upload, using memory URL.');
+                }
+                const objectUrl = URL.createObjectURL(file);
+                window._mockStorage = window._mockStorage || {};
+                window._mockStorage[bucket + '_' + path] = objectUrl;
+                
+                resolve({ data: { path }, error: null });
+              };
+              reader.onerror = (err) => {
+                resolve({ data: null, error: { message: err.message || 'File upload failed' } });
+              };
+              reader.readAsDataURL(file);
+            });
+          },
+          getPublicUrl: (path) => {
+            const cacheKey = bucket + '_' + path;
+            const memoryUrl = window._mockStorage ? window._mockStorage[cacheKey] : null;
+            if (memoryUrl) {
+              return { data: { publicUrl: memoryUrl } };
+            }
+            const base64 = localStorage.getItem('rw_storage_' + bucket + '_' + path);
+            if (base64) {
+              return { data: { publicUrl: base64 } };
+            }
+            return { data: { publicUrl: 'images/placeholder-kitchen.jpg' } };
+          }
+        };
+      }
+    };
+  }
+  
+  from(table) {
+    return new MockSupabaseQuery(table);
+  }
+}
+
+// Instantiate fully client-side database mock client
+const supabaseClient = new MockSupabaseClient();
+initProfilesTable();
+initBrandsAndColours();
 
 // ── Demo credentials ──────────────────────────
 const ADMIN_CREDENTIALS = {
