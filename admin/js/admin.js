@@ -399,6 +399,13 @@ function initProfilesTable() {
     }
   });
   
+  if (userMap['demo@ratedworktops.com']) {
+    userMap['demo@ratedworktops.com'].password = 'Demo123';
+  }
+  if (userMap['admin@ratedworktops.com']) {
+    userMap['admin@ratedworktops.com'].password = 'Admin123';
+  }
+  
   const finalProfiles = Object.values(userMap);
   localStorage.setItem('rw_profiles', JSON.stringify(finalProfiles));
   syncProfilesToUsers(finalProfiles);
