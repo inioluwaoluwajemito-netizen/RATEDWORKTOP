@@ -46,6 +46,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   currentUser = session.user;
 
+  // Build Dynamic Premium Navbar
+  await buildNav('visualiser.html');
+
   // 2. Load User Profile
   await loadProfile();
 
@@ -125,9 +128,14 @@ async function loadProfile() {
 
   if (data) {
     currentProfile = data;
-    creditsCountEl.textContent = data.credits;
+    const navCredits = document.getElementById('credits-count');
+    if (navCredits) navCredits.textContent = data.credits;
+    
     const sidebarCredits = document.getElementById('credits-count-sidebar');
     if (sidebarCredits) sidebarCredits.textContent = data.credits;
+
+    const headerCredits = document.getElementById('credits-count-header');
+    if (headerCredits) headerCredits.textContent = data.credits;
   }
 }
 
@@ -514,9 +522,14 @@ function setupActionListeners() {
 
     if (!error) {
       currentProfile.credits = newCredits;
-      creditsCountEl.textContent = newCredits;
+      const navCredits = document.getElementById('credits-count');
+      if (navCredits) navCredits.textContent = newCredits;
+      
       const sidebarCredits = document.getElementById('credits-count-sidebar');
       if (sidebarCredits) sidebarCredits.textContent = newCredits;
+
+      const headerCredits = document.getElementById('credits-count-header');
+      if (headerCredits) headerCredits.textContent = newCredits;
       
       showToast('Visualisation complete! 1 credit deducted.', 'success');
       
