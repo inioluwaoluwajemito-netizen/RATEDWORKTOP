@@ -4,6 +4,27 @@
 
 // ── Supabase Initialization ───────────────────
 // We mock Supabase to run completely local storage/client-side.
+function safeGetLocalStorage(key, fallback = []) {
+  try {
+    const val = localStorage.getItem(key);
+    if (!val || val === 'undefined') return fallback;
+    return JSON.parse(val);
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function safeToISOString(dateStr) {
+  if (!dateStr) return new Date().toISOString();
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return new Date().toISOString();
+    return d.toISOString();
+  } catch (e) {
+    return new Date().toISOString();
+  }
+}
+
 class MockSupabaseQuery {
   constructor(table) {
     this.table = table;
@@ -77,45 +98,45 @@ class MockSupabaseQuery {
     let key = 'rw_' + this.table;
     let data = [];
     
-    try {
-      const stored = localStorage.getItem(key);
-      if (stored) {
-        data = JSON.parse(stored);
+    data = safeGetLocalStorage(key, null);
+    if (data === null) {
+      if (this.table === 'brands') {
+        data = safeGetLocalStorage('rw_brands');
+      } else if (this.table === 'categories') {
+        data = safeGetLocalStorage('rw_categories');
+      } else if (this.table === 'settings') {
+        const s = safeGetLocalStorage('rw_settings', {});
+        data = [s];
+      } else if (this.table === 'profiles') {
+        const appUsers = safeGetLocalStorage('rw_app_users');
+        data = appUsers.map(u => ({
+          id: u.id,
+          name: u.name,
+          full_name: u.name,
+          email: u.email,
+          plan: u.plan || 'Free',
+          credits: u.credits !== undefined ? u.credits : 10,
+          created_at: safeToISOString(u.joined),
+          updated_at: new Date().toISOString()
+        }));
+      } else if (this.table === 'colours') {
+        const brands = safeGetLocalStorage('rw_brands');
+        const cols = [];
+        brands.forEach(b => {
+          if (b.colours) {
+            b.colours.forEach(c => {
+              cols.push({ ...c, brand_id: b.id });
+            });
+          }
+        });
+        data = cols;
       } else {
-        if (this.table === 'brands') {
-          data = JSON.parse(localStorage.getItem('rw_brands')) || [];
-        } else if (this.table === 'categories') {
-          data = JSON.parse(localStorage.getItem('rw_categories')) || [];
-        } else if (this.table === 'settings') {
-          const s = JSON.parse(localStorage.getItem('rw_settings')) || {};
-          data = [s];
-        } else if (this.table === 'profiles') {
-          const appUsers = JSON.parse(localStorage.getItem('rw_app_users')) || [];
-          data = appUsers.map(u => ({
-            id: u.id,
-            name: u.name,
-            full_name: u.name,
-            email: u.email,
-            plan: u.plan || 'Free',
-            credits: u.credits !== undefined ? u.credits : 10,
-            created_at: u.joined || new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }));
-        } else if (this.table === 'colours') {
-          const brands = JSON.parse(localStorage.getItem('rw_brands')) || [];
-          const cols = [];
-          brands.forEach(b => {
-            if (b.colours) {
-              b.colours.forEach(c => {
-                cols.push({ ...c, brand_id: b.id });
-              });
-            }
-          });
-          data = cols;
-        }
+        data = [];
       }
-    } catch (e) {
-      console.error('Error parsing table ' + this.table, e);
+    }
+    
+    if (!Array.isArray(data)) {
+      data = [];
     }
     
     if (this.table === 'settings' && (!data || data.length === 0)) {
@@ -298,7 +319,7 @@ function syncProfilesToUsers(profiles) {
 }
 
 function syncColoursToBrands(colours) {
-  const brands = JSON.parse(localStorage.getItem('rw_brands')) || [];
+  const brands = safeGetLocalStorage('rw_brands');
   const updatedBrands = brands.map(brand => {
     return {
       ...brand,
@@ -309,18 +330,10 @@ function syncColoursToBrands(colours) {
 }
 
 function initProfilesTable() {
-  let profiles = [];
-  const storedProfiles = localStorage.getItem('rw_profiles');
-  if (storedProfiles) {
-    try {
-      profiles = JSON.parse(storedProfiles);
-    } catch (e) {
-      profiles = [];
-    }
-  }
+  let profiles = safeGetLocalStorage('rw_profiles');
   
-  const appUsers = JSON.parse(localStorage.getItem('rw_app_users')) || [];
-  const adminUsers = JSON.parse(localStorage.getItem('rw_users')) || [];
+  const appUsers = safeGetLocalStorage('rw_app_users');
+  const adminUsers = safeGetLocalStorage('rw_users');
   const userMap = {};
   
   adminUsers.forEach(u => {
@@ -334,7 +347,7 @@ function initProfilesTable() {
       downloads: u.downloads || 0,
       shares: u.shares || 0,
       status: u.status || 'active',
-      created_at: u.joined ? new Date(u.joined).toISOString() : new Date().toISOString(),
+      created_at: safeToISOString(u.joined),
       updated_at: new Date().toISOString()
     };
   });
@@ -351,7 +364,7 @@ function initProfilesTable() {
       downloads: u.downloads || 0,
       shares: u.shares || 0,
       status: u.status || 'active',
-      created_at: u.joined ? new Date(u.joined).toISOString() : new Date().toISOString(),
+      created_at: safeToISOString(u.joined),
       updated_at: new Date().toISOString()
     };
   });
