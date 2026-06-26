@@ -94,7 +94,18 @@
   <script>
     // Redirect if already logged in
     document.addEventListener('DOMContentLoaded', async () => {
-      if (await getCurrentUser()) window.location.href = 'visualiser.html';
+      if (await getCurrentUser()) {
+        window.location.href = 'visualiser.html' + window.location.search;
+        return;
+      }
+      
+      // Preserve query params for registration link
+      if (window.location.search) {
+        const registerLink = document.querySelector('.auth-footer-link a');
+        if (registerLink) {
+          registerLink.href = 'register.html' + window.location.search;
+        }
+      }
     });
 
     document.getElementById('toggle-pass').addEventListener('click', () => {
@@ -130,7 +141,7 @@
 
       const result = await loginUser({ email, password });
       if (result.ok) {
-        window.location.href = 'visualiser.html';
+        window.location.href = 'visualiser.html' + window.location.search;
       } else {
         errEl.textContent = result.error;
         errEl.style.display = 'block';
@@ -148,7 +159,7 @@
       btn.disabled = true;
       btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2.5px;margin:0;border-top-color:#fff"></div> Connecting to Google...`;
       
-      const redirectToUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/visualiser.html');
+      const redirectToUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/visualiser.html' + window.location.search);
       
       const { error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',

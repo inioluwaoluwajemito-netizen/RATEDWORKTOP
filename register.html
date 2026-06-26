@@ -128,7 +128,18 @@
   <script src="js/app.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
-      if (await getCurrentUser()) window.location.href = 'visualiser.html';
+      if (await getCurrentUser()) {
+        window.location.href = 'visualiser.html' + window.location.search;
+        return;
+      }
+
+      // Preserve query params for sign-in link
+      if (window.location.search) {
+        const loginLink = document.querySelector('.auth-footer-link a');
+        if (loginLink) {
+          loginLink.href = 'login.html' + window.location.search;
+        }
+      }
     });
 
     document.getElementById('toggle-pass').addEventListener('click', () => {
@@ -192,7 +203,9 @@
         // We no longer manually set current_user to localStorage,
         // Supabase manages session automatically via secure cookies/localStorage.
         showToast('Account created! Welcome to RatedWorktops 🎉');
-        setTimeout(() => window.location.href = 'visualiser.html', 1000);
+        setTimeout(() => {
+          window.location.href = 'visualiser.html' + window.location.search;
+        }, 1000);
       } else {
         document.getElementById('form-error').textContent = result.error;
         document.getElementById('form-error').style.display = 'block';
@@ -210,7 +223,7 @@
       btn.disabled = true;
       btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2.5px;margin:0;border-top-color:#fff"></div> Connecting to Google...`;
       
-      const redirectToUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/visualiser.html');
+      const redirectToUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/visualiser.html' + window.location.search);
       
       const { error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',

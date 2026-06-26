@@ -531,7 +531,7 @@
       </p>
       
       <div class="hero-actions-row">
-        <a href="register.html" class="btn btn-primary btn-lg" style="display:inline-flex; align-items:center; gap:8px;">
+        <a href="register.html" id="hero-cta-btn" class="btn btn-primary btn-lg" style="display:inline-flex; align-items:center; gap:8px;">
           Try with 3 free credits <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
         </a>
         <a href="#how-it-works" class="hero-link">See how it works</a>
@@ -676,7 +676,17 @@
       await renderPopularStones();
       
       // 3. Render pricing plans
-      renderPricingPlans();
+      await renderPricingPlans();
+
+      // 4. If user is logged in, rewrite the Hero CTA button to point to visualizer
+      const user = await getCurrentUser();
+      if (user) {
+        const heroCta = document.getElementById('hero-cta-btn');
+        if (heroCta) {
+          heroCta.href = 'visualiser.html';
+          heroCta.innerHTML = `Launch AI Visualizer <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>`;
+        }
+      }
       
       // Render Lucide icons
       lucide.createIcons();
@@ -723,8 +733,9 @@
       renderPricingPlans();
     }
 
-    function renderPricingPlans() {
+    async function renderPricingPlans() {
       const grid = document.getElementById('pricing-plans-grid');
+      const user = await getCurrentUser();
       const settings = store.get('settings', {
         freeCreditsEnabled: true,
         subscriptionsEnabled: true,
@@ -738,12 +749,14 @@
       // Case 1: Subscription model is disabled by administrator (Unlimited Free Mode)
       if (!settings.subscriptionsEnabled) {
         document.getElementById('pricing-toggle-wrap').style.display = 'none';
+        const buttonLink = user ? 'visualiser.html' : 'register.html';
+        const buttonText = user ? 'Launch Visualizer' : 'Create Free Account';
         grid.innerHTML = `
           <div class="free-mode-banner">
             <i data-lucide="party-popper" style="width:40px;height:40px;color:var(--gold)"></i>
             <h3>Unlimited Free Access Active</h3>
             <p>RatedWorktops is currently in <strong>Free Mode</strong>. Registrations are completely free, and all accounts have unlimited access to generated visualisations. No payments or credit cards required.</p>
-            <a href="register.html" class="btn btn-primary btn-lg mt-4">Create Free Account</a>
+            <a href="${buttonLink}" class="btn btn-primary btn-lg mt-4">${buttonText}</a>
           </div>
         `;
         lucide.createIcons();
@@ -765,6 +778,12 @@
       const monthlyAnnualEquivalent = settings.monthlyPrice * 12;
       const discountPercentage = Math.round(((monthlyAnnualEquivalent - settings.annualPrice) / monthlyAnnualEquivalent) * 100);
 
+      const starterLink = user ? 'visualiser.html' : 'register.html';
+      const starterText = user ? 'Launch Visualizer' : 'Start Free';
+
+      const proLink = user ? 'account.html' : 'register.html';
+      const proText = user ? 'Upgrade to Pro' : 'Get Pro Access';
+
       grid.innerHTML = `
         <!-- Starter Plan (Free) -->
         <div class="price-card">
@@ -783,7 +802,7 @@
             <li><i data-lucide="check" style="width:16px;height:16px"></i> Download and share visuals</li>
             <li style="opacity:0.5"><i data-lucide="x" style="width:16px;height:16px;color:var(--text-muted)"></i> Save multiple projects (max 2)</li>
           </ul>
-          <a href="register.html" class="btn btn-ghost w-full" style="justify-content:center">Start Free</a>
+          <a href="${starterLink}" class="btn btn-ghost w-full" style="justify-content:center">${starterText}</a>
         </div>
 
         <!-- Pro Plan (Dynamic based on toggle) -->
@@ -804,8 +823,8 @@
             <li><i data-lucide="check" style="width:16px;height:16px"></i> Premium high-res downloads</li>
             <li><i data-lucide="check" style="width:16px;height:16px"></i> Priority processing speed</li>
           </ul>
-          <a href="register.html" class="btn btn-primary w-full" style="justify-content:center">
-            Get Pro Access
+          <a href="${proLink}" class="btn btn-primary w-full" style="justify-content:center">
+            ${proText}
           </a>
         </div>
 
@@ -827,10 +846,9 @@
             <li><i data-lucide="check" style="width:16px;height:16px"></i> Custom watermark removal</li>
             <li><i data-lucide="check" style="width:16px;height:16px"></i> API integrations & fabricator leads</li>
           </ul>
-          <a href="register.html" class="btn btn-ghost w-full" style="justify-content:center">Contact Sales</a>
+          <a href="mailto:sales@ratedworktops.com?subject=Studio%20Plan%20Inquiry" class="btn btn-ghost w-full" style="justify-content:center">Contact Sales</a>
         </div>
       `;
-      
       lucide.createIcons();
     }
   </script>

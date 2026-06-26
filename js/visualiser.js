@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Check Authentication
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
-    window.location.href = 'login.html';
+    window.location.href = 'login.html' + window.location.search;
     return;
   }
   currentUser = session.user;
