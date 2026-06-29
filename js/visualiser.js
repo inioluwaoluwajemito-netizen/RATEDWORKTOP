@@ -140,8 +140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   currentUser = session.user;
 
-  // Build Dynamic Premium Navbar
-  await buildNav('visualiser.html');
+  // Using custom HTML header markup for the visualiser view to prevent dropdown overlap
 
   // 2. Load User Profile
   await loadProfile();
@@ -234,6 +233,13 @@ async function loadProfile() {
 
     const headerCredits = document.getElementById('credits-count-header');
     if (headerCredits) headerCredits.textContent = data.credits;
+
+    // Display user profile name in the header navbar
+    const nameDisplay = document.getElementById('user-name-display');
+    if (nameDisplay) {
+      nameDisplay.textContent = data.name || data.full_name || 'User';
+      nameDisplay.style.display = 'inline-block';
+    }
   }
 }
 

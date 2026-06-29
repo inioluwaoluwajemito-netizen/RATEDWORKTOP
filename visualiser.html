@@ -585,11 +585,35 @@
   </style>
 </head>
 <body>
-  <!-- Navigation -->
-  <nav class="nav" id="main-nav"></nav>
+  <!-- Navigation Header -->
+  <nav class="vis-navbar" style="z-index: 1000;">
+    <a href="index.html" class="vis-logo">
+      <div class="vis-logo-icon">🪨</div>
+      <span>Rated Worktops</span>
+    </a>
+
+    <!-- Navigation links from the first image -->
+    <div class="nav-links" style="display: flex; gap: 4px; align-items: center; justify-content: center;">
+      <a href="visualiser.html" class="nav-link active">Visualizer</a>
+      <a href="stones.html" class="nav-link">Stone Catalog</a>
+      <a href="my-projects.html" class="nav-link">My Renders</a>
+      <a href="account.html" class="nav-link">Credits</a>
+    </div>
+    
+    <div class="vis-nav-actions" style="display: flex; align-items: center; gap: 16px;">
+      <span id="user-name-display" style="font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-right: 4px; display: none;">User</span>
+      <div class="credits-badge">
+        <i data-lucide="zap" style="width: 14px; height: 14px; color: var(--gold);"></i>
+        <span id="credits-count" style="font-weight: 700;">...</span> credits
+      </div>
+      <button class="logout-btn" id="logout-btn" title="Logout" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(255,255,255,0.05); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;">
+        <i data-lucide="log-out" style="width: 16px; height: 16px;"></i>
+      </button>
+    </div>
+  </nav>
 
   <!-- Studio Header Bar -->
-  <div class="vis-header-bar" style="padding: 24px 32px 16px; background: #09090f; flex-shrink: 0; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--border); margin-top: 68px;">
+  <div class="vis-header-bar" style="padding: 24px 32px 16px; background: #09090f; flex-shrink: 0; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--border);">
     <div>
       <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px;">Visualizer Studio</div>
       <h1 style="font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 700; color: var(--text-primary); margin: 0;">Design your worktop</h1>
