@@ -357,7 +357,8 @@
       
       if (!newName) return;
       
-      currentUser = await updateCurrentUser({ name: newName });
+      const updatedProfile = await updateCurrentUser({ name: newName });
+      if (updatedProfile) currentUser = { ...currentUser, ...updatedProfile };
       
       // Refresh Navbar avatar & name representation
       await buildNav('account.html');
@@ -494,11 +495,12 @@
       const settings = store.get('settings', {});
       const creditsToAdd = period === 'annual' ? settings.annualCredits : settings.monthlyCredits;
       
-      currentUser = await updateCurrentUser({
+      const updatedProfile = await updateCurrentUser({
         plan: plan,
         billing_period: period,
         credits: (currentUser.credits || 0) + creditsToAdd
       });
+      if (updatedProfile) currentUser = { ...currentUser, ...updatedProfile };
 
       showToast(`Account successfully upgraded to Pro ${period}! Loaded ${creditsToAdd} credits. 🚀`);
       populateSubscriptionTab();
@@ -508,11 +510,12 @@
     async function simulateCancelSubscription() {
       if (!confirm("Are you sure you want to cancel your Pro subscription? You will lose any unused Pro credits.")) return;
 
-      currentUser = await updateCurrentUser({
+      const updatedProfile = await updateCurrentUser({
         plan: 'Free',
         billing_period: null,
         credits: 0 // Reset credits to Starter free boundaries
       });
+      if (updatedProfile) currentUser = { ...currentUser, ...updatedProfile };
 
       showToast("Subscription cancelled. Account reverted to Free mode.");
       populateSubscriptionTab();

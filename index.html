@@ -683,7 +683,7 @@
       if (user) {
         const heroCta = document.getElementById('hero-cta-btn');
         if (heroCta) {
-          heroCta.href = 'visualiser.html';
+          heroCta.href = 'dashboard.html';
           heroCta.innerHTML = `Launch AI Visualizer <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>`;
         }
       }
@@ -749,7 +749,7 @@
       // Case 1: Subscription model is disabled by administrator (Unlimited Free Mode)
       if (!settings.subscriptionsEnabled) {
         document.getElementById('pricing-toggle-wrap').style.display = 'none';
-        const buttonLink = user ? 'visualiser.html' : 'register.html';
+        const buttonLink = user ? 'dashboard.html' : 'register.html';
         const buttonText = user ? 'Launch Visualizer' : 'Create Free Account';
         grid.innerHTML = `
           <div class="free-mode-banner">
@@ -778,7 +778,7 @@
       const monthlyAnnualEquivalent = settings.monthlyPrice * 12;
       const discountPercentage = Math.round(((monthlyAnnualEquivalent - settings.annualPrice) / monthlyAnnualEquivalent) * 100);
 
-      const starterLink = user ? 'visualiser.html' : 'register.html';
+      const starterLink = user ? 'dashboard.html' : 'register.html';
       const starterText = user ? 'Launch Visualizer' : 'Start Free';
 
       const proLink = user ? 'account.html' : 'register.html';

@@ -2,6 +2,11 @@
    RatedWorktops Admin — Shared JavaScript
    ============================================ */
 
+// ── Supabase Configuration ────────────────────
+// Replace these with your own live Supabase project credentials to connect to a real database
+const SUPABASE_URL = ''; 
+const SUPABASE_ANON_KEY = ''; 
+
 // ── Supabase Initialization ───────────────────
 // We mock Supabase to run completely local storage/client-side.
 function safeGetLocalStorage(key, fallback = []) {
@@ -60,6 +65,11 @@ class MockSupabaseQuery {
   }
   
   single() {
+    this.isSingle = true;
+    return this;
+  }
+
+  maybeSingle() {
     this.isSingle = true;
     return this;
   }
@@ -698,10 +708,17 @@ class MockSupabaseClient {
   }
 }
 
-// Instantiate fully client-side database mock client
-const supabaseClient = new MockSupabaseClient();
-initProfilesTable();
-initBrandsAndColours();
+// Instantiate real Supabase client if credentials are provided, or fall back to the mock client
+const useRealSupabase = typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase;
+const supabaseClient = useRealSupabase 
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+  : new MockSupabaseClient();
+
+// Seed initial mock data if using mock database
+if (!useRealSupabase) {
+  initProfilesTable();
+  initBrandsAndColours();
+}
 
 // ── Demo credentials ──────────────────────────
 const ADMIN_CREDENTIALS = {
@@ -993,17 +1010,17 @@ async function fetchCategories() {
 async function fetchUsers() {
   if (!supabaseClient) return store.get('users', []);
   const { data } = await supabaseClient.from('profiles').select('*');
-  // Map Supabase profiles to admin mock format for now if missing
+  // Map Supabase profiles to admin format
   return data ? data.map(p => ({
     id: p.id,
-    name: p.full_name || 'Unknown',
+    name: p.name || p.full_name || 'Unknown',
     email: p.email,
-    plan: 'Free', // Mock
-    credits: p.credits || 0,
-    visualisations: 0,
-    downloads: 0,
-    shares: 0,
-    status: 'active',
+    plan: p.plan || 'Free',
+    credits: p.credits !== undefined ? p.credits : 0,
+    visualisations: p.visualisations || 0,
+    downloads: p.downloads || 0,
+    shares: p.shares || 0,
+    status: p.status || 'active',
     joined: p.created_at || new Date().toISOString(),
     lastActive: p.updated_at || new Date().toISOString()
   })) : store.get('users', []);

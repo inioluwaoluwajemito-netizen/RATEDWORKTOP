@@ -2,6 +2,11 @@
    RatedWorktops Customer App — Shared JavaScript
    ============================================ */
 
+// ── Supabase Configuration ────────────────────
+// Replace these with your own live Supabase project credentials to connect to a real database
+const SUPABASE_URL = ''; 
+const SUPABASE_ANON_KEY = ''; 
+
 // ── Supabase Initialization ───────────────────
 // We mock Supabase to run completely local storage/client-side.
 function safeGetLocalStorage(key, fallback = []) {
@@ -60,6 +65,11 @@ class MockSupabaseQuery {
   }
   
   single() {
+    this.isSingle = true;
+    return this;
+  }
+
+  maybeSingle() {
     this.isSingle = true;
     return this;
   }
@@ -698,10 +708,17 @@ class MockSupabaseClient {
   }
 }
 
-// Instantiate fully client-side database mock client
-const supabaseClient = new MockSupabaseClient();
-initProfilesTable();
-initBrandsAndColours();
+// Instantiate real Supabase client if credentials are provided, or fall back to the mock client
+const useRealSupabase = typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase;
+const supabaseClient = useRealSupabase 
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+  : new MockSupabaseClient();
+
+// Seed initial mock data if using mock database
+if (!useRealSupabase) {
+  initProfilesTable();
+  initBrandsAndColours();
+}
 
 // ── LocalStorage helpers (Deprecated for DB) ──
 const store = {
@@ -1072,8 +1089,10 @@ async function buildNav(activePage = '') {
   const navEl = document.getElementById('main-nav');
   if (!navEl) return;
 
+  const userName = user ? (user.name || user.full_name || 'User') : 'User';
+
   const links = user ? [
-    { href: 'visualiser.html', label: 'Visualizer' },
+    { href: 'dashboard.html', label: 'Visualizer' },
     { href: 'stones.html', label: 'Stone Catalog' },
     { href: 'my-projects.html', label: 'My Renders' },
     { href: 'account.html', label: 'Credits' }
@@ -1098,10 +1117,10 @@ async function buildNav(activePage = '') {
       <div class="nav-actions">
         ${user
           ? `<a href="account.html" class="credits-badge" style="text-decoration:none; cursor:pointer; display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--gold-glow); border:1px solid var(--border-gold); border-radius:99px; font-size:12px; font-weight:600; color:var(--gold);"><i data-lucide="zap" style="width:12px;height:12px;color:var(--gold);"></i> <span id="credits-count">${user.credits ?? 0}</span> credits</a>
-             <div class="nav-avatar" onclick="toggleUserMenu()" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#000;cursor:pointer;position:relative;flex-shrink:0" title="${user.name}">${user.name.charAt(0)}
+             <div class="nav-avatar" onclick="toggleUserMenu()" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#000;cursor:pointer;position:relative;flex-shrink:0" title="${userName}">${userName.charAt(0)}
                <div id="user-menu" style="display:none;position:absolute;top:44px;right:0;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:180px;box-shadow:0 20px 60px rgba(0,0,0,0.5);z-index:100">
                  <div style="padding:10px 12px;border-bottom:1px solid var(--border);margin-bottom:6px">
-                   <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${user.name}</div>
+                   <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${userName}</div>
                    <div style="font-size:11px;color:var(--text-muted)">${user.email}</div>
                  </div>
                  <a href="account.html" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;color:var(--text-secondary);transition:background 0.15s">

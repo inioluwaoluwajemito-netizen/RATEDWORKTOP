@@ -144,8 +144,8 @@
   </div>
 </div>
 
-<script src="js/admin.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/admin.js"></script>
 <script>
 requireAuth();
 
@@ -299,11 +299,12 @@ async function toggleSuspend(id) {
   // NOTE: 'status' is mock data in our profile mapped struct unless you added it to profiles
   // Since we don't have it in supabase_schema, we will just simulate success or add it
   // For now, it will only visually update if we are storing users in localStorage fallback
-  const action = user.status === 'active' ? 'suspend' : 'reactivate';
+  const newStatus = user.status === 'active' ? 'suspended' : 'active';
   confirmAction(`Are you sure you want to ${action} ${user.name}?`, async () => {
-    // If you add a status column to profiles, uncomment this:
-    // await updateProfileInDB(id, { status: user.status === 'active' ? 'suspended' : 'active' });
-    showToast(`User ${action}d successfully (Mocked)`);
+    await updateProfileInDB(id, { status: newStatus });
+    await filterUsers();
+    await renderUserStats();
+    showToast(`User ${action}d successfully`);
   });
 }
 
@@ -312,9 +313,10 @@ async function deleteUser(id) {
   const user = users.find(u => u.id == id);
   if (!user) return;
   confirmAction(`Permanently delete ${user.name}? This cannot be undone.`, async () => {
-    // Note: deleting a user requires admin auth API or RLS policies.
-    // await supabaseClient.from('profiles').delete().eq('id', id);
-    showToast('User deleted (Mocked due to RLS permissions)', 'warning');
+    await supabaseClient.from('profiles').delete().eq('id', id);
+    await filterUsers();
+    await renderUserStats();
+    showToast('User deleted successfully');
   });
 }
 
