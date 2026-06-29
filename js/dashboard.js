@@ -571,6 +571,7 @@ function setupActionListeners() {
         </pattern>
       </defs>
       <polygon points="${polygonPoints}" fill="url(#stone-pattern)" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.35));" />
+      ${points.length >= 3 ? '' : `<polygon points="60.5,15 86.5,15 86.5,56 60.5,56" fill="url(#stone-pattern)" opacity="0.85" style="mix-blend-mode: overlay;" />`}
     `;
     
     drawingCanvas.style.display = 'none';
@@ -832,14 +833,26 @@ function getRenderedCanvasBlob() {
           for (let i = 1; i < points.length; i++) {
             ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
           }
+          ctx.closePath();
+          ctx.fill();
         } else {
+          // Countertop
           ctx.moveTo(img.width * 0.1, img.height * 0.6);
           ctx.lineTo(img.width * 0.9, img.height * 0.6);
           ctx.lineTo(img.width * 0.95, img.height * 0.75);
           ctx.lineTo(img.width * 0.05, img.height * 0.75);
+          ctx.closePath();
+          ctx.fill();
+
+          // Splashback (the black face)
+          ctx.beginPath();
+          ctx.moveTo(img.width * 0.605, img.height * 0.15);
+          ctx.lineTo(img.width * 0.865, img.height * 0.15);
+          ctx.lineTo(img.width * 0.865, img.height * 0.56);
+          ctx.lineTo(img.width * 0.605, img.height * 0.56);
+          ctx.closePath();
+          ctx.fill();
         }
-        ctx.closePath();
-        ctx.fill();
         
         ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
