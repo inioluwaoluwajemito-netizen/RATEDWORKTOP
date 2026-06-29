@@ -36,6 +36,100 @@ const drawModeBtn = document.getElementById('draw-mode-btn');
 const clearPointsBtn = document.getElementById('clear-points-btn');
 const drawingTip = document.getElementById('drawing-tip');
 const drawingToolbar = document.getElementById('drawing-toolbar');
+let isRendering = false;
+
+async function generateRender() {
+  if (isRendering) return;
+  if (!selectedStone) {
+    showToast('Please select a material from the sidebar first.', 'error');
+    return;
+  }
+
+  const settings = store.get('settings', {});
+  const isFreeMode = settings.subscriptionsEnabled === false;
+
+  if (!isFreeMode && currentProfile.credits <= 0) {
+    showToast('Not enough credits! Please upgrade your plan.', 'error');
+    return;
+  }
+
+  isRendering = true;
+
+  // Hide previous render immediately to show transition
+  simulatedHighlight.style.display = 'none';
+
+  processingOverlay.style.display = 'flex';
+  processingText.textContent = 'Analysing countertop shape...';
+
+  await new Promise(r => setTimeout(r, 1200));
+  processingText.textContent = `Applying ${selectedStone.name}...`;
+  await new Promise(r => setTimeout(r, 1500));
+  processingText.textContent = 'Rendering shadows & lighting...';
+  await new Promise(r => setTimeout(r, 1000));
+
+  processingOverlay.style.display = 'none';
+
+  const imgUrl = getStoneImage(selectedStone.sku);
+  let polygonPoints = "10,60 90,60 95,75 5,75";
+  if (points.length >= 3) {
+    polygonPoints = points.map(p => `${p.x},${p.y}`).join(" ");
+  }
+
+  // Use unique pattern ID to avoid SVG pattern caching bug in browsers
+  const patternId = 'stone-pattern-' + selectedStone.sku + '-' + Date.now();
+
+  simulatedHighlight.innerHTML = `
+    <defs>
+      <pattern id="${patternId}" patternUnits="userSpaceOnUse" width="80" height="80">
+        <image href="${imgUrl}" x="0" y="0" width="80" height="80" />
+      </pattern>
+    </defs>
+    <polygon points="${polygonPoints}" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.35));" />
+    ${points.length >= 3 ? '' : `<polygon points="60.5,15 86.5,15 86.5,56 60.5,56" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay;" />`}
+  `;
+  
+  drawingCanvas.style.display = 'none';
+  simulatedHighlight.style.display = 'block';
+  
+  // Deduct credits and update metrics
+  const newCredits = isFreeMode ? currentProfile.credits : (currentProfile.credits - 1);
+  const newVisualisations = (currentProfile.visualisations || 0) + 1;
+  const { error } = await supabaseClient
+    .from('profiles')
+    .update({ 
+      credits: newCredits,
+      visualisations: newVisualisations
+    })
+    .eq('id', currentUser.id);
+
+  if (!error) {
+    currentProfile.credits = newCredits;
+    currentProfile.visualisations = newVisualisations;
+    
+    const navCredits = document.getElementById('credits-count');
+    if (navCredits) navCredits.textContent = newCredits;
+    
+    const sidebarCredits = document.getElementById('credits-count-sidebar');
+    if (sidebarCredits) sidebarCredits.textContent = newCredits;
+    
+    const headerCredits = document.getElementById('credits-count-header');
+    if (headerCredits) headerCredits.textContent = newCredits;
+    
+    if (isFreeMode) {
+      showToast('Visualisation complete!', 'success');
+    } else {
+      showToast('Visualisation complete! 1 credit deducted.', 'success');
+    }
+    
+    const preRenderControls = document.getElementById('pre-render-controls');
+    if (preRenderControls) preRenderControls.style.display = 'none';
+    document.getElementById('post-render-actions').style.display = 'flex';
+  } else {
+    showToast('Failed to update credits.', 'error');
+  }
+
+  isRendering = false;
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   // 1. Check Authentication
@@ -538,101 +632,6 @@ function setupActionListeners() {
 
     lucide.createIcons();
   });
-
-  let isRendering = false;
-
-  async function generateRender() {
-    if (isRendering) return;
-    if (!selectedStone) {
-      showToast('Please select a material from the sidebar first.', 'error');
-      return;
-    }
-
-    const settings = store.get('settings', {});
-    const isFreeMode = settings.subscriptionsEnabled === false;
-
-    if (!isFreeMode && currentProfile.credits <= 0) {
-      showToast('Not enough credits! Please upgrade your plan.', 'error');
-      return;
-    }
-
-    isRendering = true;
-
-    // Hide previous render immediately to show transition
-    simulatedHighlight.style.display = 'none';
-
-    processingOverlay.style.display = 'flex';
-    processingText.textContent = 'Analysing countertop shape...';
-
-    await new Promise(r => setTimeout(r, 1200));
-    processingText.textContent = `Applying ${selectedStone.name}...`;
-    await new Promise(r => setTimeout(r, 1500));
-    processingText.textContent = 'Rendering shadows & lighting...';
-    await new Promise(r => setTimeout(r, 1000));
-
-    processingOverlay.style.display = 'none';
-
-    const imgUrl = getStoneImage(selectedStone.sku);
-    let polygonPoints = "10,60 90,60 95,75 5,75";
-    if (points.length >= 3) {
-      polygonPoints = points.map(p => `${p.x},${p.y}`).join(" ");
-    }
-
-    // Use unique pattern ID to avoid SVG pattern caching bug in browsers
-    const patternId = 'stone-pattern-' + selectedStone.sku + '-' + Date.now();
-
-    simulatedHighlight.innerHTML = `
-      <defs>
-        <pattern id="${patternId}" patternUnits="userSpaceOnUse" width="80" height="80">
-          <image href="${imgUrl}" x="0" y="0" width="80" height="80" />
-        </pattern>
-      </defs>
-      <polygon points="${polygonPoints}" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.35));" />
-      ${points.length >= 3 ? '' : `<polygon points="60.5,15 86.5,15 86.5,56 60.5,56" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay;" />`}
-    `;
-    
-    drawingCanvas.style.display = 'none';
-    simulatedHighlight.style.display = 'block';
-    
-    // Deduct credits and update metrics
-    const newCredits = isFreeMode ? currentProfile.credits : (currentProfile.credits - 1);
-    const newVisualisations = (currentProfile.visualisations || 0) + 1;
-    const { error } = await supabaseClient
-      .from('profiles')
-      .update({ 
-        credits: newCredits,
-        visualisations: newVisualisations
-      })
-      .eq('id', currentUser.id);
-
-    if (!error) {
-      currentProfile.credits = newCredits;
-      currentProfile.visualisations = newVisualisations;
-      
-      const navCredits = document.getElementById('credits-count');
-      if (navCredits) navCredits.textContent = newCredits;
-      
-      const sidebarCredits = document.getElementById('credits-count-sidebar');
-      if (sidebarCredits) sidebarCredits.textContent = newCredits;
-      
-      const headerCredits = document.getElementById('credits-count-header');
-      if (headerCredits) headerCredits.textContent = newCredits;
-      
-      if (isFreeMode) {
-        showToast('Visualisation complete!', 'success');
-      } else {
-        showToast('Visualisation complete! 1 credit deducted.', 'success');
-      }
-      
-      const preRenderControls = document.getElementById('pre-render-controls');
-      if (preRenderControls) preRenderControls.style.display = 'none';
-      document.getElementById('post-render-actions').style.display = 'flex';
-    } else {
-      showToast('Failed to update credits.', 'error');
-    }
-
-    isRendering = false;
-  }
 
   generateBtn.addEventListener('click', async () => {
     await generateRender();
