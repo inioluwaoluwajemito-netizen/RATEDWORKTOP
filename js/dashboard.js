@@ -331,14 +331,21 @@ function renderStones() {
       </div>
     `;
 
-    el.addEventListener('click', async () => {
+    el.addEventListener('click', () => {
       document.querySelectorAll('.stone-card-item').forEach(i => i.classList.remove('selected'));
       el.classList.add('selected');
       selectedStone = stone;
       updateSelectedMaterialCard(stone);
-      
-      // Automatically trigger render when a stone is chosen
-      await generateRender();
+
+      // Revert to pre-render mode so they can click the Generate button to render the new stone
+      const postActions = document.getElementById('post-render-actions');
+      const preControls = document.getElementById('pre-render-controls');
+      if (postActions && postActions.style.display === 'flex') {
+        postActions.style.display = 'none';
+        if (preControls) preControls.style.display = 'flex';
+        simulatedHighlight.style.display = 'none';
+        drawingCanvas.style.display = 'block';
+      }
     });
 
     stoneListEl.appendChild(el);
