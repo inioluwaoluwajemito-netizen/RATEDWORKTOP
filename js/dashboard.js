@@ -222,7 +222,7 @@ function renderStones() {
 
   filtered.forEach(stone => {
     const el = document.createElement('div');
-    el.className = 'stone-item';
+    el.className = 'stone-card-item';
     if (selectedStone && selectedStone.id === stone.id) el.classList.add('selected');
     
     const imgUrl = getStoneImage(stone.sku);
@@ -230,15 +230,15 @@ function renderStones() {
     const categoryLabel = (stone.categoryName || stone.category || 'Marble').toUpperCase();
     const finishLabel = (stone.texture === 'granite' || stone.texture === 'slate') ? 'HONED' : 'POLISHED';
     el.innerHTML = `
-      <div class="stone-thumb" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
-      <div class="stone-info">
-        <div class="stone-name" title="${stone.name}">${stone.name}</div>
-        <div class="stone-brand">${categoryLabel} · ${finishLabel}</div>
+      <div class="stone-card-thumb" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
+      <div class="stone-card-info">
+        <div class="stone-card-name" title="${stone.name}">${stone.name}</div>
+        <div class="stone-card-meta">${categoryLabel} · ${finishLabel}</div>
       </div>
     `;
 
     el.addEventListener('click', () => {
-      document.querySelectorAll('.stone-item').forEach(i => i.classList.remove('selected'));
+      document.querySelectorAll('.stone-card-item').forEach(i => i.classList.remove('selected'));
       el.classList.add('selected');
       selectedStone = stone;
       updateSelectedMaterialCard(stone);
@@ -530,7 +530,7 @@ function setupActionListeners() {
     
     // Reset selected stone display and selection state
     selectedStone = null;
-    document.querySelectorAll('.stone-item').forEach(i => i.classList.remove('selected'));
+    document.querySelectorAll('.stone-card-item').forEach(i => i.classList.remove('selected'));
     updateSelectedMaterialCard(null);
 
     lucide.createIcons();
