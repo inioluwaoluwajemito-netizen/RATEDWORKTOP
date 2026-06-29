@@ -640,6 +640,33 @@ function setupActionListeners() {
     lucide.createIcons();
   });
 
+  const clearWorkspaceBtn = document.getElementById('clear-workspace-btn');
+  if (clearWorkspaceBtn) {
+    clearWorkspaceBtn.addEventListener('click', () => {
+      // Clear points and redraw canvas
+      points = [];
+      redrawCanvas();
+      clearPointsBtn.style.display = 'none';
+      drawingTip.textContent = 'Click on photo to trace countertop';
+      
+      // Hide highlights
+      simulatedHighlight.style.display = 'none';
+      
+      // Reset selected stone
+      selectedStone = null;
+      document.querySelectorAll('.stone-item').forEach(i => i.classList.remove('selected'));
+      updateSelectedMaterialCard(null);
+
+      // Revert to pre-render controls
+      const postActions = document.getElementById('post-render-actions');
+      const preControls = document.getElementById('pre-render-controls');
+      if (postActions) postActions.style.display = 'none';
+      if (preControls) preControls.style.display = 'flex';
+      
+      showToast('Workspace cleared!', 'info');
+    });
+  }
+
   generateBtn.addEventListener('click', async () => {
     await generateRender();
   });
