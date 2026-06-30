@@ -233,7 +233,7 @@ select option {
 input::placeholder, textarea::placeholder { color: var(--text-muted); }
 
 .input-icon-wrap { position: relative; }
-.input-icon-wrap svg {
+.input-icon-wrap > svg {
   position: absolute;
   left: 14px; top: 50%;
   transform: translateY(-50%);
