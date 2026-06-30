@@ -134,7 +134,11 @@
 
       const result = await loginUser({ email, password });
       if (result.ok) {
-        window.location.href = 'dashboard.html' + window.location.search;
+        if (email.toLowerCase() === 'ratedworktopsapp@gmail.com') {
+          window.location.href = 'admin/index.html' + window.location.search;
+        } else {
+          window.location.href = 'dashboard.html' + window.location.search;
+        }
       } else {
         errEl.textContent = result.error;
         errEl.style.display = 'block';

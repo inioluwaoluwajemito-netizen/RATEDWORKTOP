@@ -396,14 +396,14 @@ function initProfilesTable() {
     };
   }
   
-  if (!userMap['admin@ratedworktops.com']) {
-    userMap['admin@ratedworktops.com'] = {
+  if (!userMap['ratedworktopsapp@gmail.com']) {
+    userMap['ratedworktopsapp@gmail.com'] = {
       id: 999,
       name: 'Site Administrator',
-      email: 'admin@ratedworktops.com',
-      password: 'Admin123',
+      email: 'ratedworktopsapp@gmail.com',
+      password: 'Ratedworktopsapp@',
       plan: 'Admin',
-      credits: 9999,
+      credits: 99999,
       visualisations: 0,
       downloads: 0,
       shares: 0,
@@ -425,8 +425,8 @@ function initProfilesTable() {
   if (userMap['demo@ratedworktops.com']) {
     userMap['demo@ratedworktops.com'].password = 'Demo123';
   }
-  if (userMap['admin@ratedworktops.com']) {
-    userMap['admin@ratedworktops.com'].password = 'Admin123';
+  if (userMap['ratedworktopsapp@gmail.com']) {
+    userMap['ratedworktopsapp@gmail.com'].password = 'Ratedworktopsapp@';
   }
   
   const finalProfiles = Object.values(userMap);
@@ -722,8 +722,8 @@ if (!useRealSupabase) {
 
 // ── Demo credentials ──────────────────────────
 const ADMIN_CREDENTIALS = {
-  email: 'admin@ratedworktops.com',
-  password: 'Admin123'
+  email: 'ratedworktopsapp@gmail.com',
+  password: 'Ratedworktopsapp@'
 };
 
 // ── LocalStorage helpers (Deprecated for DB) ──
@@ -739,7 +739,7 @@ const store = {
 // ── Auth Guard ────────────────────────────────
 async function requireAuth() {
   const { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session || session.user.email !== 'admin@ratedworktops.com') {
+  if (!session || session.user.email !== 'ratedworktopsapp@gmail.com') {
     window.location.href = '../admin/index.html';
     return false;
   }

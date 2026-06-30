@@ -396,14 +396,14 @@ function initProfilesTable() {
     };
   }
   
-  if (!userMap['admin@ratedworktops.com']) {
-    userMap['admin@ratedworktops.com'] = {
+  if (!userMap['ratedworktopsapp@gmail.com']) {
+    userMap['ratedworktopsapp@gmail.com'] = {
       id: 999,
       name: 'Site Administrator',
-      email: 'admin@ratedworktops.com',
-      password: 'Admin123',
+      email: 'ratedworktopsapp@gmail.com',
+      password: 'Ratedworktopsapp@',
       plan: 'Admin',
-      credits: 9999,
+      credits: 99999,
       visualisations: 0,
       downloads: 0,
       shares: 0,
@@ -425,8 +425,8 @@ function initProfilesTable() {
   if (userMap['demo@ratedworktops.com']) {
     userMap['demo@ratedworktops.com'].password = 'Demo123';
   }
-  if (userMap['admin@ratedworktops.com']) {
-    userMap['admin@ratedworktops.com'].password = 'Admin123';
+  if (userMap['ratedworktopsapp@gmail.com']) {
+    userMap['ratedworktopsapp@gmail.com'].password = 'Ratedworktopsapp@';
   }
   
   const finalProfiles = Object.values(userMap);
@@ -786,24 +786,38 @@ async function loginUser({ email, password }) {
   
   let { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
   
-  // Auto-registration fallback for the demo account
-  if (error && error.message === 'Invalid login credentials' && email === 'demo@ratedworktops.com') {
-    console.log('Demo account not found in Supabase Auth. Registering it automatically...');
-    
-    // Register the demo account automatically with default stats
-    const regResult = await registerUser({
-      name: 'Sophie Anderson',
-      email: 'demo@ratedworktops.com',
-      password: 'Demo123'
-    });
-    
-    if (regResult.ok) {
-      // Re-attempt sign in after auto-registration
-      const retry = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (!retry.error) {
-        return { ok: true, user: retry.data.user };
+  // Auto-registration fallback for the demo/admin accounts
+  if (error && error.message === 'Invalid login credentials') {
+    if (email === 'demo@ratedworktops.com') {
+      console.log('Demo account not found in Supabase Auth. Registering it automatically...');
+      const regResult = await registerUser({
+        name: 'Sophie Anderson',
+        email: 'demo@ratedworktops.com',
+        password: 'Demo123'
+      });
+      if (regResult.ok) {
+        const retry = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (!retry.error) {
+          return { ok: true, user: retry.data.user };
+        }
+        error = retry.error;
       }
-      error = retry.error;
+    } else if (email === 'ratedworktopsapp@gmail.com') {
+      console.log('Admin account not found in Supabase Auth. Registering it automatically...');
+      const regResult = await registerUser({
+        name: 'RatedWorktops Admin',
+        email: 'ratedworktopsapp@gmail.com',
+        password: 'Ratedworktopsapp@'
+      });
+      if (regResult.ok) {
+        // Upgrade to Enterprise with large credits
+        await supabaseClient.from('profiles').update({ plan: 'Enterprise', credits: 99999 }).eq('id', regResult.user.id);
+        const retry = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (!retry.error) {
+          return { ok: true, user: retry.data.user };
+        }
+        error = retry.error;
+      }
     }
   }
   

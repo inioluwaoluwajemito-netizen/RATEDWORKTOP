@@ -209,7 +209,7 @@
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
               <polyline points="22,6 12,12 2,6"/>
             </svg>
-            <input type="email" id="email" placeholder="admin@ratedworktops.com" autocomplete="email" required/>
+            <input type="email" id="email" placeholder="ratedworktopsapp@gmail.com" autocomplete="email" required/>
           </div>
         </div>
 
@@ -243,8 +243,8 @@
       <div class="hint-box">
         <p>
           <strong style="color:var(--gold)">Demo credentials:</strong><br/>
-          Email: <code>admin@ratedworktops.com</code><br/>
-          Password: <code>Admin123</code>
+          Email: <code>ratedworktopsapp@gmail.com</code><br/>
+          Password: <code>Ratedworktopsapp@</code>
         </p>
       </div>
 
@@ -262,7 +262,7 @@
       const { data } = await supabaseClient.auth.getSession();
       if (data.session) {
         // Simple check for admin email
-        if (data.session.user.email === 'admin@ratedworktops.com') {
+        if (data.session.user.email === 'ratedworktopsapp@gmail.com') {
           window.location.href = 'dashboard.html';
         }
       }
@@ -307,8 +307,8 @@
       btn.textContent = 'Signing in...';
       errEl.style.display = 'none';
 
-      // Check if it's the admin email
-      if (email !== 'admin@ratedworktops.com') {
+       // Check if it's the admin email
+      if (email !== 'ratedworktopsapp@gmail.com') {
         errEl.textContent = 'Unauthorized email address.';
         errEl.style.display = 'block';
         btn.classList.remove('loading');
