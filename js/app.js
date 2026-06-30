@@ -4,8 +4,8 @@
 
 // ── Supabase Configuration ────────────────────
 // Replace these with your own live Supabase project credentials to connect to a real database
-const SUPABASE_URL = ''; 
-const SUPABASE_ANON_KEY = ''; 
+const SUPABASE_URL = 'https://cvzeelapjwdvpotuvbrz.supabase.co'; 
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2emVlbGFwandkdnBvdHV2YnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODI0NzAsImV4cCI6MjA5Nzc1ODQ3MH0.1zhb3W30NmK8wwW5q6_eJ_ExHd0zoyWhYvCG7w5T3S4'; 
 
 // ── Supabase Initialization ───────────────────
 // We mock Supabase to run completely local storage/client-side.
