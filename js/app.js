@@ -1185,7 +1185,7 @@ function buildFooter() {
     <div class="container">
       <div class="footer-grid">
         <div class="footer-brand">
-          <div class="logo-icon">🪨</div>
+          <div class="logo-icon">R</div>
           <div class="brand-name">RatedWorktops</div>
           <p>AI-powered worktop visualisation. See your dream kitchen before it's built.</p>
         </div>
