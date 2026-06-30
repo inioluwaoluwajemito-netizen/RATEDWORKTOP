@@ -225,6 +225,11 @@ input:focus, select:focus, textarea:focus {
   background: rgba(255,255,255,0.06);
 }
 
+select option {
+  background-color: #0f0f18;
+  color: #f4f0ea;
+}
+
 input::placeholder, textarea::placeholder { color: var(--text-muted); }
 
 .input-icon-wrap { position: relative; }
