@@ -184,9 +184,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Setup Mobile Nav Tabs
   setupMobileNavListeners();
-
-  // Preload test-kitchen.jpg as default workspace image
-  preloadDefaultKitchenImage();
 });
 
 async function loadProfile() {
@@ -481,8 +478,8 @@ async function handleFile(file) {
     return;
   }
 
-  if (file.size > 50 * 1024 * 1024) {
-    showToast('File is too large. Please upload an image up to 50MB.', 'error');
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('File is too large. Please upload an image up to 10MB.', 'error');
     return;
   }
 
@@ -619,16 +616,36 @@ function redrawCanvas() {
 
 function setupActionListeners() {
   resetBtn.addEventListener('click', () => {
+    previewImage.src = '';
+    previewImage.style.display = 'none';
     fileInput.value = '';
+    
+    const uploadWrapper = uploadArea.querySelector('.upload-content-wrapper') || document.getElementById('upload-content');
+    if (uploadWrapper) {
+      uploadWrapper.style.display = 'flex';
+    } else {
+      const upIcon = uploadArea.querySelector('.upload-icon') || uploadArea.querySelector('[data-lucide="upload"]') || uploadArea.querySelector('[data-lucide="upload-cloud"]');
+      if (upIcon) upIcon.style.display = 'block';
+      const upTitle = uploadArea.querySelector('.upload-title');
+      if (upTitle) upTitle.style.display = 'block';
+      const upDesc = uploadArea.querySelector('.upload-desc');
+      if (upDesc) upDesc.style.display = 'block';
+    }
+    
+    drawingToolbar.style.display = 'none';
+    drawingCanvas.style.display = 'none';
+    clearPointsBtn.style.display = 'none';
+    drawingTip.textContent = 'Click on photo to trace countertop';
     
     points = [];
     isDrawMode = false;
     originalFileUrl = null;
     
+    if (actionBar) actionBar.classList.remove('visible');
     simulatedHighlight.style.display = 'none';
+    
+    // Hide drawing components if active
     drawingCanvas.style.display = 'none';
-    clearPointsBtn.style.display = 'none';
-    drawingTip.textContent = 'Click on photo to trace countertop';
 
     // Show pre-render controls
     const preRenderControls = document.getElementById('pre-render-controls');
@@ -643,8 +660,6 @@ function setupActionListeners() {
     selectedStone = null;
     document.querySelectorAll('.stone-item').forEach(i => i.classList.remove('selected'));
     updateSelectedMaterialCard(null);
-
-    preloadDefaultKitchenImage();
 
     lucide.createIcons();
   });
@@ -987,25 +1002,6 @@ function setupMobileNavListeners() {
   tabControls.addEventListener('click', () => switchTab(tabControls, visControlPanel));
 }
 
-function preloadDefaultKitchenImage() {
-  if (previewImage) {
-    previewImage.src = 'test-kitchen.jpg';
-    previewImage.style.display = 'block';
-  }
-  
-  const uploadWrapper = uploadArea ? (uploadArea.querySelector('.upload-content-wrapper') || document.getElementById('upload-content')) : null;
-  if (uploadWrapper) {
-    uploadWrapper.style.display = 'none';
-  }
-  
-  if (drawingToolbar) {
-    drawingToolbar.style.display = 'flex';
-  }
-  
-  if (actionBar) {
-    actionBar.classList.add('visible');
-  }
-}
 
 function updateRenderInstantly() {
   if (!selectedStone) return;
