@@ -380,7 +380,23 @@
       let valid = true;
       if (!name) { document.getElementById('name-error').textContent = 'Please enter your name.'; valid = false; }
       if (!email || !/\S+@\S+\.\S+/.test(email)) { document.getElementById('email-error').textContent = 'Please enter a valid email.'; valid = false; }
-      if (password.length < 8) { document.getElementById('password-error').textContent = 'Password must be at least 8 characters.'; valid = false; }
+      let passwordError = '';
+      if (password.length < 8) {
+        passwordError = 'Password must be at least 8 characters.';
+      } else if (!/[A-Z]/.test(password)) {
+        passwordError = 'Password must contain at least one uppercase letter (A-Z).';
+      } else if (!/[a-z]/.test(password)) {
+        passwordError = 'Password must contain at least one lowercase letter (a-z).';
+      } else if (!/[0-9]/.test(password)) {
+        passwordError = 'Password must contain at least one number (0-9).';
+      } else if (!/[!@#\$%\^&\*\(\)_\+\-\=\[\]\{\};':",\./<>\?~\\\|]/.test(password)) {
+        passwordError = 'Password must contain at least one special character (e.g. !@#$^%*).';
+      }
+
+      if (passwordError) {
+        document.getElementById('password-error').textContent = passwordError;
+        valid = false;
+      }
       if (password !== confirm) { document.getElementById('confirm-error').textContent = 'Passwords do not match.'; valid = false; }
       if (!terms) { document.getElementById('terms-error').textContent = 'You must agree to the terms.'; valid = false; }
       if (!valid) return;
