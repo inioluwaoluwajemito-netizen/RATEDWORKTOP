@@ -551,6 +551,16 @@ function setupDrawingListeners() {
       drawModeBtn.classList.add('btn-ghost');
       drawModeBtn.innerHTML = `<i data-lucide="pen-tool" style="width:13px;height:13px;"></i> Draw Shape`;
       drawingTip.textContent = points.length >= 3 ? 'Countertop shape configured!' : 'Countertop outline set!';
+
+      // Automatically trigger render update if a stone is selected
+      if (selectedStone && previewImage.src && previewImage.style.display === 'block') {
+        const postActions = document.getElementById('post-render-actions');
+        if (postActions && postActions.style.display === 'flex') {
+          updateRenderInstantly();
+        } else {
+          generateRender();
+        }
+      }
     }
     lucide.createIcons();
     redrawCanvas();
