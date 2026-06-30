@@ -343,15 +343,11 @@ function renderStones() {
       selectedStone = stone;
       updateSelectedMaterialCard(stone);
 
-      // Automatically generate render if image is present
+      // Automatically update render instantly if already generated once
       if (previewImage.src && previewImage.style.display === 'block' && !isDrawMode) {
         const postActions = document.getElementById('post-render-actions');
         if (postActions && postActions.style.display === 'flex') {
-          // Already generated once: update render instantly
           updateRenderInstantly();
-        } else {
-          // First time generating: run the full generateRender
-          generateRender();
         }
       }
     });
@@ -552,13 +548,11 @@ function setupDrawingListeners() {
       drawModeBtn.innerHTML = `<i data-lucide="pen-tool" style="width:13px;height:13px;"></i> Draw Shape`;
       drawingTip.textContent = points.length >= 3 ? 'Countertop shape configured!' : 'Countertop outline set!';
 
-      // Automatically trigger render update if a stone is selected
+      // Automatically trigger render update if already generated once
       if (selectedStone && previewImage.src && previewImage.style.display === 'block') {
         const postActions = document.getElementById('post-render-actions');
         if (postActions && postActions.style.display === 'flex') {
           updateRenderInstantly();
-        } else {
-          generateRender();
         }
       }
     }
