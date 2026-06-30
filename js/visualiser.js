@@ -677,11 +677,34 @@ function setupActionListeners() {
   const clearWorkspaceBtn = document.getElementById('clear-workspace-btn');
   if (clearWorkspaceBtn) {
     clearWorkspaceBtn.addEventListener('click', () => {
+      // Clear image from preview and file input
+      previewImage.src = '';
+      previewImage.style.display = 'none';
+      fileInput.value = '';
+      
+      // Show upload content wrapper
+      const uploadWrapper = uploadArea.querySelector('.upload-content-wrapper') || document.getElementById('upload-content');
+      if (uploadWrapper) {
+        uploadWrapper.style.display = 'flex';
+      } else {
+        const upIcon = uploadArea.querySelector('.upload-icon') || uploadArea.querySelector('[data-lucide="upload"]') || uploadArea.querySelector('[data-lucide="upload-cloud"]');
+        if (upIcon) upIcon.style.display = 'block';
+        const upTitle = uploadArea.querySelector('.upload-title');
+        if (upTitle) upTitle.style.display = 'block';
+        const upDesc = uploadArea.querySelector('.upload-desc');
+        if (upDesc) upDesc.style.display = 'block';
+      }
+
       // Clear points and redraw canvas
       points = [];
       redrawCanvas();
       clearPointsBtn.style.display = 'none';
       drawingTip.textContent = 'Click on photo to trace countertop';
+      
+      // Hide tools and canvas
+      if (actionBar) actionBar.classList.remove('visible');
+      drawingToolbar.style.display = 'none';
+      drawingCanvas.style.display = 'none';
       
       // Hide highlights
       simulatedHighlight.style.display = 'none';
