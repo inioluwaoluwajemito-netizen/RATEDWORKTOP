@@ -1152,6 +1152,37 @@ document.addEventListener('DOMContentLoaded', () => {
     menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
   }
 
+  // Notifications dropdown toggle
+  const notifBtn = document.getElementById('notif-btn');
+  const notifDropdown = document.getElementById('notif-dropdown');
+  const notifDot = document.getElementById('notif-dot');
+  const markReadBtn = document.getElementById('notif-mark-read');
+
+  if (notifBtn && notifDropdown) {
+    notifBtn.addEventListener('click', (e) => {
+      const isHidden = notifDropdown.style.display === 'none';
+      notifDropdown.style.display = isHidden ? 'flex' : 'none';
+      e.stopPropagation();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!notifDropdown.contains(e.target) && e.target !== notifBtn && !notifBtn.contains(e.target)) {
+        notifDropdown.style.display = 'none';
+      }
+    });
+
+    if (markReadBtn) {
+      markReadBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (notifDot) notifDot.style.display = 'none';
+        document.querySelectorAll('.notif-item.unread').forEach(item => {
+          item.classList.remove('unread');
+        });
+        showToast('All notifications marked as read', 'success');
+      });
+    }
+  }
+
   // Close modals on overlay click
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', (e) => {

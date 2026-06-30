@@ -302,6 +302,99 @@ body {
   border: 2px solid var(--bg-secondary);
 }
 
+.notif-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg), 0 10px 25px -5px rgba(0,0,0,0.5);
+  z-index: 1000;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+}
+.notif-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.notif-header span {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.notif-mark-read {
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background var(--transition);
+}
+.notif-mark-read:hover {
+  background: rgba(201, 169, 110, 0.1);
+}
+.notif-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.notif-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  transition: background var(--transition);
+}
+.notif-item:last-child {
+  border-bottom: none;
+}
+.notif-item:hover {
+  background: var(--bg-card-hover);
+}
+.notif-item.unread {
+  background: rgba(201, 169, 110, 0.03);
+}
+.notif-item.unread:hover {
+  background: rgba(201, 169, 110, 0.05);
+}
+.notif-icon-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.notif-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+.notif-text {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+.notif-text strong {
+  color: var(--text-primary);
+}
+.notif-time {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
 /* === Page Content === */
 .page-content {
   flex: 1;

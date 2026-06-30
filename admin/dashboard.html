@@ -82,9 +82,55 @@
         </div>
       </div>
       <div class="topbar-right">
-        <div class="topbar-btn" title="Notifications">
+        <div class="topbar-btn" title="Notifications" id="notif-btn" style="position:relative">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
-          <div class="notif-dot"></div>
+          <div class="notif-dot" id="notif-dot"></div>
+          
+          <!-- Dropdown menu -->
+          <div class="notif-dropdown" id="notif-dropdown" style="display:none">
+            <div class="notif-header">
+              <span>Notifications</span>
+              <button class="notif-mark-read" id="notif-mark-read">Mark all as read</button>
+            </div>
+            <div class="notif-list">
+              <div class="notif-item unread">
+                <div class="notif-icon-circle" style="background: rgba(201,169,110,0.15); color: var(--gold);">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                </div>
+                <div class="notif-content">
+                  <div class="notif-text">New user registered: <strong>Sophie Anderson</strong></div>
+                  <div class="notif-time">5 mins ago</div>
+                </div>
+              </div>
+              <div class="notif-item unread">
+                <div class="notif-icon-circle" style="background: rgba(74,222,128,0.15); color: #4ade80;">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                </div>
+                <div class="notif-content">
+                  <div class="notif-text">Studio plan subscription purchased by <strong>ratedworktopsapp@gmail.com</strong></div>
+                  <div class="notif-time">1 hour ago</div>
+                </div>
+              </div>
+              <div class="notif-item">
+                <div class="notif-icon-circle" style="background: rgba(248,113,113,0.15); color: var(--danger);">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
+                <div class="notif-content">
+                  <div class="notif-text">Database usage reached 85% capacity limits.</div>
+                  <div class="notif-time">3 hours ago</div>
+                </div>
+              </div>
+              <div class="notif-item">
+                <div class="notif-icon-circle" style="background: rgba(96,165,250,0.15); color: #60a5fa;">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </div>
+                <div class="notif-content">
+                  <div class="notif-text">Stripe webhook received for charge ID <strong>ch_3N82J...</strong></div>
+                  <div class="notif-time">5 hours ago</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div style="font-size:12px;color:var(--text-muted)" id="topbar-date"></div>
       </div>
