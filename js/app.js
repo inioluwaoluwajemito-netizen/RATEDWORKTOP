@@ -1201,7 +1201,6 @@ function buildFooter() {
           <a href="#">About Us</a>
           <a href="#">Blog</a>
           <a href="#">Contact</a>
-          <a href="admin/login.html" style="color: var(--gold); font-weight: 600;">Admin Portal</a>
         </div>
         <div class="footer-col">
           <h4>Legal</h4>

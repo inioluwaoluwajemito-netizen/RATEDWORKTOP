@@ -184,6 +184,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Setup Mobile Nav Tabs
   setupMobileNavListeners();
+
+  // Preload test-kitchen.jpg as default workspace image
+  preloadDefaultKitchenImage();
 });
 
 async function loadProfile() {
@@ -343,14 +346,16 @@ function renderStones() {
       selectedStone = stone;
       updateSelectedMaterialCard(stone);
 
-      // Revert to pre-render mode so they can click the Generate button to render the new stone
-      const postActions = document.getElementById('post-render-actions');
-      const preControls = document.getElementById('pre-render-controls');
-      if (postActions && postActions.style.display === 'flex') {
-        postActions.style.display = 'none';
-        if (preControls) preControls.style.display = 'flex';
-        simulatedHighlight.style.display = 'none';
-        drawingCanvas.style.display = 'block';
+      // Automatically generate render if image is present
+      if (previewImage.src && previewImage.style.display === 'block' && !isDrawMode) {
+        const postActions = document.getElementById('post-render-actions');
+        if (postActions && postActions.style.display === 'flex') {
+          // Already generated once: update render instantly
+          updateRenderInstantly();
+        } else {
+          // First time generating: run the full generateRender
+          generateRender();
+        }
       }
     });
 
@@ -502,9 +507,17 @@ async function handleFile(file) {
     previewImage.src = e.target.result;
     previewImage.style.display = 'block';
     
-    uploadArea.querySelector('.upload-icon').style.display = 'none';
-    uploadArea.querySelector('.upload-title').style.display = 'none';
-    uploadArea.querySelector('.upload-desc').style.display = 'none';
+    const uploadWrapper = uploadArea.querySelector('.upload-content-wrapper') || document.getElementById('upload-content');
+    if (uploadWrapper) {
+      uploadWrapper.style.display = 'none';
+    } else {
+      const upIcon = uploadArea.querySelector('.upload-icon') || uploadArea.querySelector('[data-lucide="upload"]') || uploadArea.querySelector('[data-lucide="upload-cloud"]');
+      if (upIcon) upIcon.style.display = 'none';
+      const upTitle = uploadArea.querySelector('.upload-title');
+      if (upTitle) upTitle.style.display = 'none';
+      const upDesc = uploadArea.querySelector('.upload-desc');
+      if (upDesc) upDesc.style.display = 'none';
+    }
     
     drawingToolbar.style.display = 'flex';
     
@@ -606,28 +619,16 @@ function redrawCanvas() {
 
 function setupActionListeners() {
   resetBtn.addEventListener('click', () => {
-    previewImage.src = '';
-    previewImage.style.display = 'none';
     fileInput.value = '';
-    
-    uploadArea.querySelector('.upload-icon').style.display = 'block';
-    uploadArea.querySelector('.upload-title').style.display = 'block';
-    uploadArea.querySelector('.upload-desc').style.display = 'block';
-    
-    drawingToolbar.style.display = 'none';
-    drawingCanvas.style.display = 'none';
-    clearPointsBtn.style.display = 'none';
-    drawingTip.textContent = 'Click on photo to trace countertop';
     
     points = [];
     isDrawMode = false;
     originalFileUrl = null;
     
-    if (actionBar) actionBar.classList.remove('visible');
     simulatedHighlight.style.display = 'none';
-    
-    // Hide drawing components if active
     drawingCanvas.style.display = 'none';
+    clearPointsBtn.style.display = 'none';
+    drawingTip.textContent = 'Click on photo to trace countertop';
 
     // Show pre-render controls
     const preRenderControls = document.getElementById('pre-render-controls');
@@ -642,6 +643,8 @@ function setupActionListeners() {
     selectedStone = null;
     document.querySelectorAll('.stone-card-item').forEach(i => i.classList.remove('selected'));
     updateSelectedMaterialCard(null);
+
+    preloadDefaultKitchenImage();
 
     lucide.createIcons();
   });
@@ -982,4 +985,48 @@ function setupMobileNavListeners() {
   tabCatalog.addEventListener('click', () => switchTab(tabCatalog, visSidebar));
   tabCanvas.addEventListener('click', () => switchTab(tabCanvas, visMain));
   tabControls.addEventListener('click', () => switchTab(tabControls, visControlPanel));
+}
+
+function preloadDefaultKitchenImage() {
+  if (previewImage) {
+    previewImage.src = 'test-kitchen.jpg';
+    previewImage.style.display = 'block';
+  }
+  
+  const uploadWrapper = uploadArea ? (uploadArea.querySelector('.upload-content-wrapper') || document.getElementById('upload-content')) : null;
+  if (uploadWrapper) {
+    uploadWrapper.style.display = 'none';
+  }
+  
+  if (drawingToolbar) {
+    drawingToolbar.style.display = 'flex';
+  }
+  
+  if (actionBar) {
+    actionBar.classList.add('visible');
+  }
+}
+
+function updateRenderInstantly() {
+  if (!selectedStone) return;
+  const imgUrl = getStoneImage(selectedStone.sku);
+  let polygonPoints = "10,60 90,60 95,75 5,75";
+  if (points.length >= 3) {
+    polygonPoints = points.map(p => `${p.x},${p.y}`).join(" ");
+  }
+
+  const patternId = 'stone-pattern-' + selectedStone.sku + '-' + Date.now();
+
+  simulatedHighlight.innerHTML = `
+    <defs>
+      <pattern id="${patternId}" patternUnits="userSpaceOnUse" width="80" height="80">
+        <image href="${imgUrl}" x="0" y="0" width="80" height="80" />
+      </pattern>
+    </defs>
+    <polygon points="${polygonPoints}" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.35));" />
+    ${points.length >= 3 ? '' : `<polygon points="60.5,15 86.5,15 86.5,56 60.5,56" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay;" />`}
+  `;
+
+  drawingCanvas.style.display = 'none';
+  simulatedHighlight.style.display = 'block';
 }
