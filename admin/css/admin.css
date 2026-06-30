@@ -307,10 +307,10 @@ body {
   top: calc(100% + 8px);
   right: 0;
   width: 320px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-gold);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg), 0 10px 25px -5px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-card), 0 10px 30px rgba(0,0,0,0.6);
   z-index: 1000;
   cursor: default;
   display: flex;
