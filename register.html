@@ -219,6 +219,11 @@
         showToast('Database disconnected', 'error');
         return;
       }
+      
+      if (!confirm("Are you sure you want to continue with Google Sign-In?")) {
+        return;
+      }
+      
       const btn = document.getElementById('google-btn');
       btn.disabled = true;
       btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2.5px;margin:0;border-top-color:#fff"></div> Connecting to Google...`;
@@ -228,7 +233,10 @@
       const { error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectToUrl
+          redirectTo: redirectToUrl,
+          queryParams: {
+            prompt: 'select_account'
+          }
         }
       });
       
