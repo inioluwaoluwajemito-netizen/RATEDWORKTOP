@@ -199,6 +199,13 @@ async function loadProfile() {
 
   // Fallback: If no profile exists yet (e.g. first-time Google Sign-In user), create one
   if (!data) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const flow = urlParams.get('flow');
+    if (flow === 'login') {
+      await supabaseClient.auth.signOut();
+      window.location.href = 'login.html?error=no_account';
+      return;
+    }
     const defaultName = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || 'Google User';
     const { data: newProfile, error: insertErr } = await supabaseClient
       .from('profiles')

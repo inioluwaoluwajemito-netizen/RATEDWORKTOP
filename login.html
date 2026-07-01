@@ -445,7 +445,7 @@
         const btn = document.getElementById('google-btn');
         btn.disabled = true;
         btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2.5px;margin:0;border-top-color:#fff"></div> Connecting to Google...`;
-        const redirectToUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/dashboard.html' + window.location.search);
+        const redirectToUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/dashboard.html?flow=login');
         
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: 'google',
@@ -467,6 +467,17 @@
         document.getElementById('google-approver-modal').style.display = 'flex';
       }
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('error') === 'no_account') {
+        const errEl = document.getElementById('error-msg');
+        if (errEl) {
+          errEl.textContent = 'Account not found. Please register first before logging in with Google.';
+          errEl.style.display = 'block';
+        }
+      }
+    });
   </script>
   <!-- Google Approver Modal (Mock) -->
   <div id="google-approver-modal" class="google-modal-overlay" style="display:none;">

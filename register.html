@@ -528,7 +528,7 @@
         const btn = document.getElementById('google-btn');
         btn.disabled = true;
         btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2.5px;margin:0;border-top-color:#fff"></div> Connecting to Google...`;
-        const redirectToUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/dashboard.html' + window.location.search);
+        const redirectToUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/dashboard.html?flow=register');
         
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: 'google',
