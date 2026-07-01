@@ -350,12 +350,13 @@ function renderStones() {
       selectedStone = stone;
       updateSelectedMaterialCard(stone);
 
-      // Automatically update render instantly if already generated once
-      if (previewImage.src && previewImage.style.display === 'block' && !isDrawMode) {
+      // Automatically update render instantly as soon as a stone is clicked
+      if (previewImage.src && !isDrawMode) {
+        updateRenderInstantly();
+        const preControls = document.getElementById('pre-render-controls');
+        if (preControls) preControls.style.display = 'none';
         const postActions = document.getElementById('post-render-actions');
-        if (postActions && postActions.style.display === 'flex') {
-          updateRenderInstantly();
-        }
+        if (postActions) postActions.style.display = 'flex';
       }
     });
 
@@ -942,44 +943,132 @@ function getRenderedCanvasBlob() {
       const stoneImg = new Image();
       stoneImg.crossOrigin = "Anonymous";
       stoneImg.onload = () => {
+        // Draw base kitchen image
         ctx.drawImage(img, 0, 0);
 
-        const pattern = ctx.createPattern(stoneImg, 'repeat');
-        ctx.fillStyle = pattern;
-        
-        ctx.globalCompositeOperation = 'overlay';
+        // 1. Create a clipped mask path for the countertop area
+        ctx.save();
         ctx.beginPath();
         if (points.length >= 3) {
           ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
           for (let i = 1; i < points.length; i++) {
             ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
           }
-          ctx.closePath();
-          ctx.fill();
         } else {
-          // Countertop
+          // Preset Countertop
           ctx.moveTo(img.width * 0.1, img.height * 0.6);
           ctx.lineTo(img.width * 0.9, img.height * 0.6);
           ctx.lineTo(img.width * 0.95, img.height * 0.75);
           ctx.lineTo(img.width * 0.05, img.height * 0.75);
-          ctx.closePath();
-          ctx.fill();
+        }
+        ctx.closePath();
+        ctx.clip();
 
-          // Splashback (the black face)
+        // 2. Render the stone pattern inside the countertop mask
+        const pattern = ctx.createPattern(stoneImg, 'repeat');
+        ctx.fillStyle = pattern;
+        ctx.fill();
+
+        // 3. Extract and apply shadows (Multiply blend)
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalAlpha = 0.65;
+        ctx.drawImage(img, 0, 0);
+
+        // 4. Extract and apply highlights (Screen blend)
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.35;
+        ctx.drawImage(img, 0, 0);
+
+        ctx.restore();
+
+        // 5. Draw Preset Splashback if no points were traced
+        if (points.length < 3) {
+          ctx.save();
           ctx.beginPath();
           ctx.moveTo(img.width * 0.605, img.height * 0.15);
           ctx.lineTo(img.width * 0.865, img.height * 0.15);
           ctx.lineTo(img.width * 0.865, img.height * 0.56);
           ctx.lineTo(img.width * 0.605, img.height * 0.56);
           ctx.closePath();
+          ctx.clip();
+
+          // Render stone texture
           ctx.fill();
+
+          // Extract shadows & highlights
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.globalAlpha = 0.65;
+          ctx.drawImage(img, 0, 0);
+
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = 0.35;
+          ctx.drawImage(img, 0, 0);
+
+          ctx.restore();
         }
         
+        // 6. Draw Premium Branding & Watermark Logo Card
         ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.font = `bold ${Math.floor(img.width * 0.03)}px 'Playfair Display'`;
-        ctx.textAlign = 'right';
-        ctx.fillText('🪨 Created with RatedWorktops', img.width - 20, img.height - 20);
+        ctx.globalAlpha = 1.0;
+        
+        const margin = Math.max(16, Math.floor(img.width * 0.02));
+        const logoHeight = Math.max(44, Math.floor(img.height * 0.065));
+        const logoWidth = logoHeight * 3.8;
+        const logoX = img.width - logoWidth - margin;
+        const logoY = img.height - logoHeight - margin;
+
+        // Draw card background
+        ctx.fillStyle = 'rgba(17, 17, 22, 0.85)';
+        ctx.beginPath();
+        const cardRadius = 10;
+        const cardWidth = logoWidth + 16;
+        const cardHeight = logoHeight + 16;
+        const cardX = logoX - 8;
+        const cardY = logoY - 8;
+        
+        if (ctx.roundRect) {
+          ctx.roundRect(cardX, cardY, cardWidth, cardHeight, cardRadius);
+        } else {
+          ctx.rect(cardX, cardY, cardWidth, cardHeight);
+        }
+        ctx.fill();
+        
+        // Gold stroke border
+        ctx.strokeStyle = 'rgba(201, 169, 110, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Draw Gold Icon box
+        const iconSize = logoHeight * 0.72;
+        const iconX = logoX + 2;
+        const iconY = logoY + (logoHeight - iconSize) / 2;
+        ctx.fillStyle = '#C9A96E';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(iconX, iconY, iconSize, iconSize, 5);
+        } else {
+          ctx.rect(iconX, iconY, iconSize, iconSize);
+        }
+        ctx.fill();
+
+        // Letter R
+        ctx.font = `bold ${Math.floor(iconSize * 0.65)}px 'Playfair Display', serif`;
+        ctx.fillStyle = '#000000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('R', iconX + (iconSize / 2), iconY + (iconSize / 2));
+
+        // Company Name Text
+        ctx.font = `bold ${Math.floor(logoHeight * 0.32)}px 'Inter', sans-serif`;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText('RatedWorktops', logoX + iconSize + 12, logoY + 4);
+
+        // Watermark Text
+        ctx.font = `${Math.floor(logoHeight * 0.22)}px 'Inter', sans-serif`;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.fillText('Created with RatedWorktops', logoX + iconSize + 12, logoY + logoHeight - 16);
 
         canvas.toBlob((blob) => {
           resolve(blob);
@@ -1046,15 +1135,28 @@ function updateRenderInstantly() {
   }
 
   const patternId = 'stone-pattern-' + selectedStone.sku + '-' + Date.now();
+  const clipId = 'clip-path-' + Date.now();
 
   simulatedHighlight.innerHTML = `
     <defs>
-      <pattern id="${patternId}" patternUnits="userSpaceOnUse" width="80" height="80">
-        <image href="${imgUrl}" x="0" y="0" width="80" height="80" />
+      <pattern id="${patternId}" patternUnits="userSpaceOnUse" width="120" height="120">
+        <image href="${imgUrl}" x="0" y="0" width="120" height="120" />
       </pattern>
+      <clipPath id="${clipId}">
+        <polygon points="${polygonPoints}" />
+      </clipPath>
     </defs>
-    <polygon points="${polygonPoints}" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.35));" />
-    ${points.length >= 3 ? '' : `<polygon points="60.5,15 86.5,15 86.5,56 60.5,56" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay;" />`}
+    <!-- 1. The Marble Stone Texture (clipped) -->
+    <polygon points="${polygonPoints}" fill="url(#${patternId})" opacity="0.9" />
+    
+    <!-- 2. The Original lighting shadows (clipped, multiply blend) -->
+    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipId})" style="mix-blend-mode: multiply; opacity: 0.65; pointer-events: none;" />
+    
+    <!-- 3. The Original lighting highlights (clipped, screen blend) -->
+    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipId})" style="mix-blend-mode: screen; opacity: 0.35; pointer-events: none;" />
+    
+    <!-- 4. Subtle front border shadow/reflection overlay for 3D look -->
+    <polygon points="${polygonPoints}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2.5" style="pointer-events: none;" />
   `;
 
   drawingCanvas.style.display = 'none';
