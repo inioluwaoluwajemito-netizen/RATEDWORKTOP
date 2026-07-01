@@ -837,14 +837,17 @@
           <span style="font-size:11px; color:var(--text-secondary); margin-left:4px;" id="drawing-tip">Click on photo to trace countertop</span>
         </div>
 
-        <!-- Canvas and Highlight SVG -->
-        <canvas id="drawing-canvas" class="drawing-canvas"></canvas>
-        
-        <svg class="simulated-highlight" id="simulated-highlight" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <polygon points="10,60 90,60 95,75 5,75" fill="var(--gold)" opacity="0.4" style="mix-blend-mode: overlay;" />
-        </svg>
+        <!-- Floating Preview Wrapper centered inside upload-area -->
+        <div id="preview-wrapper" style="position:relative; display:none; max-width:100%; max-height:100%; border-radius:12px; overflow:hidden;">
+          <!-- Canvas and Highlight SVG -->
+          <canvas id="drawing-canvas" class="drawing-canvas"></canvas>
+          
+          <svg class="simulated-highlight" id="simulated-highlight" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <polygon points="10,60 90,60 95,75 5,75" fill="var(--gold)" opacity="0.4" style="mix-blend-mode: overlay;" />
+          </svg>
 
-
+          <img id="preview-image" src="" alt="Preview" style="display:none; max-width:100%; max-height:100%; object-fit:contain; vertical-align:middle;">
+        </div>
 
         <!-- Initial Upload Content -->
         <div class="upload-content-wrapper" id="upload-content">

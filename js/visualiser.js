@@ -507,6 +507,9 @@ async function handleFile(file) {
     previewImage.src = e.target.result;
     previewImage.style.display = 'block';
     
+    const previewWrapper = document.getElementById('preview-wrapper');
+    if (previewWrapper) previewWrapper.style.display = 'inline-flex';
+    
     const uploadWrapper = uploadArea.querySelector('.upload-content-wrapper') || document.getElementById('upload-content');
     if (uploadWrapper) {
       uploadWrapper.style.display = 'none';
@@ -641,6 +644,8 @@ function setupActionListeners() {
   resetBtn.addEventListener('click', () => {
     previewImage.src = '';
     previewImage.style.display = 'none';
+    const previewWrapper = document.getElementById('preview-wrapper');
+    if (previewWrapper) previewWrapper.style.display = 'none';
     fileInput.value = '';
     
     const uploadWrapper = uploadArea.querySelector('.upload-content-wrapper') || document.getElementById('upload-content');
@@ -693,6 +698,8 @@ function setupActionListeners() {
       // Clear image from preview and file input
       previewImage.src = '';
       previewImage.style.display = 'none';
+      const previewWrapper = document.getElementById('preview-wrapper');
+      if (previewWrapper) previewWrapper.style.display = 'none';
       fileInput.value = '';
       
       // Show upload content wrapper
