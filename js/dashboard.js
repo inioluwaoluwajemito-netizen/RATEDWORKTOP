@@ -968,43 +968,55 @@ function getRenderedCanvasBlob() {
         ctx.fillStyle = pattern;
         ctx.fill();
 
-        // 3. Extract and apply shadows (Multiply blend)
+        // 3. Extract and apply shadows (Grayscale Multiply blend at low opacity)
+        ctx.save();
         ctx.globalCompositeOperation = 'multiply';
-        ctx.globalAlpha = 0.65;
+        ctx.globalAlpha = 0.25;
+        ctx.filter = 'grayscale(100%) contrast(120%)';
         ctx.drawImage(img, 0, 0);
+        ctx.restore();
 
-        // 4. Extract and apply highlights (Screen blend)
+        // 4. Extract and apply highlights (Grayscale Screen blend at moderate opacity)
+        ctx.save();
         ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = 0.3;
+        ctx.filter = 'grayscale(100%)';
         ctx.drawImage(img, 0, 0);
+        ctx.restore();
 
         ctx.restore();
 
-        // 5. Draw Preset Splashback if no points were traced
-        if (points.length < 3) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(img.width * 0.605, img.height * 0.15);
-          ctx.lineTo(img.width * 0.865, img.height * 0.15);
-          ctx.lineTo(img.width * 0.865, img.height * 0.56);
-          ctx.lineTo(img.width * 0.605, img.height * 0.56);
-          ctx.closePath();
-          ctx.clip();
+        // 5. Draw Splashback (Wall stone) - Always rendered
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(img.width * 0.605, img.height * 0.15);
+        ctx.lineTo(img.width * 0.865, img.height * 0.15);
+        ctx.lineTo(img.width * 0.865, img.height * 0.56);
+        ctx.lineTo(img.width * 0.605, img.height * 0.56);
+        ctx.closePath();
+        ctx.clip();
 
-          // Render stone texture
-          ctx.fill();
+        // Render stone texture
+        ctx.fillStyle = pattern;
+        ctx.fill();
 
-          // Extract shadows & highlights
-          ctx.globalCompositeOperation = 'multiply';
-          ctx.globalAlpha = 0.65;
-          ctx.drawImage(img, 0, 0);
+        // Extract shadows (Grayscale Multiply)
+        ctx.save();
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalAlpha = 0.25;
+        ctx.filter = 'grayscale(100%) contrast(120%)';
+        ctx.drawImage(img, 0, 0);
+        ctx.restore();
 
-          ctx.globalCompositeOperation = 'screen';
-          ctx.globalAlpha = 0.35;
-          ctx.drawImage(img, 0, 0);
+        // Extract highlights (Grayscale Screen)
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.3;
+        ctx.filter = 'grayscale(100%)';
+        ctx.drawImage(img, 0, 0);
+        ctx.restore();
 
-          ctx.restore();
-        }
+        ctx.restore();
         
         // 6. Draw Premium Branding & Watermark Logo Card
         ctx.globalCompositeOperation = 'source-over';
@@ -1133,29 +1145,46 @@ function updateRenderInstantly() {
     polygonPoints = points.map(p => `${p.x},${p.y}`).join(" ");
   }
 
+  const splashbackPoints = "60.5,15 86.5,15 86.5,56 60.5,56";
   const patternId = 'stone-pattern-' + selectedStone.sku + '-' + Date.now();
-  const clipId = 'clip-path-' + Date.now();
+  
+  const clipIdCountertop = 'clip-countertop-' + Date.now();
+  const clipIdSplashback = 'clip-splashback-' + Date.now();
 
   simulatedHighlight.innerHTML = `
     <defs>
       <pattern id="${patternId}" patternUnits="userSpaceOnUse" width="120" height="120">
         <image href="${imgUrl}" x="0" y="0" width="120" height="120" />
       </pattern>
-      <clipPath id="${clipId}">
+      
+      <clipPath id="${clipIdCountertop}">
         <polygon points="${polygonPoints}" />
       </clipPath>
+      
+      <clipPath id="${clipIdSplashback}">
+        <polygon points="${splashbackPoints}" />
+      </clipPath>
     </defs>
+    
+    <!-- === COUNTERTOP (SLAB) === -->
     <!-- 1. The Marble Stone Texture (clipped, fully opaque to replace original stone) -->
     <polygon points="${polygonPoints}" fill="url(#${patternId})" opacity="1.0" />
-    
     <!-- 2. The Original lighting shadows (grayscale, clipped, multiply blend at low opacity) -->
-    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipId})" style="mix-blend-mode: multiply; opacity: 0.25; filter: grayscale(1) contrast(1.2); pointer-events: none;" />
-    
+    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipIdCountertop})" style="mix-blend-mode: multiply; opacity: 0.25; filter: grayscale(1) contrast(1.2); pointer-events: none;" />
     <!-- 3. The Original lighting highlights (grayscale, clipped, screen blend) -->
-    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipId})" style="mix-blend-mode: screen; opacity: 0.3; filter: grayscale(1); pointer-events: none;" />
-    
+    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipIdCountertop})" style="mix-blend-mode: screen; opacity: 0.3; filter: grayscale(1); pointer-events: none;" />
     <!-- 4. Subtle front border shadow/reflection overlay for 3D look -->
     <polygon points="${polygonPoints}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2.5" style="pointer-events: none;" />
+
+    <!-- === SPLASHBACK (WALL STONE) === -->
+    <!-- 1. The Marble Stone Texture (clipped, fully opaque to replace original stone) -->
+    <polygon points="${splashbackPoints}" fill="url(#${patternId})" opacity="1.0" />
+    <!-- 2. The Original lighting shadows (grayscale, clipped, multiply blend at low opacity) -->
+    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipIdSplashback})" style="mix-blend-mode: multiply; opacity: 0.25; filter: grayscale(1) contrast(1.2); pointer-events: none;" />
+    <!-- 3. The Original lighting highlights (grayscale, clipped, screen blend) -->
+    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipIdSplashback})" style="mix-blend-mode: screen; opacity: 0.3; filter: grayscale(1); pointer-events: none;" />
+    <!-- 4. Border Outline -->
+    <polygon points="${splashbackPoints}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" style="pointer-events: none;" />
   `;
 
   drawingCanvas.style.display = 'none';
