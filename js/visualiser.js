@@ -555,12 +555,13 @@ function setupDrawingListeners() {
       drawModeBtn.innerHTML = `<i data-lucide="pen-tool" style="width:13px;height:13px;"></i> Draw Shape`;
       drawingTip.textContent = points.length >= 3 ? 'Countertop shape configured!' : 'Countertop outline set!';
 
-      // Automatically trigger render update if already generated once
-      if (selectedStone && previewImage.src && previewImage.style.display === 'block') {
+      // Automatically trigger render update when drawing is completed (at least 3 points)
+      if (selectedStone && previewImage.src && points.length >= 3) {
+        updateRenderInstantly();
+        const preControls = document.getElementById('pre-render-controls');
+        if (preControls) preControls.style.display = 'none';
         const postActions = document.getElementById('post-render-actions');
-        if (postActions && postActions.style.display === 'flex') {
-          updateRenderInstantly();
-        }
+        if (postActions) postActions.style.display = 'flex';
       }
     }
     lucide.createIcons();
@@ -571,6 +572,17 @@ function setupDrawingListeners() {
     points = [];
     clearPointsBtn.style.display = 'none';
     drawingTip.textContent = 'Click on photo to trace countertop';
+    
+    // Hide rendering overlay and return to drawing state
+    simulatedHighlight.style.display = 'none';
+    drawingCanvas.style.display = 'block';
+    
+    // Swap buttons back to pre-render state
+    const preControls = document.getElementById('pre-render-controls');
+    if (preControls) preControls.style.display = 'flex';
+    const postActions = document.getElementById('post-render-actions');
+    if (postActions) postActions.style.display = 'none';
+    
     redrawCanvas();
   });
 
