@@ -697,3 +697,9 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   .stone-grid { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr; }
 }
+
+/* Hide floating drawing toolbar from workspace overlay */
+#drawing-toolbar,
+.drawing-toolbar {
+  display: none !important;
+}
