@@ -350,13 +350,12 @@ function renderStones() {
       selectedStone = stone;
       updateSelectedMaterialCard(stone);
 
-      // Automatically update render instantly as soon as a stone is clicked
-      if (previewImage.src && !isDrawMode) {
-        updateRenderInstantly();
-        const preControls = document.getElementById('pre-render-controls');
-        if (preControls) preControls.style.display = 'none';
+      // If the render has already been generated once, update it instantly to show the new stone
+      if (previewImage.src && previewImage.style.display === 'block' && !isDrawMode) {
         const postActions = document.getElementById('post-render-actions');
-        if (postActions) postActions.style.display = 'flex';
+        if (postActions && postActions.style.display === 'flex') {
+          updateRenderInstantly();
+        }
       }
     });
 
@@ -1146,14 +1145,14 @@ function updateRenderInstantly() {
         <polygon points="${polygonPoints}" />
       </clipPath>
     </defs>
-    <!-- 1. The Marble Stone Texture (clipped) -->
-    <polygon points="${polygonPoints}" fill="url(#${patternId})" opacity="0.9" />
+    <!-- 1. The Marble Stone Texture (clipped, fully opaque to replace original stone) -->
+    <polygon points="${polygonPoints}" fill="url(#${patternId})" opacity="1.0" />
     
-    <!-- 2. The Original lighting shadows (clipped, multiply blend) -->
-    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipId})" style="mix-blend-mode: multiply; opacity: 0.65; pointer-events: none;" />
+    <!-- 2. The Original lighting shadows (grayscale, clipped, multiply blend at low opacity) -->
+    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipId})" style="mix-blend-mode: multiply; opacity: 0.25; filter: grayscale(1) contrast(1.2); pointer-events: none;" />
     
-    <!-- 3. The Original lighting highlights (clipped, screen blend) -->
-    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipId})" style="mix-blend-mode: screen; opacity: 0.35; pointer-events: none;" />
+    <!-- 3. The Original lighting highlights (grayscale, clipped, screen blend) -->
+    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipId})" style="mix-blend-mode: screen; opacity: 0.3; filter: grayscale(1); pointer-events: none;" />
     
     <!-- 4. Subtle front border shadow/reflection overlay for 3D look -->
     <polygon points="${polygonPoints}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2.5" style="pointer-events: none;" />
