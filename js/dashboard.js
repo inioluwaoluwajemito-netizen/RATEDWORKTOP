@@ -38,6 +38,15 @@ const drawingTip = document.getElementById('drawing-tip');
 const drawingToolbar = document.getElementById('drawing-toolbar');
 let isRendering = false;
 
+// AI Segmentation cache & states
+let autoCountertopMask = null; // Canvas element holding mask
+let autoSplashbackMask = null; // Canvas element holding mask
+let autoCountertopBounds = null; // bounding box object
+let autoSplashbackBounds = null; // bounding box object
+let currentSegmentsCache = null; // cached raw JSON response
+let cacheImageSrc = ''; // tracks which image is cached
+let isAutoSegmenting = false;
+
 async function generateRender() {
   if (isRendering) return;
   if (!selectedStone) {
@@ -53,82 +62,135 @@ async function generateRender() {
     return;
   }
 
+  const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
+
   isRendering = true;
 
-  // Hide previous render immediately to show transition
-  simulatedHighlight.style.display = 'none';
-
+  // Show transition overlay
   processingOverlay.style.display = 'flex';
-  processingText.textContent = 'Analysing countertop shape...';
-
-  await new Promise(r => setTimeout(r, 1200));
-  processingText.textContent = `Applying ${selectedStone.name}...`;
-  await new Promise(r => setTimeout(r, 1500));
-  processingText.textContent = 'Rendering shadows & lighting...';
-  await new Promise(r => setTimeout(r, 1000));
-
-  processingOverlay.style.display = 'none';
-
-  const imgUrl = getStoneImage(selectedStone.sku);
-  let polygonPoints = "10,60 90,60 95,75 5,75";
-  if (points.length >= 3) {
-    polygonPoints = points.map(p => `${p.x},${p.y}`).join(" ");
-  }
-
-  // Use unique pattern ID to avoid SVG pattern caching bug in browsers
-  const patternId = 'stone-pattern-' + selectedStone.sku + '-' + Date.now();
-
-  simulatedHighlight.innerHTML = `
-    <defs>
-      <pattern id="${patternId}" patternUnits="userSpaceOnUse" width="80" height="80">
-        <image href="${imgUrl}" x="0" y="0" width="80" height="80" />
-      </pattern>
-    </defs>
-    <polygon points="${polygonPoints}" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.35));" />
-    ${points.length >= 3 ? '' : `<polygon points="60.5,15 86.5,15 86.5,56 60.5,56" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay;" />`}
-  `;
   
-  drawingCanvas.style.display = 'none';
-  simulatedHighlight.style.display = 'block';
-  
-  // Deduct credits and update metrics
-  const newCredits = isFreeMode ? currentProfile.credits : (currentProfile.credits - 1);
-  const newVisualisations = (currentProfile.visualisations || 0) + 1;
-  const { error } = await supabaseClient
-    .from('profiles')
-    .update({ 
-      credits: newCredits,
-      visualisations: newVisualisations
-    })
-    .eq('id', currentUser.id);
+  try {
+    if (isAutoMode) {
+      processingText.textContent = 'Analysing kitchen layout with AI...';
 
-  if (!error) {
-    currentProfile.credits = newCredits;
-    currentProfile.visualisations = newVisualisations;
-    
-    const navCredits = document.getElementById('credits-count');
-    if (navCredits) navCredits.textContent = newCredits;
-    
-    const sidebarCredits = document.getElementById('credits-count-sidebar');
-    if (sidebarCredits) sidebarCredits.textContent = newCredits;
-    
-    const headerCredits = document.getElementById('credits-count-header');
-    if (headerCredits) headerCredits.textContent = newCredits;
-    
-    if (isFreeMode) {
-      showToast('Visualisation complete!', 'success');
+      // Only call AI if not already cached for this image
+      if (cacheImageSrc !== previewImage.src || !currentSegmentsCache) {
+        const response = await fetch(previewImage.src);
+        const imageBlob = await response.blob();
+        
+        const hfToken = localStorage.getItem('hf_api_token') || '';
+        let result = null;
+        let retries = 5;
+        let delay = 1000;
+
+        while (retries > 0) {
+          try {
+            result = await segmentKitchenImage(imageBlob, hfToken);
+            if (result.loading) {
+              processingText.textContent = `Model is warming up... Retrying in ${Math.round(result.estimatedTime || 10)}s`;
+              await new Promise(r => setTimeout(r, (result.estimatedTime || 10) * 1000));
+              continue;
+            }
+            break;
+          } catch (e) {
+            console.error('HF Segmenter call failed:', e);
+            retries--;
+            if (retries === 0) throw e;
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2;
+          }
+        }
+
+        if (result && Array.isArray(result)) {
+          currentSegmentsCache = result;
+          cacheImageSrc = previewImage.src;
+
+          processingText.textContent = 'Isolating worktop areas...';
+          // Countertop match labels: countertop, table, desk (islands)
+          const countertopMatch = await createMergedMask(result, ['countertop', 'table', 'desk'], previewImage.naturalWidth || previewImage.width, previewImage.naturalHeight || previewImage.height);
+          if (countertopMatch) {
+            autoCountertopMask = countertopMatch.canvas;
+            autoCountertopBounds = countertopMatch.bounds;
+          } else {
+            autoCountertopMask = null;
+            autoCountertopBounds = null;
+          }
+
+          processingText.textContent = 'Isolating backsplash tiles...';
+          // Splashback match labels: backsplash, wall, tile, board
+          const splashbackMatch = await createMergedMask(result, ['backsplash', 'wall', 'tile', 'board'], previewImage.naturalWidth || previewImage.width, previewImage.naturalHeight || previewImage.height);
+          if (splashbackMatch) {
+            autoSplashbackMask = splashbackMatch.canvas;
+            autoSplashbackBounds = splashbackMatch.bounds;
+          } else {
+            autoSplashbackMask = null;
+            autoSplashbackBounds = null;
+          }
+        } else {
+          throw new Error('Invalid AI model response.');
+        }
+      }
+
+      if (!autoCountertopMask) {
+        showToast('AI could not auto-detect countertop. Defaulting to preset guides. Try Hybrid mode to trace manually.', 'warning');
+      }
     } else {
-      showToast('Visualisation complete! 1 credit deducted.', 'success');
+      processingText.textContent = 'Analysing countertop shape...';
+      await new Promise(r => setTimeout(r, 800));
     }
-    
-    const preRenderControls = document.getElementById('pre-render-controls');
-    if (preRenderControls) preRenderControls.style.display = 'none';
-    document.getElementById('post-render-actions').style.display = 'flex';
-  } else {
-    showToast('Failed to update credits.', 'error');
-  }
 
-  isRendering = false;
+    processingText.textContent = `Applying ${selectedStone.name}...`;
+    await new Promise(r => setTimeout(r, 800));
+    processingText.textContent = 'Rendering shadows & lighting...';
+    await new Promise(r => setTimeout(r, 800));
+
+    // Perform rendering directly to canvas
+    updateRenderInstantly();
+
+    // Deduct credits and update metrics
+    const newCredits = isFreeMode ? currentProfile.credits : (currentProfile.credits - 1);
+    const newVisualisations = (currentProfile.visualisations || 0) + 1;
+    const { error } = await supabaseClient
+      .from('profiles')
+      .update({ 
+        credits: newCredits,
+        visualisations: newVisualisations
+      })
+      .eq('id', currentUser.id);
+
+    if (!error) {
+      currentProfile.credits = newCredits;
+      currentProfile.visualisations = newVisualisations;
+      
+      const navCredits = document.getElementById('credits-count');
+      if (navCredits) navCredits.textContent = newCredits;
+      
+      const sidebarCredits = document.getElementById('credits-count-sidebar');
+      if (sidebarCredits) sidebarCredits.textContent = newCredits;
+      
+      const headerCredits = document.getElementById('credits-count-header');
+      if (headerCredits) headerCredits.textContent = newCredits;
+      
+      if (isFreeMode) {
+        showToast('Visualisation complete!', 'success');
+      } else {
+        showToast('Visualisation complete! 1 credit deducted.', 'success');
+      }
+      
+      const preRenderControls = document.getElementById('pre-render-controls');
+      if (preRenderControls) preRenderControls.style.display = 'none';
+      document.getElementById('post-render-actions').style.display = 'flex';
+    } else {
+      showToast('Failed to update credits.', 'error');
+    }
+
+  } catch (err) {
+    console.error(err);
+    showToast('AI Render failed: ' + (err.message || 'Check network connection.'), 'error');
+  } finally {
+    processingOverlay.style.display = 'none';
+    isRendering = false;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -517,6 +579,18 @@ async function handleFile(file) {
     
     drawingToolbar.style.display = 'flex';
     
+    // Hide rendering canvas on new file load
+    const renderCanvas = document.getElementById('render-canvas');
+    if (renderCanvas) renderCanvas.style.display = 'none';
+
+    // Clear AI segment cache
+    autoCountertopMask = null;
+    autoSplashbackMask = null;
+    autoCountertopBounds = null;
+    autoSplashbackBounds = null;
+    currentSegmentsCache = null;
+    cacheImageSrc = '';
+
     actionBar.classList.add('visible');
     simulatedHighlight.style.display = 'none';
   };
@@ -665,6 +739,18 @@ function setupActionListeners() {
     if (actionBar) actionBar.classList.remove('visible');
     simulatedHighlight.style.display = 'none';
     
+    // Hide rendering canvas
+    const renderCanvas = document.getElementById('render-canvas');
+    if (renderCanvas) renderCanvas.style.display = 'none';
+
+    // Clear AI segments cache
+    autoCountertopMask = null;
+    autoSplashbackMask = null;
+    autoCountertopBounds = null;
+    autoSplashbackBounds = null;
+    currentSegmentsCache = null;
+    cacheImageSrc = '';
+    
     // Hide drawing components if active
     drawingCanvas.style.display = 'none';
 
@@ -719,6 +805,18 @@ function setupActionListeners() {
       drawingToolbar.style.display = 'none';
       drawingCanvas.style.display = 'none';
       
+      // Hide rendering canvas
+      const renderCanvas = document.getElementById('render-canvas');
+      if (renderCanvas) renderCanvas.style.display = 'none';
+
+      // Clear AI segments cache
+      autoCountertopMask = null;
+      autoSplashbackMask = null;
+      autoCountertopBounds = null;
+      autoSplashbackBounds = null;
+      currentSegmentsCache = null;
+      cacheImageSrc = '';
+
       // Hide highlights
       simulatedHighlight.style.display = 'none';
       
@@ -1027,163 +1125,94 @@ function getRenderedCanvasBlob() {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
+    const stoneImg = new Image();
+    stoneImg.crossOrigin = "Anonymous";
+    stoneImg.onload = () => {
+      const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
       
-      const stoneImg = new Image();
-      stoneImg.crossOrigin = "Anonymous";
-      stoneImg.onload = () => {
-        // Draw base kitchen image
-        ctx.drawImage(img, 0, 0);
+      // Render the perspective-correct visual to our canvas
+      renderDesignToCanvas(
+        canvas, 
+        selectedStone, 
+        isAutoMode, 
+        previewImage, 
+        points, 
+        stoneImg, 
+        autoCountertopMask, 
+        autoSplashbackMask, 
+        autoCountertopBounds, 
+        autoSplashbackBounds
+      );
 
-        // 1. Create a clipped mask path for the countertop area
-        ctx.save();
-        ctx.beginPath();
-        if (points.length >= 3) {
-          ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
-          for (let i = 1; i < points.length; i++) {
-            ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
-          }
-        } else {
-          // Preset Countertop
-          ctx.moveTo(img.width * 0.1, img.height * 0.6);
-          ctx.lineTo(img.width * 0.9, img.height * 0.6);
-          ctx.lineTo(img.width * 0.95, img.height * 0.75);
-          ctx.lineTo(img.width * 0.05, img.height * 0.75);
-        }
-        ctx.closePath();
-        ctx.clip();
+      // Draw Premium Branding & Watermark Logo Card
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1.0;
+      
+      const margin = Math.max(16, Math.floor(canvas.width * 0.02));
+      const logoHeight = Math.max(44, Math.floor(canvas.height * 0.065));
+      const logoWidth = logoHeight * 3.8;
+      const logoX = canvas.width - logoWidth - margin;
+      const logoY = canvas.height - logoHeight - margin;
 
-        // 2. Render the stone pattern inside the countertop mask
-        const pattern = ctx.createPattern(stoneImg, 'repeat');
-        ctx.fillStyle = pattern;
-        ctx.fill();
+      // Draw card background
+      ctx.fillStyle = 'rgba(17, 17, 22, 0.85)';
+      ctx.beginPath();
+      const cardRadius = 10;
+      const cardWidth = logoWidth + 16;
+      const cardHeight = logoHeight + 16;
+      const cardX = logoX - 8;
+      const cardY = logoY - 8;
+      
+      if (ctx.roundRect) {
+        ctx.roundRect(cardX, cardY, cardWidth, cardHeight, cardRadius);
+      } else {
+        ctx.rect(cardX, cardY, cardWidth, cardHeight);
+      }
+      ctx.fill();
+      
+      // Gold stroke border
+      ctx.strokeStyle = 'rgba(201, 169, 110, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
 
-        // 3. Extract and apply shadows (Grayscale Multiply blend at low opacity)
-        ctx.save();
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.globalAlpha = 0.25;
-        ctx.filter = 'grayscale(100%) contrast(120%)';
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
+      // Draw Gold Icon box
+      const iconSize = logoHeight * 0.72;
+      const iconX = logoX + 2;
+      const iconY = logoY + (logoHeight - iconSize) / 2;
+      ctx.fillStyle = '#C9A96E';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(iconX, iconY, iconSize, iconSize, 5);
+      } else {
+        ctx.rect(iconX, iconY, iconSize, iconSize);
+      }
+      ctx.fill();
 
-        // 4. Extract and apply highlights (Grayscale Screen blend at moderate opacity)
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.3;
-        ctx.filter = 'grayscale(100%)';
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
+      // Letter R
+      ctx.font = `bold ${Math.floor(iconSize * 0.65)}px 'Playfair Display', serif`;
+      ctx.fillStyle = '#000000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('R', iconX + (iconSize / 2), iconY + (iconSize / 2));
 
-        ctx.restore();
+      // Company Name Text
+      ctx.font = `bold ${Math.floor(logoHeight * 0.32)}px 'Inter', sans-serif`;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText('RatedWorktops', logoX + iconSize + 12, logoY + 4);
 
-        // 5. Draw Splashback (Wall stone) - Always rendered
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(img.width * 0.605, img.height * 0.15);
-        ctx.lineTo(img.width * 0.865, img.height * 0.15);
-        ctx.lineTo(img.width * 0.865, img.height * 0.56);
-        ctx.lineTo(img.width * 0.605, img.height * 0.56);
-        ctx.closePath();
-        ctx.clip();
+      // Watermark Text
+      ctx.font = `${Math.floor(logoHeight * 0.22)}px 'Inter', sans-serif`;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.fillText('Created with RatedWorktops', logoX + iconSize + 12, logoY + logoHeight - 16);
 
-        // Render stone texture
-        ctx.fillStyle = pattern;
-        ctx.fill();
-
-        // Extract shadows (Grayscale Multiply)
-        ctx.save();
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.globalAlpha = 0.25;
-        ctx.filter = 'grayscale(100%) contrast(120%)';
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
-
-        // Extract highlights (Grayscale Screen)
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.3;
-        ctx.filter = 'grayscale(100%)';
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
-
-        ctx.restore();
-        
-        // 6. Draw Premium Branding & Watermark Logo Card
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = 1.0;
-        
-        const margin = Math.max(16, Math.floor(img.width * 0.02));
-        const logoHeight = Math.max(44, Math.floor(img.height * 0.065));
-        const logoWidth = logoHeight * 3.8;
-        const logoX = img.width - logoWidth - margin;
-        const logoY = img.height - logoHeight - margin;
-
-        // Draw card background
-        ctx.fillStyle = 'rgba(17, 17, 22, 0.85)';
-        ctx.beginPath();
-        const cardRadius = 10;
-        const cardWidth = logoWidth + 16;
-        const cardHeight = logoHeight + 16;
-        const cardX = logoX - 8;
-        const cardY = logoY - 8;
-        
-        if (ctx.roundRect) {
-          ctx.roundRect(cardX, cardY, cardWidth, cardHeight, cardRadius);
-        } else {
-          ctx.rect(cardX, cardY, cardWidth, cardHeight);
-        }
-        ctx.fill();
-        
-        // Gold stroke border
-        ctx.strokeStyle = 'rgba(201, 169, 110, 0.35)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Draw Gold Icon box
-        const iconSize = logoHeight * 0.72;
-        const iconX = logoX + 2;
-        const iconY = logoY + (logoHeight - iconSize) / 2;
-        ctx.fillStyle = '#C9A96E';
-        ctx.beginPath();
-        if (ctx.roundRect) {
-          ctx.roundRect(iconX, iconY, iconSize, iconSize, 5);
-        } else {
-          ctx.rect(iconX, iconY, iconSize, iconSize);
-        }
-        ctx.fill();
-
-        // Letter R
-        ctx.font = `bold ${Math.floor(iconSize * 0.65)}px 'Playfair Display', serif`;
-        ctx.fillStyle = '#000000';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('R', iconX + (iconSize / 2), iconY + (iconSize / 2));
-
-        // Company Name Text
-        ctx.font = `bold ${Math.floor(logoHeight * 0.32)}px 'Inter', sans-serif`;
-        ctx.fillStyle = '#FFFFFF';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText('RatedWorktops', logoX + iconSize + 12, logoY + 4);
-
-        // Watermark Text
-        ctx.font = `${Math.floor(logoHeight * 0.22)}px 'Inter', sans-serif`;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-        ctx.fillText('Created with RatedWorktops', logoX + iconSize + 12, logoY + logoHeight - 16);
-
-        canvas.toBlob((blob) => {
-          resolve(blob);
-        }, 'image/jpeg', 0.9);
-      };
-      stoneImg.onerror = () => resolve(null);
-      stoneImg.src = getStoneImage(selectedStone.sku);
+      canvas.toBlob((blob) => {
+        resolve(blob);
+      }, 'image/jpeg', 0.9);
     };
-    img.onerror = () => resolve(null);
-    img.src = previewImage.src;
+    stoneImg.onerror = () => resolve(null);
+    stoneImg.src = getStoneImage(selectedStone.sku);
   });
 }
 
@@ -1232,55 +1261,439 @@ function setupMobileNavListeners() {
 
 
 function updateRenderInstantly() {
-  if (!selectedStone) return;
-  const imgUrl = getStoneImage(selectedStone.sku);
-  let polygonPoints = "10,60 90,60 95,75 5,75";
-  if (points.length >= 3) {
-    polygonPoints = points.map(p => `${p.x},${p.y}`).join(" ");
+  if (!selectedStone || !previewImage.src) return;
+
+  const renderCanvas = document.getElementById('render-canvas');
+  if (!renderCanvas) return;
+
+  const stoneImg = new Image();
+  stoneImg.crossOrigin = "Anonymous";
+  stoneImg.onload = () => {
+    const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
+    
+    // Draw using our new high-fidelity perspective renderer
+    renderDesignToCanvas(
+      renderCanvas, 
+      selectedStone, 
+      isAutoMode, 
+      previewImage, 
+      points, 
+      stoneImg, 
+      autoCountertopMask, 
+      autoSplashbackMask, 
+      autoCountertopBounds, 
+      autoSplashbackBounds
+    );
+
+    drawingCanvas.style.display = 'none';
+    simulatedHighlight.style.display = 'none';
+    renderCanvas.style.display = 'block';
+  };
+  stoneImg.src = getStoneImage(selectedStone.sku);
+}
+
+// ── Perspective Warping & Grid Triangulation ───────────────────
+
+function drawTriangleAffine(ctx, img, u0, v0, u1, v1, u2, v2, x0, y0, x1, y1, x2, y2) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.closePath();
+  ctx.clip();
+  
+  const den = u0 * (v1 - v2) - v0 * (u1 - u2) + (u1 * v2 - u2 * v1);
+  if (Math.abs(den) < 1e-5) {
+    ctx.restore();
+    return;
+  }
+  
+  const a = (x0 * (v1 - v2) - v0 * (x1 - x2) + (x1 * v2 - x2 * v1)) / den;
+  const b = (y0 * (v1 - v2) - v0 * (y1 - y2) + (y1 * v2 - y2 * v1)) / den;
+  const c = (u0 * (x1 - x2) - x0 * (u1 - u2) + (u1 * x2 - u2 * x1)) / den;
+  const d = (u0 * (y1 - y2) - y0 * (u1 - u2) + (u1 * y2 - u2 * y1)) / den;
+  const e = (u0 * (v1 * x2 - v2 * x1) - v0 * (u1 * x2 - u2 * x1) + x0 * (u1 * v2 - u2 * v1)) / den;
+  const f = (u0 * (v1 * y2 - v2 * y1) - v0 * (u1 * y2 - u2 * y1) + y0 * (u1 * v2 - u2 * v1)) / den;
+  
+  ctx.transform(a, b, c, d, e, f);
+  ctx.drawImage(img, 0, 0);
+  ctx.restore();
+}
+
+function drawWarpedQuad(ctx, img, quad) {
+  const gridW = 16;
+  const gridH = 16;
+  const texW = img.width;
+  const texH = img.height;
+  
+  function getPoint(u, v) {
+    const x = (1 - u) * (1 - v) * quad[0].x +
+              u * (1 - v) * quad[1].x +
+              u * v * quad[2].x +
+              (1 - u) * v * quad[3].x;
+              
+    const y = (1 - u) * (1 - v) * quad[0].y +
+              u * (1 - v) * quad[1].y +
+              u * v * quad[2].y +
+              (1 - u) * v * quad[3].y;
+              
+    return { x, y };
+  }
+  
+  for (let r = 0; r < gridH; r++) {
+    for (let c = 0; c < gridW; c++) {
+      const u0 = c / gridW;
+      const u1 = (c + 1) / gridW;
+      const v0 = r / gridH;
+      const v1 = (r + 1) / gridH;
+      
+      const su0 = u0 * texW;
+      const su1 = u1 * texW;
+      const sv0 = v0 * texH;
+      const sv1 = v1 * texH;
+      
+      const p00 = getPoint(u0, v0);
+      const p10 = getPoint(u1, v0);
+      const p11 = getPoint(u1, v1);
+      const p01 = getPoint(u0, v1);
+      
+      drawTriangleAffine(ctx, img, 
+        su0, sv0, su1, sv0, su0, sv1,
+        p00.x, p00.y, p10.x, p10.y, p01.x, p01.y
+      );
+      
+      drawTriangleAffine(ctx, img, 
+        su1, sv0, su1, sv1, su0, sv1,
+        p10.x, p10.y, p11.x, p11.y, p01.x, p01.y
+      );
+    }
+  }
+}
+
+function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, manualPoints, stoneImg, countertopMask, splashbackMask, countertopBounds, splashbackBounds) {
+  const ctx = canvas.getContext('2d');
+  canvas.width = previewImg.naturalWidth || previewImg.width;
+  canvas.height = previewImg.naturalHeight || previewImg.height;
+  
+  // 1. Draw base image
+  ctx.drawImage(previewImg, 0, 0, canvas.width, canvas.height);
+  
+  // 2. Render Countertop
+  let hasCountertop = false;
+  let countertopQuad = null;
+  
+  if (isAutoMode && countertopMask && countertopBounds) {
+    hasCountertop = true;
+    const b = countertopBounds;
+    // Estimate a perspective quad for the countertop
+    countertopQuad = [
+      { x: b.minX + b.width * 0.08, y: b.minY + b.height * 0.12 }, // Top-Left
+      { x: b.maxX - b.width * 0.08, y: b.minY + b.height * 0.12 }, // Top-Right
+      { x: b.maxX, y: b.maxY }, // Bottom-Right
+      { x: b.minX, y: b.maxY }  // Bottom-Left
+    ];
+  } else if (!isAutoMode && manualPoints && manualPoints.length >= 3) {
+    hasCountertop = true;
+    if (manualPoints.length === 4) {
+      countertopQuad = manualPoints.map(p => ({
+        x: (p.x / 100) * canvas.width,
+        y: (p.y / 100) * canvas.height
+      }));
+    } else {
+      // Find bounding box for manual points to define the perspective warp quad
+      let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
+      manualPoints.forEach(p => {
+        const px = (p.x / 100) * canvas.width;
+        const py = (p.y / 100) * canvas.height;
+        if (px < minX) minX = px;
+        if (py < minY) minY = py;
+        if (px > maxX) maxX = px;
+        if (py > maxY) maxY = py;
+      });
+      const w = maxX - minX;
+      const h = maxY - minY;
+      countertopQuad = [
+        { x: minX + w * 0.05, y: minY + h * 0.05 },
+        { x: maxX - w * 0.05, y: minY + h * 0.05 },
+        { x: maxX, y: maxY },
+        { x: minX, y: maxY }
+      ];
+    }
+  } else if (isAutoMode && (!countertopMask || !countertopBounds)) {
+    // Fallback default countertop quad
+    hasCountertop = true;
+    countertopQuad = [
+      { x: canvas.width * 0.1, y: canvas.height * 0.60 },
+      { x: canvas.width * 0.9, y: canvas.height * 0.60 },
+      { x: canvas.width * 0.95, y: canvas.height * 0.75 },
+      { x: canvas.width * 0.05, y: canvas.height * 0.75 }
+    ];
+  }
+  
+  if (hasCountertop && countertopQuad) {
+    ctx.save();
+    
+    // Set clipping mask for countertop
+    if (isAutoMode && countertopMask) {
+      // Draw mask on temp canvas to clip
+      const tempMaskCanvas = document.createElement('canvas');
+      tempMaskCanvas.width = canvas.width;
+      tempMaskCanvas.height = canvas.height;
+      const mCtx = tempMaskCanvas.getContext('2d');
+      mCtx.drawImage(countertopMask, 0, 0, canvas.width, canvas.height);
+      
+      // Separate layer for composting
+      const layerCanvas = document.createElement('canvas');
+      layerCanvas.width = canvas.width;
+      layerCanvas.height = canvas.height;
+      const lCtx = layerCanvas.getContext('2d');
+      
+      // Draw warped texture on layer
+      drawWarpedQuad(lCtx, stoneImg, countertopQuad);
+      
+      // Mask layer
+      lCtx.globalCompositeOperation = 'destination-in';
+      lCtx.drawImage(tempMaskCanvas, 0, 0);
+      
+      // Draw layer onto main canvas
+      ctx.drawImage(layerCanvas, 0, 0);
+    } else {
+      // Manual points polygon clipping
+      ctx.beginPath();
+      if (manualPoints && manualPoints.length >= 3) {
+        ctx.moveTo((manualPoints[0].x / 100) * canvas.width, (manualPoints[0].y / 100) * canvas.height);
+        for (let i = 1; i < manualPoints.length; i++) {
+          ctx.lineTo((manualPoints[i].x / 100) * canvas.width, (manualPoints[i].y / 100) * canvas.height);
+        }
+      } else {
+        // Fallback default points
+        ctx.moveTo(canvas.width * 0.1, canvas.height * 0.60);
+        ctx.lineTo(canvas.width * 0.9, canvas.height * 0.60);
+        ctx.lineTo(canvas.width * 0.95, canvas.height * 0.75);
+        ctx.lineTo(canvas.width * 0.05, canvas.height * 0.75);
+      }
+      ctx.closePath();
+      ctx.clip();
+      
+      // Draw warped texture directly inside clip
+      drawWarpedQuad(ctx, stoneImg, countertopQuad);
+    }
+    
+    // Apply shading & highlights
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = 0.22;
+    ctx.filter = 'grayscale(100%) contrast(120%)';
+    ctx.drawImage(previewImg, 0, 0, canvas.width, canvas.height);
+    
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.28;
+    ctx.filter = 'grayscale(100%)';
+    ctx.drawImage(previewImg, 0, 0, canvas.width, canvas.height);
+    
+    ctx.restore();
+  }
+  
+  // 3. Render Splashback
+  let hasSplashback = false;
+  let splashbackQuad = null;
+  
+  if (isAutoMode && splashbackMask && splashbackBounds) {
+    hasSplashback = true;
+    const b = splashbackBounds;
+    splashbackQuad = [
+      { x: b.minX, y: b.minY },
+      { x: b.maxX, y: b.minY },
+      { x: b.maxX, y: b.maxY },
+      { x: b.minX, y: b.maxY }
+    ];
+  } else if (isAutoMode && (!splashbackMask || !splashbackBounds)) {
+    // Default splashback fallback
+    hasSplashback = true;
+    splashbackQuad = [
+      { x: canvas.width * 0.605, y: canvas.height * 0.15 },
+      { x: canvas.width * 0.865, y: canvas.height * 0.15 },
+      { x: canvas.width * 0.865, y: canvas.height * 0.56 },
+      { x: canvas.width * 0.605, y: canvas.height * 0.56 }
+    ];
+  } else if (!isAutoMode) {
+    // In manual mode, we only apply splashback if there are no drawn points (fallback mode)
+    if (!manualPoints || manualPoints.length < 3) {
+      hasSplashback = true;
+      splashbackQuad = [
+        { x: canvas.width * 0.605, y: canvas.height * 0.15 },
+        { x: canvas.width * 0.865, y: canvas.height * 0.15 },
+        { x: canvas.width * 0.865, y: canvas.height * 0.56 },
+        { x: canvas.width * 0.605, y: canvas.height * 0.56 }
+      ];
+    }
+  }
+  
+  if (hasSplashback && splashbackQuad) {
+    ctx.save();
+    
+    if (isAutoMode && splashbackMask) {
+      const tempMaskCanvas = document.createElement('canvas');
+      tempMaskCanvas.width = canvas.width;
+      tempMaskCanvas.height = canvas.height;
+      const mCtx = tempMaskCanvas.getContext('2d');
+      mCtx.drawImage(splashbackMask, 0, 0, canvas.width, canvas.height);
+      
+      const layerCanvas = document.createElement('canvas');
+      layerCanvas.width = canvas.width;
+      layerCanvas.height = canvas.height;
+      const lCtx = layerCanvas.getContext('2d');
+      
+      drawWarpedQuad(lCtx, stoneImg, splashbackQuad);
+      
+      lCtx.globalCompositeOperation = 'destination-in';
+      lCtx.drawImage(tempMaskCanvas, 0, 0);
+      
+      ctx.drawImage(layerCanvas, 0, 0);
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(splashbackQuad[0].x, splashbackQuad[0].y);
+      ctx.lineTo(splashbackQuad[1].x, splashbackQuad[1].y);
+      ctx.lineTo(splashbackQuad[2].x, splashbackQuad[2].y);
+      ctx.lineTo(splashbackQuad[3].x, splashbackQuad[3].y);
+      ctx.closePath();
+      ctx.clip();
+      
+      drawWarpedQuad(ctx, stoneImg, splashbackQuad);
+    }
+    
+    // Apply shading & highlights
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = 0.22;
+    ctx.filter = 'grayscale(100%) contrast(120%)';
+    ctx.drawImage(previewImg, 0, 0, canvas.width, canvas.height);
+    
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.28;
+    ctx.filter = 'grayscale(100%)';
+    ctx.drawImage(previewImg, 0, 0, canvas.width, canvas.height);
+    
+    ctx.restore();
+  }
+}
+
+// ── AI Segmentation & Hugging Face Helpers ───────────────────
+
+function loadMaskImage(base64Str) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = `data:image/png;base64,${base64Str}`;
+  });
+}
+
+async function createMergedMask(segments, labelsToMatch, width, height) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0, 0, width, height);
+  
+  let found = false;
+  let minX = width, minY = height, maxX = 0, maxY = 0;
+  
+  for (const segment of segments) {
+    const label = (segment.label || '').toLowerCase();
+    const matches = labelsToMatch.some(l => label.includes(l));
+    if (matches && segment.mask) {
+      found = true;
+      const maskImg = await loadMaskImage(segment.mask);
+      ctx.drawImage(maskImg, 0, 0, width, height);
+    }
+  }
+  
+  if (!found) return null;
+  
+  // Find bounding box by checking non-black pixels
+  const imgData = ctx.getImageData(0, 0, width, height);
+  const data = imgData.data;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      if (data[idx] > 20 || data[idx+1] > 20 || data[idx+2] > 20) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  
+  return {
+    canvas,
+    bounds: { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }
+  };
+}
+
+async function segmentKitchenImage(imageBlob, apiToken = '') {
+  const modelUrl = 'https://api-inference.huggingface.co/models/nvidia/segformer-b5-finetuned-ade-640-640';
+  const headers = {};
+  if (apiToken) {
+    headers['Authorization'] = `Bearer ${apiToken}`;
+  }
+  
+  const response = await fetch(modelUrl, {
+    method: 'POST',
+    headers: headers,
+    body: imageBlob
+  });
+  
+  if (response.status === 503) {
+    const errorData = await response.json();
+    return { loading: true, estimatedTime: errorData.estimated_time || 20 };
+  }
+  
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || 'Failed to segment image');
+  }
+  
+  return await response.json();
+}
+
+// ── Document Loaded Event Logic Additions ─────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  // AI Settings accordion & visibility wire-up
+  const aiToggleBtn = document.getElementById('ai-settings-toggle-btn');
+  const aiContent = document.getElementById('ai-settings-content');
+  const aiChevron = document.getElementById('ai-settings-chevron');
+  if (aiToggleBtn && aiContent) {
+    aiToggleBtn.addEventListener('click', () => {
+      const isHidden = aiContent.style.display === 'none';
+      aiContent.style.display = isHidden ? 'block' : 'none';
+      if (aiChevron) {
+        aiChevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+      }
+    });
   }
 
-  const splashbackPoints = "60.5,15 86.5,15 86.5,56 60.5,56";
-  const patternId = 'stone-pattern-' + selectedStone.sku + '-' + Date.now();
-  
-  const clipIdCountertop = 'clip-countertop-' + Date.now();
-  const clipIdSplashback = 'clip-splashback-' + Date.now();
+  const toggleTokenBtn = document.getElementById('toggle-token-visibility');
+  const tokenInput = document.getElementById('hf-api-token');
+  const eyeIcon = document.getElementById('toggle-token-eye-icon');
+  if (toggleTokenBtn && tokenInput) {
+    toggleTokenBtn.addEventListener('click', () => {
+      const isPassword = tokenInput.type === 'password';
+      tokenInput.type = isPassword ? 'text' : 'password';
+      if (eyeIcon) {
+        eyeIcon.setAttribute('data-lucide', isPassword ? 'eye-off' : 'eye');
+        lucide.createIcons();
+      }
+    });
+  }
 
-  simulatedHighlight.innerHTML = `
-    <defs>
-      <pattern id="${patternId}" patternUnits="userSpaceOnUse" width="120" height="120">
-        <image href="${imgUrl}" x="0" y="0" width="120" height="120" />
-      </pattern>
-      
-      <clipPath id="${clipIdCountertop}">
-        <polygon points="${polygonPoints}" />
-      </clipPath>
-      
-      <clipPath id="${clipIdSplashback}">
-        <polygon points="${splashbackPoints}" />
-      </clipPath>
-    </defs>
-    
-    <!-- === COUNTERTOP (SLAB) === -->
-    <!-- 1. The Marble Stone Texture (clipped, fully opaque to replace original stone) -->
-    <polygon points="${polygonPoints}" fill="url(#${patternId})" opacity="1.0" />
-    <!-- 2. The Original lighting shadows (grayscale, clipped, multiply blend at low opacity) -->
-    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipIdCountertop})" style="mix-blend-mode: multiply; opacity: 0.25; filter: grayscale(1) contrast(1.2); pointer-events: none;" />
-    <!-- 3. The Original lighting highlights (grayscale, clipped, screen blend) -->
-    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipIdCountertop})" style="mix-blend-mode: screen; opacity: 0.3; filter: grayscale(1); pointer-events: none;" />
-    <!-- 4. Subtle front border shadow/reflection overlay for 3D look -->
-    <polygon points="${polygonPoints}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2.5" style="pointer-events: none;" />
-
-    <!-- === SPLASHBACK (WALL STONE) === -->
-    <!-- 1. The Marble Stone Texture (clipped, fully opaque to replace original stone) -->
-    <polygon points="${splashbackPoints}" fill="url(#${patternId})" opacity="1.0" />
-    <!-- 2. The Original lighting shadows (grayscale, clipped, multiply blend at low opacity) -->
-    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipIdSplashback})" style="mix-blend-mode: multiply; opacity: 0.25; filter: grayscale(1) contrast(1.2); pointer-events: none;" />
-    <!-- 3. The Original lighting highlights (grayscale, clipped, screen blend) -->
-    <image href="${previewImage.src}" x="0" y="0" width="100%" height="100%" clip-path="url(#${clipIdSplashback})" style="mix-blend-mode: screen; opacity: 0.3; filter: grayscale(1); pointer-events: none;" />
-    <!-- 4. Border Outline -->
-    <polygon points="${splashbackPoints}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" style="pointer-events: none;" />
-  `;
-
-  drawingCanvas.style.display = 'none';
-  simulatedHighlight.style.display = 'block';
-}
+  // Load and save HF token
+  if (tokenInput) {
+    tokenInput.value = localStorage.getItem('hf_api_token') || '';
+    tokenInput.addEventListener('input', (e) => {
+      localStorage.setItem('hf_api_token', e.target.value.trim());
+    });
+  }
+});
