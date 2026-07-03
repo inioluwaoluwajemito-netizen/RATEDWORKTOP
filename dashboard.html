@@ -931,7 +931,19 @@
   <div class="modal-overlay" id="share-modal">
     <div class="modal">
       <h2 style="margin-top:0; font-family:'Playfair Display',serif; font-size:24px;">Share your design</h2>
-      <p style="color:var(--text-muted); font-size:13px; margin-bottom:24px;">Show off your new kitchen worktop!</p>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">Share your kitchen visualisation with friends and family!</p>
+      
+      <!-- Image preview -->
+      <div id="share-preview" style="width:100%; height:120px; border-radius:10px; overflow:hidden; margin-bottom:20px; background:var(--bg-dark); border:1px solid var(--border); display:flex; align-items:center; justify-content:center;">
+        <img id="share-preview-img" style="width:100%; height:100%; object-fit:cover; display:none;" />
+        <span style="color:var(--text-muted); font-size:12px;" id="share-preview-text">Preparing image...</span>
+      </div>
+
+      <!-- Native share (mobile) -->
+      <button class="btn" id="share-native" style="width:100%; justify-content:center; background:linear-gradient(135deg, var(--gold), var(--gold-dark)); color:#000; border:none; font-weight:600; margin-bottom:16px; display:none;">
+        <i data-lucide="share-2" style="width:16px;height:16px"></i> Share to Any App
+      </button>
+
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
         <button class="btn" id="share-whatsapp" style="background:#25D366; color:#fff; justify-content:center; border:none;">WhatsApp</button>
         <button class="btn" id="share-facebook" style="background:#1877F2; color:#fff; justify-content:center; border:none;">Facebook</button>
@@ -939,7 +951,7 @@
         <button class="btn" id="share-email" style="background:#ea4335; color:#fff; justify-content:center; border:none;">Email</button>
       </div>
       <button class="btn" id="share-copy-link" style="width:100%; justify-content:center; background:transparent; border:1px solid var(--border); color:var(--text-primary);">
-        <i data-lucide="link" style="width:16px;height:16px"></i> Copy Link
+        <i data-lucide="link" style="width:16px;height:16px"></i> Copy Image Link
       </button>
       <button class="btn" style="margin-top:16px; width:100%; justify-content:center; background:transparent; border:none; color:var(--text-muted);" onclick="document.getElementById('share-modal').classList.remove('open')">Cancel</button>
     </div>
