@@ -497,9 +497,16 @@
       line-height: 1.6;
     }
 
+    .photoreal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      align-items: center;
+    }
+
     /* Responsive */
     @media (max-width: 992px) {
-      .steps-grid, .features-grid, .pricing-grid {
+      .steps-grid, .features-grid, .pricing-grid, .photoreal-grid {
         grid-template-columns: 1fr;
         gap: 20px;
       }
@@ -590,6 +597,60 @@
         <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px 0;">
           Loading stones...
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Photoreal Visualisation Section -->
+  <section class="section-wrap" style="background:rgba(255,255,255,0.01)" id="photoreal-demo">
+    <div class="container">
+      <div class="photoreal-grid">
+        
+        <!-- Left Side: Image with Badge -->
+        <div style="position:relative; border-radius:16px; overflow:hidden; border: 1px solid var(--border); box-shadow:0 20px 40px rgba(0,0,0,0.6);">
+          <div style="position:absolute; top:20px; left:20px; background:rgba(0,0,0,0.65); backdrop-filter:blur(8px); padding:6px 14px; border-radius:6px; border:1px solid rgba(255,255,255,0.15); font-size:11px; font-weight:700; letter-spacing:1px; color:#fff; text-transform:uppercase; z-index:10;">
+            AI Rendered
+          </div>
+          <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80" alt="Photoreal AI Render" style="width:100%; height:auto; display:block; object-fit:cover;" />
+        </div>
+        
+        <!-- Right Side: Details -->
+        <div>
+          <span style="font-size:12px; font-weight:700; color:var(--gold); letter-spacing:2px; text-transform:uppercase; display:block; margin-bottom:16px;">
+            Photoreal
+          </span>
+          <h2 style="font-family:'Playfair Display',serif; font-size:clamp(32px, 4vw, 44px); font-weight:700; color:var(--text-primary); line-height:1.2; margin-bottom:32px;">
+            Real lighting. Real perspective. <span style="color:var(--gold);">Zero guesswork.</span>
+          </h2>
+          
+          <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:20px;">
+            <li style="display:flex; align-items:center; gap:16px;">
+              <div style="width:24px; height:24px; border-radius:50%; background:rgba(201, 169, 110, 0.1); border:1px solid rgba(201, 169, 110, 0.3); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i data-lucide="check" style="width:14px; height:14px; color:var(--gold);"></i>
+              </div>
+              <span style="font-size:15px; color:var(--text-secondary); font-weight:500;">Auto-detects worktop & splashback surfaces</span>
+            </li>
+            <li style="display:flex; align-items:center; gap:16px;">
+              <div style="width:24px; height:24px; border-radius:50%; background:rgba(201, 169, 110, 0.1); border:1px solid rgba(201, 169, 110, 0.3); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i data-lucide="check" style="width:14px; height:14px; color:var(--gold);"></i>
+              </div>
+              <span style="font-size:15px; color:var(--text-secondary); font-weight:500;">Hybrid refinement for tricky kitchens</span>
+            </li>
+            <li style="display:flex; align-items:center; gap:16px;">
+              <div style="width:24px; height:24px; border-radius:50%; background:rgba(201, 169, 110, 0.1); border:1px solid rgba(201, 169, 110, 0.3); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i data-lucide="check" style="width:14px; height:14px; color:var(--gold);"></i>
+              </div>
+              <span style="font-size:15px; color:var(--text-secondary); font-weight:500;">Download high-resolution before/after comparisons</span>
+            </li>
+            <li style="display:flex; align-items:center; gap:16px;">
+              <div style="width:24px; height:24px; border-radius:50%; background:rgba(201, 169, 110, 0.1); border:1px solid rgba(201, 169, 110, 0.3); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i data-lucide="check" style="width:14px; height:14px; color:var(--gold);"></i>
+              </div>
+              <span style="font-size:15px; color:var(--text-secondary); font-weight:500;">Upload custom stone samples from suppliers</span>
+            </li>
+          </ul>
+        </div>
+        
       </div>
     </div>
   </section>
