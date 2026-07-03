@@ -38,14 +38,11 @@ const drawingTip = document.getElementById('drawing-tip');
 const drawingToolbar = document.getElementById('drawing-toolbar');
 let isRendering = false;
 
-// AI Segmentation cache & states
-let autoCountertopMask = null; // Canvas element holding mask
-let autoSplashbackMask = null; // Canvas element holding mask
-let autoCountertopBounds = null; // bounding box object
-let autoSplashbackBounds = null; // bounding box object
-let currentSegmentsCache = null; // cached raw JSON response
-let cacheImageSrc = ''; // tracks which image is cached
-let isAutoSegmenting = false;
+// Visualisation variables
+let autoCountertopMask = null;
+let autoSplashbackMask = null;
+let autoCountertopBounds = null;
+let autoSplashbackBounds = null;
 
 async function generateRender() {
   if (isRendering) return;
@@ -62,101 +59,25 @@ async function generateRender() {
     return;
   }
 
-  const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
-
   isRendering = true;
 
   // Show transition overlay
   processingOverlay.style.display = 'flex';
   
-  let usedFallback = false;
-
   try {
-    if (isAutoMode) {
-      processingText.textContent = 'Analysing kitchen layout with AI...';
-
-      // Only call AI if not already cached for this image
-      if (cacheImageSrc !== previewImage.src || !currentSegmentsCache) {
-        let imageBlob;
-        try {
-          imageBlob = await getImageBlob(previewImage.src);
-        } catch (blobErr) {
-          console.error('Failed to get image blob:', blobErr);
-          throw new Error('Could not read image file.');
-        }
-        
-        const hfToken = localStorage.getItem('hf_api_token') || '';
-        let result = null;
-        let retries = 2; // Reduced retries to avoid long hangs
-        let delay = 1000;
-        let success = false;
-
-        while (retries > 0) {
-          try {
-            // Apply a strict 8-second timeout per attempt to avoid hanging
-            result = await segmentKitchenImage(imageBlob, hfToken, 8000);
-            if (result.loading) {
-              processingText.textContent = `AI is warming up... Retrying in ${Math.round(result.estimatedTime || 6)}s`;
-              await new Promise(r => setTimeout(r, Math.min(result.estimatedTime || 6, 6) * 1000));
-              continue;
-            }
-            success = true;
-            break;
-          } catch (e) {
-            console.warn('AI call attempt failed:', e);
-            retries--;
-            if (retries > 0) {
-              await new Promise(r => setTimeout(r, delay));
-              delay *= 2;
-            }
-          }
-        }
-
-        if (success && result && Array.isArray(result)) {
-          currentSegmentsCache = result;
-          cacheImageSrc = previewImage.src;
-
-          processingText.textContent = 'Isolating worktop areas...';
-          const countertopMatch = await createMergedMask(result, ['countertop', 'table', 'desk'], previewImage.naturalWidth || previewImage.width, previewImage.naturalHeight || previewImage.height);
-          if (countertopMatch) {
-            autoCountertopMask = countertopMatch.canvas;
-            autoCountertopBounds = countertopMatch.bounds;
-          } else {
-            autoCountertopMask = null;
-            autoCountertopBounds = null;
-          }
-
-          processingText.textContent = 'Isolating backsplash tiles...';
-          const splashbackMatch = await createMergedMask(result, ['backsplash', 'wall', 'tile', 'board'], previewImage.naturalWidth || previewImage.width, previewImage.naturalHeight || previewImage.height);
-          if (splashbackMatch) {
-            autoSplashbackMask = splashbackMatch.canvas;
-            autoSplashbackBounds = splashbackMatch.bounds;
-          } else {
-            autoSplashbackMask = null;
-            autoSplashbackBounds = null;
-          }
-        } else {
-          // Trigger fallback flag if API failed completely
-          usedFallback = true;
-        }
-      }
-
-      if (usedFallback || !autoCountertopMask) {
-        autoCountertopMask = null;
-        autoSplashbackMask = null;
-        autoCountertopBounds = null;
-        autoSplashbackBounds = null;
-        showToast('AI auto-detection unavailable. Defaulting to guided layout. Try Hybrid mode to trace manually.', 'warning');
-      }
-    } else {
-      processingText.textContent = 'Analysing countertop shape...';
-      await new Promise(r => setTimeout(r, 600));
-    }
+    processingText.textContent = 'Analysing countertop shape...';
+    await new Promise(r => setTimeout(r, 600));
 
     processingText.textContent = `Applying ${selectedStone.name}...`;
     await new Promise(r => setTimeout(r, 600));
     processingText.textContent = 'Rendering shadows & lighting...';
     await new Promise(r => setTimeout(r, 600));
+
+    // Ensure masks are null to use default guided overlay in Auto Mode
+    autoCountertopMask = null;
+    autoSplashbackMask = null;
+    autoCountertopBounds = null;
+    autoSplashbackBounds = null;
 
     // Perform rendering directly to canvas
     updateRenderInstantly();
@@ -200,28 +121,14 @@ async function generateRender() {
 
   } catch (err) {
     console.error(err);
-    showToast('AI Render failed: ' + (err.message || 'Check network connection.'), 'error');
+    showToast('Visualisation failed: ' + (err.message || 'Error compiling canvas.'), 'error');
   } finally {
     processingOverlay.style.display = 'none';
     isRendering = false;
   }
 }
 
-async function getImageBlob(src) {
-  if (src.startsWith('data:')) {
-    const arr = src.split(',');
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[arr.length - 1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], { type: mime });
-  }
-  const response = await fetch(src);
-  return await response.blob();
-}
+
 
 document.addEventListener('DOMContentLoaded', async () => {
   // 1. Check Authentication
@@ -1607,96 +1514,6 @@ function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, man
   }
 }
 
-// ── AI Segmentation & Hugging Face Helpers ───────────────────
 
-function loadMaskImage(base64Str) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
-    img.src = `data:image/png;base64,${base64Str}`;
-  });
-}
-
-async function createMergedMask(segments, labelsToMatch, width, height) {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = 'black';
-  ctx.fillRect(0, 0, width, height);
-  
-  let found = false;
-  let minX = width, minY = height, maxX = 0, maxY = 0;
-  
-  for (const segment of segments) {
-    const label = (segment.label || '').toLowerCase();
-    const matches = labelsToMatch.some(l => label.includes(l));
-    if (matches && segment.mask) {
-      found = true;
-      const maskImg = await loadMaskImage(segment.mask);
-      ctx.drawImage(maskImg, 0, 0, width, height);
-    }
-  }
-  
-  if (!found) return null;
-  
-  // Find bounding box by checking non-black pixels
-  const imgData = ctx.getImageData(0, 0, width, height);
-  const data = imgData.data;
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = (y * width + x) * 4;
-      if (data[idx] > 20 || data[idx+1] > 20 || data[idx+2] > 20) {
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
-      }
-    }
-  }
-  
-  return {
-    canvas,
-    bounds: { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }
-  };
-}
-
-async function segmentKitchenImage(imageBlob, apiToken = '', timeoutMs = 8000) {
-  const modelUrl = 'https://api-inference.huggingface.co/models/nvidia/segformer-b5-finetuned-ade-640-640';
-  const headers = {};
-  if (apiToken) {
-    headers['Authorization'] = `Bearer ${apiToken}`;
-  }
-  
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  
-  try {
-    const response = await fetch(modelUrl, {
-      method: 'POST',
-      headers: headers,
-      body: imageBlob,
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (response.status === 503) {
-      const errorData = await response.json();
-      return { loading: true, estimatedTime: errorData.estimated_time || 20 };
-    }
-    
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(errText || 'Failed to segment image');
-    }
-    
-    return await response.json();
-  } catch (e) {
-    clearTimeout(timeoutId);
-    throw e;
-  }
-}
 
 
