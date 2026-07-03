@@ -69,44 +69,54 @@ async function generateRender() {
   // Show transition overlay
   processingOverlay.style.display = 'flex';
   
+  let usedFallback = false;
+
   try {
     if (isAutoMode) {
       processingText.textContent = 'Analysing kitchen layout with AI...';
 
       // Only call AI if not already cached for this image
       if (cacheImageSrc !== previewImage.src || !currentSegmentsCache) {
-        const response = await fetch(previewImage.src);
-        const imageBlob = await response.blob();
+        let imageBlob;
+        try {
+          imageBlob = await getImageBlob(previewImage.src);
+        } catch (blobErr) {
+          console.error('Failed to get image blob:', blobErr);
+          throw new Error('Could not read image file.');
+        }
         
         const hfToken = localStorage.getItem('hf_api_token') || '';
         let result = null;
-        let retries = 5;
+        let retries = 2; // Reduced retries to avoid long hangs
         let delay = 1000;
+        let success = false;
 
         while (retries > 0) {
           try {
-            result = await segmentKitchenImage(imageBlob, hfToken);
+            // Apply a strict 8-second timeout per attempt to avoid hanging
+            result = await segmentKitchenImage(imageBlob, hfToken, 8000);
             if (result.loading) {
-              processingText.textContent = `Model is warming up... Retrying in ${Math.round(result.estimatedTime || 10)}s`;
-              await new Promise(r => setTimeout(r, (result.estimatedTime || 10) * 1000));
+              processingText.textContent = `AI is warming up... Retrying in ${Math.round(result.estimatedTime || 6)}s`;
+              await new Promise(r => setTimeout(r, Math.min(result.estimatedTime || 6, 6) * 1000));
               continue;
             }
+            success = true;
             break;
           } catch (e) {
-            console.error('HF Segmenter call failed:', e);
+            console.warn('AI call attempt failed:', e);
             retries--;
-            if (retries === 0) throw e;
-            await new Promise(r => setTimeout(r, delay));
-            delay *= 2;
+            if (retries > 0) {
+              await new Promise(r => setTimeout(r, delay));
+              delay *= 2;
+            }
           }
         }
 
-        if (result && Array.isArray(result)) {
+        if (success && result && Array.isArray(result)) {
           currentSegmentsCache = result;
           cacheImageSrc = previewImage.src;
 
           processingText.textContent = 'Isolating worktop areas...';
-          // Countertop match labels: countertop, table, desk (islands)
           const countertopMatch = await createMergedMask(result, ['countertop', 'table', 'desk'], previewImage.naturalWidth || previewImage.width, previewImage.naturalHeight || previewImage.height);
           if (countertopMatch) {
             autoCountertopMask = countertopMatch.canvas;
@@ -117,7 +127,6 @@ async function generateRender() {
           }
 
           processingText.textContent = 'Isolating backsplash tiles...';
-          // Splashback match labels: backsplash, wall, tile, board
           const splashbackMatch = await createMergedMask(result, ['backsplash', 'wall', 'tile', 'board'], previewImage.naturalWidth || previewImage.width, previewImage.naturalHeight || previewImage.height);
           if (splashbackMatch) {
             autoSplashbackMask = splashbackMatch.canvas;
@@ -127,22 +136,27 @@ async function generateRender() {
             autoSplashbackBounds = null;
           }
         } else {
-          throw new Error('Invalid AI model response.');
+          // Trigger fallback flag if API failed completely
+          usedFallback = true;
         }
       }
 
-      if (!autoCountertopMask) {
-        showToast('AI could not auto-detect countertop. Defaulting to preset guides. Try Hybrid mode to trace manually.', 'warning');
+      if (usedFallback || !autoCountertopMask) {
+        autoCountertopMask = null;
+        autoSplashbackMask = null;
+        autoCountertopBounds = null;
+        autoSplashbackBounds = null;
+        showToast('AI auto-detection unavailable. Defaulting to guided layout. Try Hybrid mode to trace manually.', 'warning');
       }
     } else {
       processingText.textContent = 'Analysing countertop shape...';
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 600));
     }
 
     processingText.textContent = `Applying ${selectedStone.name}...`;
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 600));
     processingText.textContent = 'Rendering shadows & lighting...';
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 600));
 
     // Perform rendering directly to canvas
     updateRenderInstantly();
@@ -191,6 +205,22 @@ async function generateRender() {
     processingOverlay.style.display = 'none';
     isRendering = false;
   }
+}
+
+async function getImageBlob(src) {
+  if (src.startsWith('data:')) {
+    const arr = src.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[arr.length - 1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  }
+  const response = await fetch(src);
+  return await response.blob();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1632,30 +1662,41 @@ async function createMergedMask(segments, labelsToMatch, width, height) {
   };
 }
 
-async function segmentKitchenImage(imageBlob, apiToken = '') {
+async function segmentKitchenImage(imageBlob, apiToken = '', timeoutMs = 8000) {
   const modelUrl = 'https://api-inference.huggingface.co/models/nvidia/segformer-b5-finetuned-ade-640-640';
   const headers = {};
   if (apiToken) {
     headers['Authorization'] = `Bearer ${apiToken}`;
   }
   
-  const response = await fetch(modelUrl, {
-    method: 'POST',
-    headers: headers,
-    body: imageBlob
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   
-  if (response.status === 503) {
-    const errorData = await response.json();
-    return { loading: true, estimatedTime: errorData.estimated_time || 20 };
+  try {
+    const response = await fetch(modelUrl, {
+      method: 'POST',
+      headers: headers,
+      body: imageBlob,
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.status === 503) {
+      const errorData = await response.json();
+      return { loading: true, estimatedTime: errorData.estimated_time || 20 };
+    }
+    
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText || 'Failed to segment image');
+    }
+    
+    return await response.json();
+  } catch (e) {
+    clearTimeout(timeoutId);
+    throw e;
   }
-  
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(errText || 'Failed to segment image');
-  }
-  
-  return await response.json();
 }
 
 // ── Document Loaded Event Logic Additions ─────────────────────
