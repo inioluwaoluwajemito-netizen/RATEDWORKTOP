@@ -1663,22 +1663,6 @@ async function createMergedMask(segments, labelsToMatch, width, height) {
 }
 
 async function segmentKitchenImage(imageBlob, apiToken = '', timeoutMs = 8000) {
-  // 1. First, attempt to query the secure server-side Supabase Edge Function.
-  // This hides the HF_TOKEN from the browser and bypasses rate limits securely.
-  try {
-    const { data, error } = await supabaseClient.functions.invoke('ai-segmenter', {
-      body: imageBlob
-    });
-    
-    if (!error && data) {
-      return data;
-    }
-    console.warn('Supabase Edge Function returned error or was not deployed. Falling back to direct Hugging Face call.', error);
-  } catch (e) {
-    console.warn('Could not call Supabase Edge Function, trying direct direct Hugging Face call fallback.', e);
-  }
-
-  // 2. Fallback: Query Hugging Face directly from browser (might get rate-limited if token-less)
   const modelUrl = 'https://api-inference.huggingface.co/models/nvidia/segformer-b5-finetuned-ade-640-640';
   const headers = {};
   if (apiToken) {
@@ -1714,3 +1698,5 @@ async function segmentKitchenImage(imageBlob, apiToken = '', timeoutMs = 8000) {
     throw e;
   }
 }
+
+
