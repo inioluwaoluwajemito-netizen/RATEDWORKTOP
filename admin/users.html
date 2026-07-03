@@ -312,11 +312,40 @@ async function deleteUser(id) {
   const users = await fetchUsers();
   const user = users.find(u => u.id == id);
   if (!user) return;
-  confirmAction(`Permanently delete ${user.name}? This cannot be undone.`, async () => {
-    await supabaseClient.from('profiles').delete().eq('id', id);
+
+  // Prevent deleting the admin account
+  if (user.email === 'ratedworktopsapp@gmail.com') {
+    showToast('Cannot delete the administrator account.', 'error');
+    return;
+  }
+
+  confirmAction(`Permanently delete ${user.name} (${user.email})? This will remove their account, profile data, and sign-in access. This action cannot be undone.`, async () => {
+    const confirmBtn = document.getElementById('confirm-yes');
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Deleting…';
+    }
+
+    const { error } = await deleteProfileFromDB(id);
+
+    if (error) {
+      showToast('Failed to delete user: ' + error.message, 'error');
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm';
+      }
+      return;
+    }
+
+    // Refresh the table and stats immediately
     await filterUsers();
     await renderUserStats();
-    showToast('User deleted successfully');
+    showToast(`${user.name} has been permanently deleted.`, 'success');
+
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirm';
+    }
   });
 }
 

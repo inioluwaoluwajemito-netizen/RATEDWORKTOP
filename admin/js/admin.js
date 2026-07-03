@@ -8,7 +8,8 @@ const SUPABASE_URL = 'https://cvzeelapjwdvpotuvbrz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2emVlbGFwandkdnBvdHV2YnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODI0NzAsImV4cCI6MjA5Nzc1ODQ3MH0.1zhb3W30NmK8wwW5q6_eJ_ExHd0zoyWhYvCG7w5T3S4'; 
 
 // ── Supabase Initialization ───────────────────
-// We mock Supabase to run completely local storage/client-side.
+// Use real Supabase when the library and credentials are available.
+// The mock client below is a fallback for offline/local development only.
 function safeGetLocalStorage(key, fallback = []) {
   try {
     const val = localStorage.getItem(key);
@@ -708,13 +709,13 @@ class MockSupabaseClient {
   }
 }
 
-// Instantiate real Supabase client if credentials are provided, or fall back to the mock client
-const useRealSupabase = typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase;
+// Instantiate real Supabase client — always use real Supabase when the library is loaded
+const useRealSupabase = !!(typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
 const supabaseClient = useRealSupabase 
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
   : new MockSupabaseClient();
 
-// Seed initial mock data if using mock database
+// Seed initial mock data only if using mock database (offline/local dev)
 if (!useRealSupabase) {
   initProfilesTable();
   initBrandsAndColours();
@@ -1110,6 +1111,22 @@ async function deleteCategoryFromDB(id) {
 async function updateProfileInDB(id, updates) {
   if (!supabaseClient) return;
   await supabaseClient.from('profiles').update(updates).eq('id', id);
+}
+
+async function deleteProfileFromDB(id) {
+  if (!supabaseClient) return { error: null };
+  
+  // Try the RPC function first — this deletes from BOTH auth.users AND profiles
+  const { error: rpcError } = await supabaseClient.rpc('delete_user_completely', { user_id: id });
+  
+  if (!rpcError) {
+    return { error: null };
+  }
+  
+  // Fallback: if the RPC function doesn't exist yet, delete from profiles table directly
+  console.warn('RPC delete_user_completely not available, falling back to profiles-only delete:', rpcError.message);
+  const { error: deleteError } = await supabaseClient.from('profiles').delete().eq('id', id);
+  return { error: deleteError };
 }
 
 async function updateSettingsInDB(settings) {
