@@ -1663,6 +1663,22 @@ async function createMergedMask(segments, labelsToMatch, width, height) {
 }
 
 async function segmentKitchenImage(imageBlob, apiToken = '', timeoutMs = 8000) {
+  // 1. First, attempt to query the secure server-side Supabase Edge Function.
+  // This hides the HF_TOKEN from the browser and bypasses rate limits securely.
+  try {
+    const { data, error } = await supabaseClient.functions.invoke('ai-segmenter', {
+      body: imageBlob
+    });
+    
+    if (!error && data) {
+      return data;
+    }
+    console.warn('Supabase Edge Function returned error or was not deployed. Falling back to direct Hugging Face call.', error);
+  } catch (e) {
+    console.warn('Could not call Supabase Edge Function, trying direct direct Hugging Face call fallback.', e);
+  }
+
+  // 2. Fallback: Query Hugging Face directly from browser (might get rate-limited if token-less)
   const modelUrl = 'https://api-inference.huggingface.co/models/nvidia/segformer-b5-finetuned-ade-640-640';
   const headers = {};
   if (apiToken) {
@@ -1698,43 +1714,3 @@ async function segmentKitchenImage(imageBlob, apiToken = '', timeoutMs = 8000) {
     throw e;
   }
 }
-
-// ── Document Loaded Event Logic Additions ─────────────────────
-
-document.addEventListener('DOMContentLoaded', () => {
-  // AI Settings accordion & visibility wire-up
-  const aiToggleBtn = document.getElementById('ai-settings-toggle-btn');
-  const aiContent = document.getElementById('ai-settings-content');
-  const aiChevron = document.getElementById('ai-settings-chevron');
-  if (aiToggleBtn && aiContent) {
-    aiToggleBtn.addEventListener('click', () => {
-      const isHidden = aiContent.style.display === 'none';
-      aiContent.style.display = isHidden ? 'block' : 'none';
-      if (aiChevron) {
-        aiChevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
-      }
-    });
-  }
-
-  const toggleTokenBtn = document.getElementById('toggle-token-visibility');
-  const tokenInput = document.getElementById('hf-api-token');
-  const eyeIcon = document.getElementById('toggle-token-eye-icon');
-  if (toggleTokenBtn && tokenInput) {
-    toggleTokenBtn.addEventListener('click', () => {
-      const isPassword = tokenInput.type === 'password';
-      tokenInput.type = isPassword ? 'text' : 'password';
-      if (eyeIcon) {
-        eyeIcon.setAttribute('data-lucide', isPassword ? 'eye-off' : 'eye');
-        lucide.createIcons();
-      }
-    });
-  }
-
-  // Load and save HF token
-  if (tokenInput) {
-    tokenInput.value = localStorage.getItem('hf_api_token') || '';
-    tokenInput.addEventListener('input', (e) => {
-      localStorage.setItem('hf_api_token', e.target.value.trim());
-    });
-  }
-});

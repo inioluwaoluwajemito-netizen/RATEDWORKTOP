@@ -884,25 +884,6 @@
         <p class="mode-desc-text" id="mode-desc-text">AI detects worktop & splashback surfaces automatically.</p>
       </div>
 
-      <div class="control-section" id="ai-settings-section">
-        <h3 class="control-title" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" id="ai-settings-toggle-btn">
-          <span>AI Settings</span>
-          <i data-lucide="chevron-down" id="ai-settings-chevron" style="width:16px;height:16px;transition:transform 0.2s;"></i>
-        </h3>
-        <div id="ai-settings-content" style="display:none; margin-top:12px;">
-          <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:6px;">Hugging Face API Token (Optional)</label>
-          <div style="position:relative; display:flex; align-items:center;">
-            <input type="password" id="hf-api-token" placeholder="Paste hf_... token here" style="width:100%; padding:8px 12px; background:var(--bg-dark); border:1px solid var(--border); border-radius:8px; color:var(--text-primary); font-size:12px; outline:none; border-color:var(--border);" />
-            <button type="button" id="toggle-token-visibility" style="position:absolute; right:10px; background:none; border:none; color:var(--text-muted); cursor:pointer; padding:0; display:flex; align-items:center;">
-              <i data-lucide="eye" id="toggle-token-eye-icon" style="width:14px;height:14px;"></i>
-            </button>
-          </div>
-          <p style="font-size:10px; color:var(--text-muted); margin-top:6px; line-height:1.4;">
-            Highly recommended for faster & unlimited automatic detection. Get one free at <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--gold); text-decoration:none;">huggingface.co</a>.
-          </p>
-        </div>
-      </div>
-
       <div class="control-section">
         <h3 class="control-title">Refinement</h3>
         <textarea class="refinement-textarea" id="refinement-instructions" placeholder="e.g. Only the island worktop, leave the wall area alone."></textarea>
