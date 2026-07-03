@@ -296,12 +296,22 @@ async function toggleSuspend(id) {
   const users = await fetchUsers();
   const user = users.find(u => u.id == id);
   if (!user) return;
-  // NOTE: 'status' is mock data in our profile mapped struct unless you added it to profiles
-  // Since we don't have it in supabase_schema, we will just simulate success or add it
-  // For now, it will only visually update if we are storing users in localStorage fallback
+
+  // Prevent suspending the admin account
+  if (user.email === 'ratedworktopsapp@gmail.com') {
+    showToast('Cannot suspend the administrator account.', 'error');
+    return;
+  }
+
   const newStatus = user.status === 'active' ? 'suspended' : 'active';
+  const action = newStatus === 'suspended' ? 'suspend' : 'reactivate';
+
   confirmAction(`Are you sure you want to ${action} ${user.name}?`, async () => {
-    await updateProfileInDB(id, { status: newStatus });
+    const { error } = await supabaseClient.from('profiles').update({ status: newStatus }).eq('id', id);
+    if (error) {
+      showToast(`Failed to ${action} user: ${error.message}`, 'error');
+      return;
+    }
     await filterUsers();
     await renderUserStats();
     showToast(`User ${action}d successfully`);
