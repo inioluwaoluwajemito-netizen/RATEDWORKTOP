@@ -1288,12 +1288,12 @@ function drawTriangleAffine(ctx, img, u0, v0, u1, v1, u2, v2, x0, y0, x1, y1, x2
     return;
   }
   
-  const a = (x0 * (v1 - v2) - v0 * (x1 - x2) + (x1 * v2 - x2 * v1)) / den;
-  const b = (y0 * (v1 - v2) - v0 * (y1 - y2) + (y1 * v2 - y2 * v1)) / den;
-  const c = (u0 * (x1 - x2) - x0 * (u1 - u2) + (u1 * x2 - u2 * x1)) / den;
-  const d = (u0 * (y1 - y2) - y0 * (u1 - u2) + (u1 * y2 - u2 * y1)) / den;
-  const e = (u0 * (v1 * x2 - v2 * x1) - v0 * (u1 * x2 - u2 * x1) + x0 * (u1 * v2 - u2 * v1)) / den;
-  const f = (u0 * (v1 * y2 - v2 * y1) - v0 * (u1 * y2 - u2 * y1) + y0 * (u1 * v2 - u2 * v1)) / den;
+  const a = (ex0 * (v1 - v2) - v0 * (ex1 - ex2) + (ex1 * v2 - ex2 * v1)) / den;
+  const b = (ey0 * (v1 - v2) - v0 * (ey1 - ey2) + (ey1 * v2 - ey2 * v1)) / den;
+  const c = (u0 * (ex1 - ex2) - ex0 * (u1 - u2) + (u1 * ex2 - u2 * ex1)) / den;
+  const d = (u0 * (ey1 - ey2) - ey0 * (u1 - u2) + (u1 * ey2 - u2 * ey1)) / den;
+  const e = (u0 * (v1 * ex2 - v2 * ex1) - v0 * (u1 * ex2 - u2 * ex1) + ex0 * (u1 * v2 - u2 * v1)) / den;
+  const f = (u0 * (v1 * ey2 - v2 * ey1) - v0 * (u1 * ey2 - u2 * ey1) + ey0 * (u1 * v2 - u2 * v1)) / den;
   
   ctx.transform(a, b, c, d, e, f);
   ctx.drawImage(img, 0, 0);
