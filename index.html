@@ -504,6 +504,33 @@
       align-items: center;
     }
 
+    .photoreal-image-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid rgba(201, 169, 110, 0.25);
+      box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8), 0 0 50px rgba(201, 169, 110, 0.04);
+      transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    }
+
+    .photoreal-image-wrapper:hover {
+      transform: scale(1.025);
+      border-color: var(--gold);
+      box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.9), 0 0 60px rgba(201, 169, 110, 0.12);
+    }
+
+    .photoreal-image-wrapper img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: cover;
+      transition: transform 0.6s ease;
+    }
+
+    .photoreal-image-wrapper:hover img {
+      transform: scale(1.015);
+    }
+
     /* Responsive */
     @media (max-width: 992px) {
       .steps-grid, .features-grid, .pricing-grid, .photoreal-grid {
@@ -606,9 +633,9 @@
     <div class="container">
       <div class="photoreal-grid">
         
-        <!-- Left Side: Image with Badge -->
-        <div style="position:relative; border-radius:16px; overflow:hidden; border: 1px solid var(--border); box-shadow:0 20px 40px rgba(0,0,0,0.6);">
-          <img src="images/photoreal-kitchen.png" alt="Photoreal AI Render" style="width:100%; height:auto; display:block; object-fit:cover;" />
+        <!-- Left Side: Image -->
+        <div class="photoreal-image-wrapper">
+          <img src="images/photoreal-kitchen.png" alt="Photoreal AI Render" />
         </div>
         
         <!-- Right Side: Details -->
