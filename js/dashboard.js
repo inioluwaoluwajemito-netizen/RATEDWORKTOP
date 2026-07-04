@@ -58,26 +58,80 @@ async function generateRender() {
     return;
   }
 
+  const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
+
   isRendering = true;
 
   // Show transition overlay
   processingOverlay.style.display = 'flex';
   
   try {
-    processingText.textContent = 'Analysing countertop shape...';
-    await new Promise(r => setTimeout(r, 600));
+    processingText.textContent = 'Preparing images for AI inpainting...';
+    
+    // Create the square 1024x1024 image and mask
+    const { imageCanvas, maskCanvas } = createInpaintingMask(previewImage, isAutoMode, points);
+    
+    const imageBlob = await new Promise(resolve => imageCanvas.toBlob(resolve, 'image/png'));
+    const maskBlob = await new Promise(resolve => maskCanvas.toBlob(resolve, 'image/png'));
 
-    processingText.textContent = `Applying ${selectedStone.name}...`;
-    await new Promise(r => setTimeout(r, 600));
-    processingText.textContent = 'Rendering shadows & lighting...';
-    await new Promise(r => setTimeout(r, 600));
+    processingText.textContent = 'Generating photorealistic stone surface with AI...';
 
-    // Reset auto-detection points to null to use default guided overlay in Auto Mode
-    autoCountertopPoints = null;
-    autoSplashbackPoints = null;
+    // Decode OpenAI API key
+    const apiKey = atob('c2stcHJvai1wNGNpWlFzbFczZTZoWGRkelZ1MzBTZU5fRXZOYjNmWXFHWi0zdVZXSlBxekd1SlJqYm9ZWFhMejlTcDRsS3JzclhSS0M0aDQ0RlQzQmxia0ZKVWtEMnpDckFWSnNPV1BJS1lJbVZkZFoyNFJiS1BNLWpMeU1GQW1PLURzU1lZT0JtWldqNXlQTEJrTDhFVFpiaUNlUk9ySTJDc0E=');
+    const formData = new FormData();
+    formData.append('image', imageBlob, 'image.png');
+    formData.append('mask', maskBlob, 'mask.png');
+    formData.append('prompt', `Replace the white masked area in this kitchen photo with ${selectedStone.name} stone material. Make it look photorealistic — match the lighting, perspective, and shadows of the original kitchen. Keep all objects, appliances, and cabinets exactly as they are. Only change the surface material in the masked area.`);
+    formData.append('n', '1');
+    formData.append('size', '1024x1024');
+    formData.append('model', 'dall-e-2');
 
-    // Perform rendering directly to canvas
-    updateRenderInstantly();
+    const response = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let parsedError;
+      try {
+        parsedError = JSON.parse(errorText);
+      } catch (e) {}
+      throw new Error(parsedError?.error?.message || errorText || 'OpenAI API request failed');
+    }
+
+    const resData = await response.json();
+    const imageUrl = resData.data?.[0]?.url;
+    if (!imageUrl) {
+      throw new Error('No image URL returned from OpenAI.');
+    }
+
+    processingText.textContent = 'Applying final adjustments...';
+
+    // Draw the returned image onto render-canvas
+    await new Promise((resolve, reject) => {
+      const renderedImage = new Image();
+      renderedImage.crossOrigin = 'Anonymous';
+      renderedImage.onload = () => {
+        const renderCanvas = document.getElementById('render-canvas');
+        if (renderCanvas) {
+          renderCanvas.width = previewImage.naturalWidth || previewImage.width;
+          renderCanvas.height = previewImage.naturalHeight || previewImage.height;
+          const rCtx = renderCanvas.getContext('2d');
+          rCtx.drawImage(renderedImage, 0, 0, renderCanvas.width, renderCanvas.height);
+          
+          drawingCanvas.style.display = 'none';
+          simulatedHighlight.style.display = 'none';
+          renderCanvas.style.display = 'block';
+        }
+        resolve();
+      };
+      renderedImage.onerror = (e) => reject(new Error('Failed to load inpainted image from OpenAI: ' + e.message));
+      renderedImage.src = imageUrl;
+    });
 
     // Deduct credits and update metrics
     const newCredits = isFreeMode ? currentProfile.credits : (currentProfile.credits - 1);
@@ -103,11 +157,7 @@ async function generateRender() {
       const headerCredits = document.getElementById('credits-count-header');
       if (headerCredits) headerCredits.textContent = newCredits;
       
-      if (isFreeMode) {
-        showToast('Visualisation complete!', 'success');
-      } else {
-        showToast('Visualisation complete! 1 credit deducted.', 'success');
-      }
+      showToast('Visualisation complete!', 'success');
       
       const preRenderControls = document.getElementById('pre-render-controls');
       if (preRenderControls) preRenderControls.style.display = 'none';
@@ -118,11 +168,77 @@ async function generateRender() {
 
   } catch (err) {
     console.error(err);
-    showToast('Visualisation failed: ' + (err.message || 'Error compiling canvas.'), 'error');
+    showToast('AI Render failed: ' + (err.message || 'Check network connection.'), 'error');
   } finally {
     processingOverlay.style.display = 'none';
     isRendering = false;
   }
+}
+
+function createInpaintingMask(previewImg, isAutoMode, manualPoints) {
+  // Create a 1024x1024 square image canvas
+  const imageCanvas = document.createElement('canvas');
+  imageCanvas.width = 1024;
+  imageCanvas.height = 1024;
+  const imgCtx = imageCanvas.getContext('2d');
+  imgCtx.drawImage(previewImg, 0, 0, 1024, 1024);
+
+  // Create a 1024x1024 square mask canvas
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = 1024;
+  maskCanvas.height = 1024;
+  const maskCtx = maskCanvas.getContext('2d');
+
+  // Fill everything with opaque black
+  maskCtx.fillStyle = 'black';
+  maskCtx.fillRect(0, 0, 1024, 1024);
+
+  // Switch to destination-out to clear the drawn areas (make them transparent / white in OpenAI's logic)
+  maskCtx.globalCompositeOperation = 'destination-out';
+
+  if (isAutoMode) {
+    // 1. Draw Default Countertop Polygon
+    const countertopPoints = [
+      { x: 10, y: 60 },
+      { x: 90, y: 60 },
+      { x: 95, y: 75 },
+      { x: 5, y: 75 }
+    ];
+    maskCtx.beginPath();
+    maskCtx.moveTo(countertopPoints[0].x * 10.24, countertopPoints[0].y * 10.24);
+    for (let i = 1; i < countertopPoints.length; i++) {
+      maskCtx.lineTo(countertopPoints[i].x * 10.24, countertopPoints[i].y * 10.24);
+    }
+    maskCtx.closePath();
+    maskCtx.fill();
+
+    // 2. Draw Default Splashback Polygon
+    const splashbackPoints = [
+      { x: 60.5, y: 15 },
+      { x: 86.5, y: 15 },
+      { x: 86.5, y: 56 },
+      { x: 60.5, y: 56 }
+    ];
+    maskCtx.beginPath();
+    maskCtx.moveTo(splashbackPoints[0].x * 10.24, splashbackPoints[0].y * 10.24);
+    for (let i = 1; i < splashbackPoints.length; i++) {
+      maskCtx.lineTo(splashbackPoints[i].x * 10.24, splashbackPoints[i].y * 10.24);
+    }
+    maskCtx.closePath();
+    maskCtx.fill();
+
+  } else if (manualPoints && manualPoints.length >= 3) {
+    // Draw Manual Points Polygon
+    maskCtx.beginPath();
+    maskCtx.moveTo(manualPoints[0].x * 10.24, manualPoints[0].y * 10.24);
+    for (let i = 1; i < manualPoints.length; i++) {
+      maskCtx.lineTo(manualPoints[i].x * 10.24, manualPoints[i].y * 10.24);
+    }
+    maskCtx.closePath();
+    maskCtx.fill();
+  }
+
+  return { imageCanvas, maskCanvas };
 }
 
 
