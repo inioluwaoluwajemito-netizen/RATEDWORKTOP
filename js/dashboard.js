@@ -1263,10 +1263,22 @@ function updateRenderInstantly() {
 
 function drawTriangleAffine(ctx, img, u0, v0, u1, v1, u2, v2, x0, y0, x1, y1, x2, y2) {
   ctx.save();
+  
+  // Expand the clipping path slightly to overlap adjacent triangles and prevent sub-pixel gaps (mesh lines)
+  const cx = (x0 + x1 + x2) / 3;
+  const cy = (y0 + y1 + y2) / 3;
+  const expand = 1.015; // 1.5% overlap expansion
+  const ex0 = cx + (x0 - cx) * expand;
+  const ey0 = cy + (y0 - cy) * expand;
+  const ex1 = cx + (x1 - cx) * expand;
+  const ey1 = cy + (y1 - cy) * expand;
+  const ex2 = cx + (x2 - cx) * expand;
+  const ey2 = cy + (y2 - cy) * expand;
+
   ctx.beginPath();
-  ctx.moveTo(x0, y0);
-  ctx.lineTo(x1, y1);
-  ctx.lineTo(x2, y2);
+  ctx.moveTo(ex0, ey0);
+  ctx.lineTo(ex1, ey1);
+  ctx.lineTo(ex2, ey2);
   ctx.closePath();
   ctx.clip();
   
