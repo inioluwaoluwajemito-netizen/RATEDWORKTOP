@@ -58,58 +58,23 @@ async function generateRender() {
     return;
   }
 
-  const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
-
   isRendering = true;
 
   // Show transition overlay
   processingOverlay.style.display = 'flex';
   
   try {
-    if (isAutoMode) {
-      processingText.textContent = 'Analysing kitchen surfaces with Gemini AI...';
-
-      // Call Gemini API if not cached for the current image
-      if (cacheImageSrc !== previewImage.src || !autoCountertopPoints) {
-        let imageBlob;
-        try {
-          imageBlob = await getImageBlob(previewImage.src);
-        } catch (blobErr) {
-          console.error('Failed to get image blob:', blobErr);
-          throw new Error('Could not read image file.');
-        }
-
-        try {
-          const geminiResult = await analyseKitchenWithGemini(imageBlob);
-          
-          if (geminiResult && geminiResult.countertop) {
-            autoCountertopPoints = geminiResult.countertop.map(pt => ({ x: pt[0], y: pt[1] }));
-            cacheImageSrc = previewImage.src;
-          } else {
-            autoCountertopPoints = null;
-          }
-
-          if (geminiResult && geminiResult.splashback) {
-            autoSplashbackPoints = geminiResult.splashback.map(pt => ({ x: pt[0], y: pt[1] }));
-          } else {
-            autoSplashbackPoints = null;
-          }
-        } catch (geminiErr) {
-          console.warn('Gemini analysis failed, using guided fallback:', geminiErr);
-          autoCountertopPoints = null;
-          autoSplashbackPoints = null;
-          showToast('Gemini AI failed: ' + (geminiErr.message || geminiErr), 'error');
-        }
-      }
-    } else {
-      processingText.textContent = 'Analysing countertop shape...';
-      await new Promise(r => setTimeout(r, 600));
-    }
+    processingText.textContent = 'Analysing countertop shape...';
+    await new Promise(r => setTimeout(r, 600));
 
     processingText.textContent = `Applying ${selectedStone.name}...`;
     await new Promise(r => setTimeout(r, 600));
     processingText.textContent = 'Rendering shadows & lighting...';
     await new Promise(r => setTimeout(r, 600));
+
+    // Reset auto-detection points to null to use default guided overlay in Auto Mode
+    autoCountertopPoints = null;
+    autoSplashbackPoints = null;
 
     // Perform rendering directly to canvas
     updateRenderInstantly();
@@ -1492,85 +1457,4 @@ function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, man
     ctx.restore();
   }
 }
-async function getImageBlob(src) {
-  if (src.startsWith('data:')) {
-    const arr = src.split(',');
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[arr.length - 1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], { type: mime });
-  }
-  const response = await fetch(src);
-  return await response.blob();
-}
 
-async function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64data = reader.result.split(',')[1];
-      resolve(base64data);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-async function analyseKitchenWithGemini(imageBlob) {
-  const apiKey = atob('QVEuQWI4Uk42SUhTaExRYksxaEhLbjZXTnVjNzZFV0pRV0JYTnV4REdQTlFYdXlOZFZVMUE=');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  
-  const base64Image = await blobToBase64(imageBlob);
-  const mimeType = imageBlob.type || 'image/jpeg';
-
-  const payload = {
-    contents: [
-      {
-        parts: [
-          {
-            text: "Identify the coordinates of the kitchen countertop/worktop surface and the backsplash/splashback surface in the image. You must return percentage values (0 to 100) relative to image width and height. Do not use absolute pixel positions. The returned points should outline the boundary coordinates in a clock-wise sequence. Return ONLY a JSON object containing the keys 'countertop' and 'splashback'. Example: {\"countertop\": [[10, 60], [90, 60], [95, 75], [5, 75]], \"splashback\": [[60, 15], [86, 15], [86, 56], [60, 56]]}"
-          },
-          {
-            inlineData: {
-              mimeType: mimeType,
-              data: base64Image
-            }
-          }
-        ]
-      }
-    ],
-    generationConfig: {
-      responseMimeType: "application/json"
-    }
-  };
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error('Gemini API request failed: ' + errorText);
-  }
-
-  const result = await response.json();
-  const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!textResponse) {
-    throw new Error('Empty response from Gemini API');
-  }
-
-  try {
-    return JSON.parse(textResponse.trim());
-  } catch (e) {
-    console.error('Failed to parse Gemini JSON:', textResponse, e);
-    throw new Error('Invalid JSON format returned from Gemini.');
-  }
-}
