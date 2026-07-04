@@ -84,6 +84,7 @@ async function generateRender() {
     formData.append('prompt', `Replace the white masked area in this kitchen photo with ${selectedStone.name} stone material. Make it look photorealistic — match the lighting, perspective, and shadows of the original kitchen. Keep all objects, appliances, and cabinets exactly as they are. Only change the surface material in the masked area.`);
     formData.append('n', '1');
     formData.append('size', '1024x1024');
+    formData.append('model', 'dall-e-2');
 
     const response = await fetch('https://api.openai.com/v1/images/edits', {
       method: 'POST',
