@@ -98,7 +98,7 @@ async function generateRender() {
           console.warn('Gemini analysis failed, using guided fallback:', geminiErr);
           autoCountertopPoints = null;
           autoSplashbackPoints = null;
-          showToast('Gemini AI analysis timed out. Falling back to guided layout.', 'warning');
+          showToast('Gemini AI failed: ' + (geminiErr.message || geminiErr), 'error');
         }
       }
     } else {
