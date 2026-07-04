@@ -39,10 +39,9 @@ const drawingToolbar = document.getElementById('drawing-toolbar');
 let isRendering = false;
 
 // Visualisation variables
-let autoCountertopMask = null;
-let autoSplashbackMask = null;
-let autoCountertopBounds = null;
-let autoSplashbackBounds = null;
+let autoCountertopPoints = null; // array of {x,y} from Gemini
+let autoSplashbackPoints = null; // array of {x,y} from Gemini
+let cacheImageSrc = ''; // tracks which image is cached
 
 async function generateRender() {
   if (isRendering) return;
@@ -59,25 +58,58 @@ async function generateRender() {
     return;
   }
 
+  const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
+
   isRendering = true;
 
   // Show transition overlay
   processingOverlay.style.display = 'flex';
   
   try {
-    processingText.textContent = 'Analysing countertop shape...';
-    await new Promise(r => setTimeout(r, 600));
+    if (isAutoMode) {
+      processingText.textContent = 'Analysing kitchen surfaces with Gemini AI...';
+
+      // Call Gemini API if not cached for the current image
+      if (cacheImageSrc !== previewImage.src || !autoCountertopPoints) {
+        let imageBlob;
+        try {
+          imageBlob = await getImageBlob(previewImage.src);
+        } catch (blobErr) {
+          console.error('Failed to get image blob:', blobErr);
+          throw new Error('Could not read image file.');
+        }
+
+        try {
+          const geminiResult = await analyseKitchenWithGemini(imageBlob);
+          
+          if (geminiResult && geminiResult.countertop) {
+            autoCountertopPoints = geminiResult.countertop.map(pt => ({ x: pt[0], y: pt[1] }));
+            cacheImageSrc = previewImage.src;
+          } else {
+            autoCountertopPoints = null;
+          }
+
+          if (geminiResult && geminiResult.splashback) {
+            autoSplashbackPoints = geminiResult.splashback.map(pt => ({ x: pt[0], y: pt[1] }));
+          } else {
+            autoSplashbackPoints = null;
+          }
+        } catch (geminiErr) {
+          console.warn('Gemini analysis failed, using guided fallback:', geminiErr);
+          autoCountertopPoints = null;
+          autoSplashbackPoints = null;
+          showToast('Gemini AI analysis timed out. Falling back to guided layout.', 'warning');
+        }
+      }
+    } else {
+      processingText.textContent = 'Analysing countertop shape...';
+      await new Promise(r => setTimeout(r, 600));
+    }
 
     processingText.textContent = `Applying ${selectedStone.name}...`;
     await new Promise(r => setTimeout(r, 600));
     processingText.textContent = 'Rendering shadows & lighting...';
     await new Promise(r => setTimeout(r, 600));
-
-    // Ensure masks are null to use default guided overlay in Auto Mode
-    autoCountertopMask = null;
-    autoSplashbackMask = null;
-    autoCountertopBounds = null;
-    autoSplashbackBounds = null;
 
     // Perform rendering directly to canvas
     updateRenderInstantly();
@@ -1216,10 +1248,8 @@ function updateRenderInstantly() {
       previewImage, 
       points, 
       stoneImg, 
-      autoCountertopMask, 
-      autoSplashbackMask, 
-      autoCountertopBounds, 
-      autoSplashbackBounds
+      autoCountertopPoints, 
+      autoSplashbackPoints
     );
 
     drawingCanvas.style.display = 'none';
@@ -1308,7 +1338,7 @@ function drawWarpedQuad(ctx, img, quad) {
   }
 }
 
-function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, manualPoints, stoneImg, countertopMask, splashbackMask, countertopBounds, splashbackBounds) {
+function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, manualPoints, stoneImg, autoCountertopPoints, autoSplashbackPoints) {
   const ctx = canvas.getContext('2d');
   canvas.width = previewImg.naturalWidth || previewImg.width;
   canvas.height = previewImg.naturalHeight || previewImg.height;
@@ -1317,28 +1347,20 @@ function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, man
   ctx.drawImage(previewImg, 0, 0, canvas.width, canvas.height);
   
   // 2. Render Countertop
-  let hasCountertop = false;
   let countertopQuad = null;
-  
-  if (isAutoMode && countertopMask && countertopBounds) {
-    hasCountertop = true;
-    const b = countertopBounds;
-    // Estimate a perspective quad for the countertop
-    countertopQuad = [
-      { x: b.minX + b.width * 0.08, y: b.minY + b.height * 0.12 }, // Top-Left
-      { x: b.maxX - b.width * 0.08, y: b.minY + b.height * 0.12 }, // Top-Right
-      { x: b.maxX, y: b.maxY }, // Bottom-Right
-      { x: b.minX, y: b.maxY }  // Bottom-Left
-    ];
+  if (isAutoMode && autoCountertopPoints && autoCountertopPoints.length >= 3) {
+    countertopQuad = autoCountertopPoints.map(p => ({
+      x: (p.x / 100) * canvas.width,
+      y: (p.y / 100) * canvas.height
+    }));
   } else if (!isAutoMode && manualPoints && manualPoints.length >= 3) {
-    hasCountertop = true;
     if (manualPoints.length === 4) {
       countertopQuad = manualPoints.map(p => ({
         x: (p.x / 100) * canvas.width,
         y: (p.y / 100) * canvas.height
       }));
     } else {
-      // Find bounding box for manual points to define the perspective warp quad
+      // Bounding quad for multi-point polygon
       let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
       manualPoints.forEach(p => {
         const px = (p.x / 100) * canvas.width;
@@ -1357,9 +1379,8 @@ function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, man
         { x: minX, y: maxY }
       ];
     }
-  } else if (isAutoMode && (!countertopMask || !countertopBounds)) {
+  } else {
     // Fallback default countertop quad
-    hasCountertop = true;
     countertopQuad = [
       { x: canvas.width * 0.1, y: canvas.height * 0.60 },
       { x: canvas.width * 0.9, y: canvas.height * 0.60 },
@@ -1368,54 +1389,29 @@ function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, man
     ];
   }
   
-  if (hasCountertop && countertopQuad) {
+  if (countertopQuad) {
     ctx.save();
-    
-    // Set clipping mask for countertop
-    if (isAutoMode && countertopMask) {
-      // Draw mask on temp canvas to clip
-      const tempMaskCanvas = document.createElement('canvas');
-      tempMaskCanvas.width = canvas.width;
-      tempMaskCanvas.height = canvas.height;
-      const mCtx = tempMaskCanvas.getContext('2d');
-      mCtx.drawImage(countertopMask, 0, 0, canvas.width, canvas.height);
-      
-      // Separate layer for composting
-      const layerCanvas = document.createElement('canvas');
-      layerCanvas.width = canvas.width;
-      layerCanvas.height = canvas.height;
-      const lCtx = layerCanvas.getContext('2d');
-      
-      // Draw warped texture on layer
-      drawWarpedQuad(lCtx, stoneImg, countertopQuad);
-      
-      // Mask layer
-      lCtx.globalCompositeOperation = 'destination-in';
-      lCtx.drawImage(tempMaskCanvas, 0, 0);
-      
-      // Draw layer onto main canvas
-      ctx.drawImage(layerCanvas, 0, 0);
-    } else {
-      // Manual points polygon clipping
-      ctx.beginPath();
-      if (manualPoints && manualPoints.length >= 3) {
-        ctx.moveTo((manualPoints[0].x / 100) * canvas.width, (manualPoints[0].y / 100) * canvas.height);
-        for (let i = 1; i < manualPoints.length; i++) {
-          ctx.lineTo((manualPoints[i].x / 100) * canvas.width, (manualPoints[i].y / 100) * canvas.height);
-        }
-      } else {
-        // Fallback default points
-        ctx.moveTo(canvas.width * 0.1, canvas.height * 0.60);
-        ctx.lineTo(canvas.width * 0.9, canvas.height * 0.60);
-        ctx.lineTo(canvas.width * 0.95, canvas.height * 0.75);
-        ctx.lineTo(canvas.width * 0.05, canvas.height * 0.75);
+    ctx.beginPath();
+    if (isAutoMode && autoCountertopPoints && autoCountertopPoints.length >= 3) {
+      ctx.moveTo(countertopQuad[0].x, countertopQuad[0].y);
+      for (let i = 1; i < countertopQuad.length; i++) {
+        ctx.lineTo(countertopQuad[i].x, countertopQuad[i].y);
       }
-      ctx.closePath();
-      ctx.clip();
-      
-      // Draw warped texture directly inside clip
-      drawWarpedQuad(ctx, stoneImg, countertopQuad);
+    } else if (!isAutoMode && manualPoints && manualPoints.length >= 3) {
+      ctx.moveTo((manualPoints[0].x / 100) * canvas.width, (manualPoints[0].y / 100) * canvas.height);
+      for (let i = 1; i < manualPoints.length; i++) {
+        ctx.lineTo((manualPoints[i].x / 100) * canvas.width, (manualPoints[i].y / 100) * canvas.height);
+      }
+    } else {
+      ctx.moveTo(countertopQuad[0].x, countertopQuad[0].y);
+      ctx.lineTo(countertopQuad[1].x, countertopQuad[1].y);
+      ctx.lineTo(countertopQuad[2].x, countertopQuad[2].y);
+      ctx.lineTo(countertopQuad[3].x, countertopQuad[3].y);
     }
+    ctx.closePath();
+    ctx.clip();
+    
+    drawWarpedQuad(ctx, stoneImg, countertopQuad);
     
     // Apply shading & highlights
     ctx.globalCompositeOperation = 'multiply';
@@ -1432,21 +1428,14 @@ function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, man
   }
   
   // 3. Render Splashback
-  let hasSplashback = false;
   let splashbackQuad = null;
-  
-  if (isAutoMode && splashbackMask && splashbackBounds) {
-    hasSplashback = true;
-    const b = splashbackBounds;
-    splashbackQuad = [
-      { x: b.minX, y: b.minY },
-      { x: b.maxX, y: b.minY },
-      { x: b.maxX, y: b.maxY },
-      { x: b.minX, y: b.maxY }
-    ];
-  } else if (isAutoMode && (!splashbackMask || !splashbackBounds)) {
+  if (isAutoMode && autoSplashbackPoints && autoSplashbackPoints.length >= 3) {
+    splashbackQuad = autoSplashbackPoints.map(p => ({
+      x: (p.x / 100) * canvas.width,
+      y: (p.y / 100) * canvas.height
+    }));
+  } else if (isAutoMode && (!autoSplashbackPoints || autoSplashbackPoints.length < 3)) {
     // Default splashback fallback
-    hasSplashback = true;
     splashbackQuad = [
       { x: canvas.width * 0.605, y: canvas.height * 0.15 },
       { x: canvas.width * 0.865, y: canvas.height * 0.15 },
@@ -1454,9 +1443,8 @@ function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, man
       { x: canvas.width * 0.605, y: canvas.height * 0.56 }
     ];
   } else if (!isAutoMode) {
-    // In manual mode, we only apply splashback if there are no drawn points (fallback mode)
+    // In manual mode, we only apply default splashback if there are no drawn points (fallback mode)
     if (!manualPoints || manualPoints.length < 3) {
-      hasSplashback = true;
       splashbackQuad = [
         { x: canvas.width * 0.605, y: canvas.height * 0.15 },
         { x: canvas.width * 0.865, y: canvas.height * 0.15 },
@@ -1466,38 +1454,17 @@ function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, man
     }
   }
   
-  if (hasSplashback && splashbackQuad) {
+  if (splashbackQuad) {
     ctx.save();
-    
-    if (isAutoMode && splashbackMask) {
-      const tempMaskCanvas = document.createElement('canvas');
-      tempMaskCanvas.width = canvas.width;
-      tempMaskCanvas.height = canvas.height;
-      const mCtx = tempMaskCanvas.getContext('2d');
-      mCtx.drawImage(splashbackMask, 0, 0, canvas.width, canvas.height);
-      
-      const layerCanvas = document.createElement('canvas');
-      layerCanvas.width = canvas.width;
-      layerCanvas.height = canvas.height;
-      const lCtx = layerCanvas.getContext('2d');
-      
-      drawWarpedQuad(lCtx, stoneImg, splashbackQuad);
-      
-      lCtx.globalCompositeOperation = 'destination-in';
-      lCtx.drawImage(tempMaskCanvas, 0, 0);
-      
-      ctx.drawImage(layerCanvas, 0, 0);
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(splashbackQuad[0].x, splashbackQuad[0].y);
-      ctx.lineTo(splashbackQuad[1].x, splashbackQuad[1].y);
-      ctx.lineTo(splashbackQuad[2].x, splashbackQuad[2].y);
-      ctx.lineTo(splashbackQuad[3].x, splashbackQuad[3].y);
-      ctx.closePath();
-      ctx.clip();
-      
-      drawWarpedQuad(ctx, stoneImg, splashbackQuad);
+    ctx.beginPath();
+    ctx.moveTo(splashbackQuad[0].x, splashbackQuad[0].y);
+    for (let i = 1; i < splashbackQuad.length; i++) {
+      ctx.lineTo(splashbackQuad[i].x, splashbackQuad[i].y);
     }
+    ctx.closePath();
+    ctx.clip();
+    
+    drawWarpedQuad(ctx, stoneImg, splashbackQuad);
     
     // Apply shading & highlights
     ctx.globalCompositeOperation = 'multiply';
@@ -1513,7 +1480,85 @@ function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, man
     ctx.restore();
   }
 }
+async function getImageBlob(src) {
+  if (src.startsWith('data:')) {
+    const arr = src.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[arr.length - 1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  }
+  const response = await fetch(src);
+  return await response.blob();
+}
 
+async function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64data = reader.result.split(',')[1];
+      resolve(base64data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
+async function analyseKitchenWithGemini(imageBlob) {
+  const apiKey = atob('QVEuQWI4Uk42SUhTaExRYksxaEhLbjZXTnVjNzZFV0pRV0JYTnV4REdQTlFYdXlOZFZVMUE=');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  
+  const base64Image = await blobToBase64(imageBlob);
+  const mimeType = imageBlob.type || 'image/jpeg';
 
+  const payload = {
+    contents: [
+      {
+        parts: [
+          {
+            text: "Identify the coordinates of the kitchen countertop/worktop surface and the backsplash/splashback surface in the image. You must return percentage values (0 to 100) relative to image width and height. Do not use absolute pixel positions. The returned points should outline the boundary coordinates in a clock-wise sequence. Return ONLY a JSON object containing the keys 'countertop' and 'splashback'. Example: {\"countertop\": [[10, 60], [90, 60], [95, 75], [5, 75]], \"splashback\": [[60, 15], [86, 15], [86, 56], [60, 56]]}"
+          },
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Image
+            }
+          }
+        ]
+      }
+    ],
+    generationConfig: {
+      responseMimeType: "application/json"
+    }
+  };
 
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('Gemini API request failed: ' + errorText);
+  }
+
+  const result = await response.json();
+  const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!textResponse) {
+    throw new Error('Empty response from Gemini API');
+  }
+
+  try {
+    return JSON.parse(textResponse.trim());
+  } catch (e) {
+    console.error('Failed to parse Gemini JSON:', textResponse, e);
+    throw new Error('Invalid JSON format returned from Gemini.');
+  }
+}
