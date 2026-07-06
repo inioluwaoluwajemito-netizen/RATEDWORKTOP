@@ -1305,6 +1305,7 @@ function getRenderedCanvasBlob() {
         resolve(blob);
       }, 'image/jpeg', 0.9);
     }
+  });
 }
 
 function resetSaveBtn(btn) {
