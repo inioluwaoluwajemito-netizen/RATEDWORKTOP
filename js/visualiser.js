@@ -113,23 +113,45 @@ async function generateRender() {
     formData.append('prompt', prompt);
     formData.append('size', '1024x1024');
 
-    let OPENAI_API_KEY = localStorage.getItem('openai_api_key');
-    if (!OPENAI_API_KEY) {
-      OPENAI_API_KEY = prompt("Please enter your OpenAI API Key (this is saved locally in your browser cache):");
-      if (OPENAI_API_KEY) {
-        localStorage.setItem('openai_api_key', OPENAI_API_KEY.trim());
-      } else {
-        throw new Error("OpenAI API Key is required to generate AI renders.");
+    let response;
+    
+    // Check if we are online/using real Supabase to call our Edge Function proxy
+    if (supabaseClient && useRealSupabase) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const token = session?.access_token;
+      
+      if (token) {
+        // Call Supabase Edge Function proxy
+        response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
       }
     }
 
-    const response = await fetch('https://api.openai.com/v1/images/edits', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
-      },
-      body: formData
-    });
+    // Fallback: If disconnected/offline or no session found, default to prompt for personal key
+    if (!response) {
+      let OPENAI_API_KEY = localStorage.getItem('openai_api_key');
+      if (!OPENAI_API_KEY) {
+        OPENAI_API_KEY = prompt("Please enter your OpenAI API Key (offline fallback local cache):");
+        if (OPENAI_API_KEY) {
+          localStorage.setItem('openai_api_key', OPENAI_API_KEY.trim());
+        } else {
+          throw new Error("OpenAI API Key is required to generate AI renders.");
+        }
+      }
+      
+      response = await fetch('https://api.openai.com/v1/images/edits', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`
+        },
+        body: formData
+      });
+    }
 
     const result = await response.json();
 

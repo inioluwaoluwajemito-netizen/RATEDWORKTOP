@@ -76,15 +76,6 @@ async function generateRender() {
 
     processingText.textContent = 'Generating photorealistic stone surface with AI...';
 
-    let apiKey = localStorage.getItem('openai_api_key');
-    if (!apiKey) {
-      apiKey = prompt("Please enter your OpenAI API Key (this is saved locally in your browser cache):");
-      if (apiKey) {
-        localStorage.setItem('openai_api_key', apiKey.trim());
-      } else {
-        throw new Error("OpenAI API Key is required to generate AI renders.");
-      }
-    }
     const formData = new FormData();
     formData.append('image', imageBlob, 'image.png');
     formData.append('mask', maskBlob, 'mask.png');
@@ -93,13 +84,45 @@ async function generateRender() {
     formData.append('size', '1024x1024');
     formData.append('model', 'dall-e-2');
 
-    const response = await fetch('https://api.openai.com/v1/images/edits', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: formData
-    });
+    let response;
+    
+    // Check if we are online/using real Supabase to call our Edge Function proxy
+    if (supabaseClient && useRealSupabase) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const token = session?.access_token;
+      
+      if (token) {
+        // Call Supabase Edge Function proxy
+        response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+      }
+    }
+
+    // Fallback: If disconnected/offline or no session found, default to prompt for personal key
+    if (!response) {
+      let apiKey = localStorage.getItem('openai_api_key');
+      if (!apiKey) {
+        apiKey = prompt("Please enter your OpenAI API Key (offline fallback local cache):");
+        if (apiKey) {
+          localStorage.setItem('openai_api_key', apiKey.trim());
+        } else {
+          throw new Error("OpenAI API Key is required to generate AI renders.");
+        }
+      }
+      
+      response = await fetch('https://api.openai.com/v1/images/edits', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: formData
+      });
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
