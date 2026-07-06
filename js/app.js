@@ -751,6 +751,19 @@ async function requireAuth(redirect = 'login.html') {
     window.location.href = redirect;
     return null;
   }
+  // Fetch active session user details to inspect confirmation status
+  if (supabaseClient && typeof supabaseClient.auth !== 'undefined' && useRealSupabase) {
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session && session.user && !session.user.email_confirmed_at) {
+        await logout();
+        window.location.href = redirect + '?unverified=true';
+        return null;
+      }
+    } catch (e) {
+      console.error('Session guard check failed:', e);
+    }
+  }
   return user;
 }
 
@@ -1095,7 +1108,15 @@ function getTexture(key) {
 }
 
 function getStoneImage(sku) {
-  return STONE_IMAGES[sku] || 'images/stones/eternal_calacatta_gold.png';
+  if (STONE_IMAGES[sku]) {
+    return STONE_IMAGES[sku];
+  }
+  const localImg = localStorage.getItem('rw_stone_img_' + sku.toLowerCase());
+  if (localImg) {
+    return localImg;
+  }
+  // Construct dynamic Supabase Storage URL
+  return `${SUPABASE_URL}/storage/v1/object/public/ratedworktops/stones/${sku.toLowerCase()}.png`;
 }
 
 // ── Navigation build ──────────────────────────

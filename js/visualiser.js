@@ -53,79 +53,146 @@ async function generateRender() {
     return;
   }
 
-  isRendering = true;
-
-  // Hide previous render immediately to show transition
-  simulatedHighlight.style.display = 'none';
-
-  processingOverlay.style.display = 'flex';
-  processingText.textContent = 'Analysing countertop shape...';
-
-  await new Promise(r => setTimeout(r, 1200));
-  processingText.textContent = `Applying ${selectedStone.name}...`;
-  await new Promise(r => setTimeout(r, 1500));
-  processingText.textContent = 'Rendering shadows & lighting...';
-  await new Promise(r => setTimeout(r, 1000));
-
-  processingOverlay.style.display = 'none';
-
-  const imgUrl = getStoneImage(selectedStone.sku);
-  let polygonPoints = "10,60 90,60 95,75 5,75";
-  if (points.length >= 3) {
-    polygonPoints = points.map(p => `${p.x},${p.y}`).join(" ");
+  if (!previewImage.src || previewImage.style.display === 'none') {
+    showToast('Please upload a kitchen image first.', 'error');
+    return;
   }
 
-  // Use unique pattern ID to avoid SVG pattern caching bug in browsers
-  const patternId = 'stone-pattern-' + selectedStone.sku + '-' + Date.now();
+  isRendering = true;
+  simulatedHighlight.style.display = 'none';
+  processingOverlay.style.display = 'flex';
+  processingText.textContent = 'Sending image to AI for processing...';
 
-  simulatedHighlight.innerHTML = `
-    <defs>
-      <pattern id="${patternId}" patternUnits="userSpaceOnUse" width="80" height="80">
-        <image href="${imgUrl}" x="0" y="0" width="80" height="80" />
-      </pattern>
-    </defs>
-    <polygon points="${polygonPoints}" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay; filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.35));" />
-    ${points.length >= 3 ? '' : `<polygon points="60.5,15 86.5,15 86.5,56 60.5,56" fill="url(#${patternId})" opacity="0.85" style="mix-blend-mode: overlay;" />`}
-  `;
-  
-  drawingCanvas.style.display = 'none';
-  simulatedHighlight.style.display = 'block';
-  
-  // Deduct credits and update metrics
-  const newCredits = isFreeMode ? currentProfile.credits : (currentProfile.credits - 1);
-  const newVisualisations = (currentProfile.visualisations || 0) + 1;
-  const { error } = await supabaseClient
-    .from('profiles')
-    .update({ 
-      credits: newCredits,
-      visualisations: newVisualisations
-    })
-    .eq('id', currentUser.id);
+  try {
+    // Step 1: Convert the kitchen image to a blob
+    const kitchenResponse = await fetch(previewImage.src);
+    const kitchenBlob = await kitchenResponse.blob();
 
-  if (!error) {
-    currentProfile.credits = newCredits;
-    currentProfile.visualisations = newVisualisations;
-    
-    const navCredits = document.getElementById('credits-count');
-    if (navCredits) navCredits.textContent = newCredits;
-    
-    const sidebarCredits = document.getElementById('credits-count-sidebar');
-    if (sidebarCredits) sidebarCredits.textContent = newCredits;
-    
-    const headerCredits = document.getElementById('credits-count-header');
-    if (headerCredits) headerCredits.textContent = newCredits;
-    
-    if (isFreeMode) {
-      showToast('Visualisation complete!', 'success');
+    // Step 2: Create a mask from the user's drawn points (transparent = area to replace, opaque black = keep)
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = 1024;
+    maskCanvas.height = 1024;
+    const maskCtx = maskCanvas.getContext('2d');
+
+    // Fill entire mask with black (keep everything)
+    maskCtx.fillStyle = '#000000';
+    maskCtx.fillRect(0, 0, 1024, 1024);
+
+    // Switch to destination-out to clear the drawn areas (make them transparent / white in OpenAI's logic)
+    maskCtx.globalCompositeOperation = 'destination-out';
+
+    // Draw polygon where the countertop is (area to replace)
+    if (points.length >= 3) {
+      maskCtx.beginPath();
+      maskCtx.moveTo((points[0].x / 100) * 1024, (points[0].y / 100) * 1024);
+      for (let i = 1; i < points.length; i++) {
+        maskCtx.lineTo((points[i].x / 100) * 1024, (points[i].y / 100) * 1024);
+      }
+      maskCtx.closePath();
+      maskCtx.fillStyle = '#FFFFFF';
+      maskCtx.fill();
     } else {
-      showToast('Visualisation complete! 1 credit deducted.', 'success');
+      // Default countertop area if no points drawn
+      maskCtx.fillStyle = '#FFFFFF';
+      maskCtx.fillRect(50, 600, 924, 150);
     }
+
+    const maskBlob = await new Promise(resolve => maskCanvas.toBlob(resolve, 'image/png'));
+
+    // Step 3: Build the prompt
+    const stoneName = selectedStone.name;
+    const prompt = `Replace the kitchen countertop and splashback surfaces with ${stoneName} stone material. Make it photorealistic, matching the lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`;
+
+    // Step 4: Call OpenAI Images Edit API
+    processingText.textContent = `Applying ${stoneName} with AI...`;
+
+    const formData = new FormData();
+    formData.append('model', 'dall-e-2');
+    formData.append('image', kitchenBlob, 'kitchen.png');
+    formData.append('mask', maskBlob, 'mask.png');
+    formData.append('prompt', prompt);
+    formData.append('size', '1024x1024');
+
+    let OPENAI_API_KEY = localStorage.getItem('openai_api_key');
+    if (!OPENAI_API_KEY) {
+      OPENAI_API_KEY = prompt("Please enter your OpenAI API Key (this is saved locally in your browser cache):");
+      if (OPENAI_API_KEY) {
+        localStorage.setItem('openai_api_key', OPENAI_API_KEY.trim());
+      } else {
+        throw new Error("OpenAI API Key is required to generate AI renders.");
+      }
+    }
+
+    const response = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: formData
+    });
+
+    const result = await response.json();
+
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+
+    // Step 5: Display the generated image
+    processingText.textContent = 'Rendering complete!';
     
-    const preRenderControls = document.getElementById('pre-render-controls');
-    if (preRenderControls) preRenderControls.style.display = 'none';
-    document.getElementById('post-render-actions').style.display = 'flex';
-  } else {
-    showToast('Failed to update credits.', 'error');
+    // The API returns base64 or URL
+    let generatedImageUrl;
+    if (result.data && result.data[0]) {
+      if (result.data[0].url) {
+        generatedImageUrl = result.data[0].url;
+      } else if (result.data[0].b64_json) {
+        generatedImageUrl = 'data:image/png;base64,' + result.data[0].b64_json;
+      }
+    }
+
+    if (generatedImageUrl) {
+      previewImage.src = generatedImageUrl;
+      window._isAIRendered = true; // Mark as AI rendered to bypass overlay on save/download
+      simulatedHighlight.style.display = 'none';
+      drawingCanvas.style.display = 'none';
+    } else {
+      throw new Error('No image returned from AI');
+    }
+
+    processingOverlay.style.display = 'none';
+
+    // Deduct credits
+    const newCredits = isFreeMode ? currentProfile.credits : (currentProfile.credits - 1);
+    const newVisualisations = (currentProfile.visualisations || 0) + 1;
+    const { error } = await supabaseClient
+      .from('profiles')
+      .update({ credits: newCredits, visualisations: newVisualisations })
+      .eq('id', currentUser.id);
+
+    if (!error) {
+      currentProfile.credits = newCredits;
+      currentProfile.visualisations = newVisualisations;
+
+      const navCredits = document.getElementById('credits-count');
+      if (navCredits) navCredits.textContent = newCredits;
+      const sidebarCredits = document.getElementById('credits-count-sidebar');
+      if (sidebarCredits) sidebarCredits.textContent = newCredits;
+      const headerCredits = document.getElementById('credits-count-header');
+      if (headerCredits) headerCredits.textContent = newCredits;
+
+      showToast('AI visualisation complete!' + (isFreeMode ? '' : ' 1 credit deducted.'), 'success');
+
+      const preRenderControls = document.getElementById('pre-render-controls');
+      if (preRenderControls) preRenderControls.style.display = 'none';
+      document.getElementById('post-render-actions').style.display = 'flex';
+    } else {
+      showToast('Failed to update credits.', 'error');
+    }
+
+  } catch (error) {
+    console.error('AI Render failed:', error);
+    processingOverlay.style.display = 'none';
+    showToast('AI Render failed: ' + error.message, 'error');
   }
 
   isRendering = false;
@@ -476,6 +543,7 @@ function compressImage(file, maxWidth = 1920, maxHeight = 1920, quality = 0.8) {
 }
 
 async function handleFile(file) {
+  window._isAIRendered = false; // Reset AI rendering flag on new upload
   if (!file.type.startsWith('image/')) {
     showToast('Please upload a valid image file.', 'error');
     return;
@@ -642,6 +710,7 @@ function redrawCanvas() {
 
 function setupActionListeners() {
   resetBtn.addEventListener('click', () => {
+    window._isAIRendered = false; // Reset AI rendering flag
     previewImage.src = '';
     previewImage.style.display = 'none';
     const previewWrapper = document.getElementById('preview-wrapper');
@@ -812,7 +881,7 @@ function setupActionListeners() {
   document.getElementById('download-btn').addEventListener('click', async () => {
     if (!previewImage.src) return;
     showToast('Preparing your image...', 'info');
-
+ 
     // Increment downloads metric in DB
     if (currentProfile) {
       const newDownloads = (currentProfile.downloads || 0) + 1;
@@ -822,54 +891,63 @@ function setupActionListeners() {
         .eq('id', currentUser.id);
       currentProfile.downloads = newDownloads;
     }
-
+ 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    
+     
     const img = new Image();
     img.crossOrigin = "Anonymous";
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
-      
-      const stoneImg = new Image();
-      stoneImg.crossOrigin = "Anonymous";
-      stoneImg.onload = () => {
-        ctx.drawImage(img, 0, 0);
-
-        const pattern = ctx.createPattern(stoneImg, 'repeat');
-        ctx.fillStyle = pattern;
-        
-        ctx.globalCompositeOperation = 'overlay';
-        ctx.beginPath();
-        if (points.length >= 3) {
-          ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
-          for (let i = 1; i < points.length; i++) {
-            ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
+       
+      if (!window._isAIRendered) {
+        const stoneImg = new Image();
+        stoneImg.crossOrigin = "Anonymous";
+        stoneImg.onload = () => {
+          ctx.drawImage(img, 0, 0);
+ 
+          const pattern = ctx.createPattern(stoneImg, 'repeat');
+          ctx.fillStyle = pattern;
+           
+          ctx.globalCompositeOperation = 'overlay';
+          ctx.beginPath();
+          if (points.length >= 3) {
+            ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
+            for (let i = 1; i < points.length; i++) {
+              ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
+            }
+          } else {
+            ctx.moveTo(img.width * 0.1, img.height * 0.6);
+            ctx.lineTo(img.width * 0.9, img.height * 0.6);
+            ctx.lineTo(img.width * 0.95, img.height * 0.75);
+            ctx.lineTo(img.width * 0.05, img.height * 0.75);
           }
-        } else {
-          ctx.moveTo(img.width * 0.1, img.height * 0.6);
-          ctx.lineTo(img.width * 0.9, img.height * 0.6);
-          ctx.lineTo(img.width * 0.95, img.height * 0.75);
-          ctx.lineTo(img.width * 0.05, img.height * 0.75);
-        }
-        ctx.closePath();
-        ctx.fill();
-        
+          ctx.closePath();
+          ctx.fill();
+           
+          drawWatermarkAndTriggerDownload();
+        };
+        stoneImg.src = getStoneImage(selectedStone.sku);
+      } else {
+        ctx.drawImage(img, 0, 0);
+        drawWatermarkAndTriggerDownload();
+      }
+ 
+      function drawWatermarkAndTriggerDownload() {
         ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.font = `bold ${Math.floor(img.width * 0.03)}px 'Playfair Display'`;
         ctx.textAlign = 'right';
         ctx.fillText('🪨 Created with RatedWorktops', img.width - 20, img.height - 20);
-
+ 
         const link = document.createElement('a');
         link.download = `ratedworktops-${selectedStone.name.replace(/\s+/g, '-').toLowerCase()}.jpg`;
         link.href = canvas.toDataURL('image/jpeg', 0.9);
         link.click();
-        
+         
         showToast('Image downloaded successfully!', 'success');
-      };
-      stoneImg.src = getStoneImage(selectedStone.sku);
+      }
     };
     img.src = previewImage.src;
   });
@@ -958,86 +1036,97 @@ function getRenderedCanvasBlob() {
       canvas.width = img.width;
       canvas.height = img.height;
       
-      const stoneImg = new Image();
-      stoneImg.crossOrigin = "Anonymous";
-      stoneImg.onload = () => {
-        // Draw base kitchen image
-        ctx.drawImage(img, 0, 0);
+      if (!window._isAIRendered) {
+        const stoneImg = new Image();
+        stoneImg.crossOrigin = "Anonymous";
+        stoneImg.onload = () => {
+          // Draw base kitchen image
+          ctx.drawImage(img, 0, 0);
 
-        // 1. Create a clipped mask path for the countertop area
-        ctx.save();
-        ctx.beginPath();
-        if (points.length >= 3) {
-          ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
-          for (let i = 1; i < points.length; i++) {
-            ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
+          // 1. Create a clipped mask path for the countertop area
+          ctx.save();
+          ctx.beginPath();
+          if (points.length >= 3) {
+            ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
+            for (let i = 1; i < points.length; i++) {
+              ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
+            }
+          } else {
+            // Preset Countertop
+            ctx.moveTo(img.width * 0.1, img.height * 0.6);
+            ctx.lineTo(img.width * 0.9, img.height * 0.6);
+            ctx.lineTo(img.width * 0.95, img.height * 0.75);
+            ctx.lineTo(img.width * 0.05, img.height * 0.75);
           }
-        } else {
-          // Preset Countertop
-          ctx.moveTo(img.width * 0.1, img.height * 0.6);
-          ctx.lineTo(img.width * 0.9, img.height * 0.6);
-          ctx.lineTo(img.width * 0.95, img.height * 0.75);
-          ctx.lineTo(img.width * 0.05, img.height * 0.75);
-        }
-        ctx.closePath();
-        ctx.clip();
+          ctx.closePath();
+          ctx.clip();
 
-        // 2. Render the stone pattern inside the countertop mask
-        const pattern = ctx.createPattern(stoneImg, 'repeat');
-        ctx.fillStyle = pattern;
-        ctx.fill();
+          // 2. Render the stone pattern inside the countertop mask
+          const pattern = ctx.createPattern(stoneImg, 'repeat');
+          ctx.fillStyle = pattern;
+          ctx.fill();
 
-        // 3. Extract and apply shadows (Grayscale Multiply blend at low opacity)
-        ctx.save();
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.globalAlpha = 0.25;
-        ctx.filter = 'grayscale(100%) contrast(120%)';
+          // 3. Extract and apply shadows (Grayscale Multiply blend at low opacity)
+          ctx.save();
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.globalAlpha = 0.25;
+          ctx.filter = 'grayscale(100%) contrast(120%)';
+          ctx.drawImage(img, 0, 0);
+          ctx.restore();
+
+          // 4. Extract and apply highlights (Grayscale Screen blend at moderate opacity)
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = 0.3;
+          ctx.filter = 'grayscale(100%)';
+          ctx.drawImage(img, 0, 0);
+          ctx.restore();
+
+          ctx.restore();
+
+          // 5. Draw Splashback (Wall stone) - Always rendered
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(img.width * 0.605, img.height * 0.15);
+          ctx.lineTo(img.width * 0.865, img.height * 0.15);
+          ctx.lineTo(img.width * 0.865, img.height * 0.56);
+          ctx.lineTo(img.width * 0.605, img.height * 0.56);
+          ctx.closePath();
+          ctx.clip();
+
+          // Render stone texture
+          ctx.fillStyle = pattern;
+          ctx.fill();
+
+          // Extract shadows (Grayscale Multiply)
+          ctx.save();
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.globalAlpha = 0.25;
+          ctx.filter = 'grayscale(100%) contrast(120%)';
+          ctx.drawImage(img, 0, 0);
+          ctx.restore();
+
+          // Extract highlights (Grayscale Screen)
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = 0.3;
+          ctx.filter = 'grayscale(100%)';
+          ctx.drawImage(img, 0, 0);
+          ctx.restore();
+
+          ctx.restore();
+
+          drawWatermarkAndResolve();
+        };
+        stoneImg.onerror = () => resolve(null);
+        stoneImg.src = getStoneImage(selectedStone.sku);
+      } else {
         ctx.drawImage(img, 0, 0);
-        ctx.restore();
+        drawWatermarkAndResolve();
+      }
 
-        // 4. Extract and apply highlights (Grayscale Screen blend at moderate opacity)
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.3;
-        ctx.filter = 'grayscale(100%)';
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
-
-        ctx.restore();
-
-        // 5. Draw Splashback (Wall stone) - Always rendered
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(img.width * 0.605, img.height * 0.15);
-        ctx.lineTo(img.width * 0.865, img.height * 0.15);
-        ctx.lineTo(img.width * 0.865, img.height * 0.56);
-        ctx.lineTo(img.width * 0.605, img.height * 0.56);
-        ctx.closePath();
-        ctx.clip();
-
-        // Render stone texture
-        ctx.fillStyle = pattern;
-        ctx.fill();
-
-        // Extract shadows (Grayscale Multiply)
-        ctx.save();
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.globalAlpha = 0.25;
-        ctx.filter = 'grayscale(100%) contrast(120%)';
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
-
-        // Extract highlights (Grayscale Screen)
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.3;
-        ctx.filter = 'grayscale(100%)';
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
-
-        ctx.restore();
-        
-        // 6. Draw Premium Branding & Watermark Logo Card
+      function drawWatermarkAndResolve() {
+        // Draw Premium Branding & Watermark Logo Card
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1.0;
         
@@ -1103,9 +1192,7 @@ function getRenderedCanvasBlob() {
         canvas.toBlob((blob) => {
           resolve(blob);
         }, 'image/jpeg', 0.9);
-      };
-      stoneImg.onerror = () => resolve(null);
-      stoneImg.src = getStoneImage(selectedStone.sku);
+      }
     };
     img.onerror = () => resolve(null);
     img.src = previewImage.src;

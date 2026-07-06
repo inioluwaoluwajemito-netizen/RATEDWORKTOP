@@ -76,12 +76,19 @@ async function generateRender() {
 
     processingText.textContent = 'Generating photorealistic stone surface with AI...';
 
-    // Decode OpenAI API key
-    const apiKey = atob('c2stcHJvai1wNGNpWlFzbFczZTZoWGRkelZ1MzBTZU5fRXZOYjNmWXFHWi0zdVZXSlBxekd1SlJqYm9ZWFhMejlTcDRsS3JzclhSS0M0aDQ0RlQzQmxia0ZKVWtEMnpDckFWSnNPV1BJS1lJbVZkZFoyNFJiS1BNLWpMeU1GQW1PLURzU1lZT0JtWldqNXlQTEJrTDhFVFpiaUNlUk9ySTJDc0E=');
+    let apiKey = localStorage.getItem('openai_api_key');
+    if (!apiKey) {
+      apiKey = prompt("Please enter your OpenAI API Key (this is saved locally in your browser cache):");
+      if (apiKey) {
+        localStorage.setItem('openai_api_key', apiKey.trim());
+      } else {
+        throw new Error("OpenAI API Key is required to generate AI renders.");
+      }
+    }
     const formData = new FormData();
     formData.append('image', imageBlob, 'image.png');
     formData.append('mask', maskBlob, 'mask.png');
-    formData.append('prompt', `Replace the white masked area in this kitchen photo with ${selectedStone.name} stone material. Make it look photorealistic — match the lighting, perspective, and shadows of the original kitchen. Keep all objects, appliances, and cabinets exactly as they are. Only change the surface material in the masked area.`);
+    formData.append('prompt', `Replace the kitchen countertop and splashback surfaces with ${selectedStone.name} stone material. Make it photorealistic, matching the lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`);
     formData.append('n', '1');
     formData.append('size', '1024x1024');
     formData.append('model', 'dall-e-2');
@@ -126,6 +133,7 @@ async function generateRender() {
           drawingCanvas.style.display = 'none';
           simulatedHighlight.style.display = 'none';
           renderCanvas.style.display = 'block';
+          window._isAIRendered = true; // Mark as AI rendered to bypass overlay on save/download
         }
         resolve();
       };
@@ -581,6 +589,7 @@ function compressImage(file, maxWidth = 1920, maxHeight = 1920, quality = 0.8) {
 }
 
 async function handleFile(file) {
+  window._isAIRendered = false; // Reset AI rendering flag on new upload
   if (!file.type.startsWith('image/')) {
     showToast('Please upload a valid image file.', 'error');
     return;
@@ -759,6 +768,7 @@ function redrawCanvas() {
 
 function setupActionListeners() {
   resetBtn.addEventListener('click', () => {
+    window._isAIRendered = false; // Reset AI rendering flag
     previewImage.src = '';
     previewImage.style.display = 'none';
     const previewWrapper = document.getElementById('preview-wrapper');
@@ -1035,7 +1045,7 @@ function setupActionListeners() {
   document.getElementById('download-btn').addEventListener('click', async () => {
     if (!previewImage.src) return;
     showToast('Preparing your image...', 'info');
-
+ 
     // Increment downloads metric in DB
     if (currentProfile) {
       const newDownloads = (currentProfile.downloads || 0) + 1;
@@ -1045,56 +1055,73 @@ function setupActionListeners() {
         .eq('id', currentUser.id);
       currentProfile.downloads = newDownloads;
     }
-
+ 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      const stoneImg = new Image();
-      stoneImg.crossOrigin = "Anonymous";
-      stoneImg.onload = () => {
-        ctx.drawImage(img, 0, 0);
-
-        const pattern = ctx.createPattern(stoneImg, 'repeat');
-        ctx.fillStyle = pattern;
-        
-        ctx.globalCompositeOperation = 'overlay';
-        ctx.beginPath();
-        if (points.length >= 3) {
-          ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
-          for (let i = 1; i < points.length; i++) {
-            ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
+ 
+    if (window._isAIRendered) {
+      const renderCanvas = document.getElementById('render-canvas');
+      if (renderCanvas) {
+        canvas.width = renderCanvas.width;
+        canvas.height = renderCanvas.height;
+        ctx.drawImage(renderCanvas, 0, 0);
+        drawWatermarkAndTriggerDownload();
+      } else {
+        showToast('Render canvas not found.', 'error');
+      }
+    } else {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+         
+        const stoneImg = new Image();
+        stoneImg.crossOrigin = "Anonymous";
+        stoneImg.onload = () => {
+          ctx.drawImage(img, 0, 0);
+ 
+          const pattern = ctx.createPattern(stoneImg, 'repeat');
+          ctx.fillStyle = pattern;
+           
+          ctx.globalCompositeOperation = 'overlay';
+          ctx.beginPath();
+          if (points.length >= 3) {
+            ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
+            for (let i = 1; i < points.length; i++) {
+              ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
+            }
+          } else {
+            ctx.moveTo(img.width * 0.1, img.height * 0.6);
+            ctx.lineTo(img.width * 0.9, img.height * 0.6);
+            ctx.lineTo(img.width * 0.95, img.height * 0.75);
+            ctx.lineTo(img.width * 0.05, img.height * 0.75);
           }
-        } else {
-          ctx.moveTo(img.width * 0.1, img.height * 0.6);
-          ctx.lineTo(img.width * 0.9, img.height * 0.6);
-          ctx.lineTo(img.width * 0.95, img.height * 0.75);
-          ctx.lineTo(img.width * 0.05, img.height * 0.75);
-        }
-        ctx.closePath();
-        ctx.fill();
-        
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.font = `bold ${Math.floor(img.width * 0.03)}px 'Playfair Display'`;
-        ctx.textAlign = 'right';
-        ctx.fillText('🪨 Created with RatedWorktops', img.width - 20, img.height - 20);
-
-        const link = document.createElement('a');
-        link.download = `ratedworktops-${selectedStone.name.replace(/\s+/g, '-').toLowerCase()}.jpg`;
-        link.href = canvas.toDataURL('image/jpeg', 0.9);
-        link.click();
-        
-        showToast('Image downloaded successfully!', 'success');
+          ctx.closePath();
+          ctx.fill();
+           
+          drawWatermarkAndTriggerDownload();
+        };
+        stoneImg.onerror = () => showToast('Failed to load stone texture.', 'error');
+        stoneImg.src = getStoneImage(selectedStone.sku);
       };
-      stoneImg.src = getStoneImage(selectedStone.sku);
-    };
-    img.src = previewImage.src;
+      img.src = previewImage.src;
+    }
+ 
+    function drawWatermarkAndTriggerDownload() {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.font = `bold ${Math.floor(canvas.width * 0.03)}px 'Playfair Display'`;
+      ctx.textAlign = 'right';
+      ctx.fillText('🪨 Created with RatedWorktops', canvas.width - 20, canvas.height - 20);
+ 
+      const link = document.createElement('a');
+      link.download = `ratedworktops-${selectedStone.name.replace(/\s+/g, '-').toLowerCase()}.jpg`;
+      link.href = canvas.toDataURL('image/jpeg', 0.9);
+      link.click();
+       
+      showToast('Image downloaded successfully!', 'success');
+    }
   });
 
   document.getElementById('save-btn').addEventListener('click', async () => {
@@ -1175,25 +1202,42 @@ function getRenderedCanvasBlob() {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
-    const stoneImg = new Image();
-    stoneImg.crossOrigin = "Anonymous";
-    stoneImg.onload = () => {
-      const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
-      
-      // Render the perspective-correct visual to our canvas
-      renderDesignToCanvas(
-        canvas, 
-        selectedStone, 
-        isAutoMode, 
-        previewImage, 
-        points, 
-        stoneImg, 
-        autoCountertopMask, 
-        autoSplashbackMask, 
-        autoCountertopBounds, 
-        autoSplashbackBounds
-      );
-
+    if (window._isAIRendered) {
+      const renderCanvas = document.getElementById('render-canvas');
+      if (renderCanvas) {
+        canvas.width = renderCanvas.width;
+        canvas.height = renderCanvas.height;
+        ctx.drawImage(renderCanvas, 0, 0);
+        drawWatermarkAndResolve();
+      } else {
+        resolve(null);
+      }
+    } else {
+      const stoneImg = new Image();
+      stoneImg.crossOrigin = "Anonymous";
+      stoneImg.onload = () => {
+        const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
+        
+        // Render the perspective-correct visual to our canvas
+        renderDesignToCanvas(
+          canvas, 
+          selectedStone, 
+          isAutoMode, 
+          previewImage, 
+          points, 
+          stoneImg, 
+          autoCountertopMask, 
+          autoSplashbackMask, 
+          autoCountertopBounds, 
+          autoSplashbackBounds
+        );
+        drawWatermarkAndResolve();
+      };
+      stoneImg.onerror = () => resolve(null);
+      stoneImg.src = getStoneImage(selectedStone.sku);
+    }
+    
+    function drawWatermarkAndResolve() {
       // Draw Premium Branding & Watermark Logo Card
       ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1.0;
@@ -1260,10 +1304,7 @@ function getRenderedCanvasBlob() {
       canvas.toBlob((blob) => {
         resolve(blob);
       }, 'image/jpeg', 0.9);
-    };
-    stoneImg.onerror = () => resolve(null);
-    stoneImg.src = getStoneImage(selectedStone.sku);
-  });
+    }
 }
 
 function resetSaveBtn(btn) {

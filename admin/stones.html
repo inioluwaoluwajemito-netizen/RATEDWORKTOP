@@ -156,6 +156,9 @@
         <select id="cat-filter" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;padding:8px 10px;border-radius:8px;outline:none;cursor:pointer">
           <option value="all">All Categories</option>
         </select>
+        <button class="btn btn-ghost btn-sm" onclick="openBulkImport()" style="gap:6px;border:1px solid var(--border);color:var(--text-secondary);display:flex;align-items:center;height:36px;border-radius:8px">
+          📦 Bulk Import
+        </button>
         <button class="btn btn-primary btn-sm" onclick="openAddBrand()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Brand
@@ -267,6 +270,46 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" id="confirm-no">Cancel</button>
       <button class="btn btn-danger" id="confirm-yes">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Import Modal -->
+<div class="modal-overlay" id="bulk-import-modal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title">Bulk Import Stone Colours</div>
+      <button class="modal-close" onclick="closeModal('bulk-import-modal')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="bulk-brand">Select Target Brand *</label>
+        <select id="bulk-brand" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-size:14px;padding:10px;border-radius:8px;outline:none;cursor:pointer;width:100%"></select>
+      </div>
+      <div class="form-group">
+        <label for="bulk-csv-file">Select CSV File (.csv) *</label>
+        <input type="file" id="bulk-csv-file" accept=".csv" style="padding: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color:var(--text-secondary); width:100%; box-sizing:border-box;"/>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+          CSV columns must be: <strong>name, sku, texture, enabled</strong> (e.g. <code>Calacatta Viola,CAL-VI,marble,true</code>)
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="bulk-images-files">Select Texture Images (Optional)</label>
+        <input type="file" id="bulk-images-files" accept="image/*" multiple style="padding: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color:var(--text-secondary); width:100%; box-sizing:border-box;"/>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+          Texture filenames must match the SKU in the CSV (e.g. <code>CAL-VI.png</code> or <code>CAL-VI.jpg</code>).
+        </div>
+      </div>
+      <div id="bulk-import-progress" style="display:none;margin-top:16px;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary)" id="bulk-progress-status">Importing...</div>
+        <div style="width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div id="bulk-progress-bar" style="width:0%;height:100%;background:var(--gold);transition:width 0.2s"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px">
+      <button class="btn btn-secondary" onclick="closeModal('bulk-import-modal')">Cancel</button>
+      <button class="btn btn-primary" id="bulk-import-btn" onclick="executeBulkImport()">Start Import</button>
     </div>
   </div>
 </div>
@@ -558,6 +601,186 @@ async function deleteColour(brandId, colourId) {
     await renderStoneStats();
     showToast('Colour deleted');
   });
+}
+
+// Bulk Import Functions
+async function openBulkImport() {
+  const brands = await fetchBrands();
+  const select = document.getElementById('bulk-brand');
+  select.innerHTML = '<option value="">-- Select Brand --</option>';
+  brands.forEach(b => {
+    select.innerHTML += `<option value="${b.id}">${b.name} (${b.category})</option>`;
+  });
+  
+  // Clear inputs
+  document.getElementById('bulk-csv-file').value = '';
+  document.getElementById('bulk-images-files').value = '';
+  document.getElementById('bulk-import-progress').style.display = 'none';
+  document.getElementById('bulk-progress-bar').style.width = '0%';
+  document.getElementById('bulk-import-btn').disabled = false;
+  
+  openModal('bulk-import-modal');
+}
+
+async function executeBulkImport() {
+  const brandId = document.getElementById('bulk-brand').value;
+  const csvFile = document.getElementById('bulk-csv-file').files[0];
+  const imageFiles = document.getElementById('bulk-images-files').files;
+  
+  if (!brandId) {
+    showToast('Please select a target brand.', 'error');
+    return;
+  }
+  if (!csvFile) {
+    showToast('Please select a CSV file.', 'error');
+    return;
+  }
+  
+  const importBtn = document.getElementById('bulk-import-btn');
+  importBtn.disabled = true;
+  
+  const progressDiv = document.getElementById('bulk-import-progress');
+  const progressStatus = document.getElementById('bulk-progress-status');
+  const progressBar = document.getElementById('bulk-progress-bar');
+  
+  progressDiv.style.display = 'block';
+  progressStatus.textContent = 'Reading CSV file...';
+  progressBar.style.width = '10%';
+  
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const csvText = e.target.result;
+      const lines = csvText.split(/\r?\n/);
+      const parsedColours = [];
+      
+      // Assume header: name,sku,texture,enabled
+      // If first row looks like header, skip it
+      let startIdx = 0;
+      if (lines[0] && (lines[0].toLowerCase().includes('name') || lines[0].toLowerCase().includes('sku'))) {
+        startIdx = 1;
+      }
+      
+      for (let i = startIdx; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        const cols = line.split(',');
+        if (cols.length < 2) continue;
+        
+        const name = cols[0].trim();
+        const sku = cols[1].trim();
+        const texture = (cols[2] || 'marble').trim().toLowerCase();
+        const enabled = (cols[3] || 'true').trim().toLowerCase() === 'true';
+        
+        if (name && sku) {
+          parsedColours.push({ brand_id: brandId, name, sku, texture, enabled });
+        }
+      }
+      
+      if (parsedColours.length === 0) {
+        throw new Error('No valid colours found in CSV file.');
+      }
+      
+      progressStatus.textContent = `Saving ${parsedColours.length} colours to database...`;
+      progressBar.style.width = '30%';
+      
+      // Batch insert into Supabase colours table (or save one-by-one if offline)
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from('colours').insert(parsedColours);
+        if (error) throw new Error(error.message);
+      } else {
+        // Mock DB batch insertion
+        const storedColours = JSON.parse(localStorage.getItem('rw_colours')) || [];
+        const newColours = parsedColours.map((c, idx) => ({
+          id: Date.now() + idx,
+          ...c
+        }));
+        localStorage.setItem('rw_colours', JSON.stringify(storedColours.concat(newColours)));
+        // Sync
+        const brands = JSON.parse(localStorage.getItem('rw_brands')) || [];
+        const updatedBrands = brands.map(brand => {
+          if (brand.id == brandId) {
+            return {
+              ...brand,
+              colours: (brand.colours || []).concat(newColours)
+            };
+          }
+          return brand;
+        });
+        localStorage.setItem('rw_brands', JSON.stringify(updatedBrands));
+      }
+      
+      progressBar.style.width = '60%';
+      
+      // Upload texture images if any
+      if (imageFiles && imageFiles.length > 0) {
+        progressStatus.textContent = `Uploading 0/${imageFiles.length} texture images...`;
+        
+        for (let i = 0; i < imageFiles.length; i++) {
+          const file = imageFiles[i];
+          const filename = file.name;
+          const dotIdx = filename.lastIndexOf('.');
+          const extension = dotIdx !== -1 ? filename.substring(dotIdx) : '.png';
+          const nameWithoutExt = dotIdx !== -1 ? filename.substring(0, dotIdx).trim() : filename.trim();
+          
+          // Match the nameWithoutExt to one of our SKUs
+          const match = parsedColours.find(c => c.sku.toLowerCase() === nameWithoutExt.toLowerCase());
+          const sku = match ? match.sku : nameWithoutExt;
+          
+          progressStatus.textContent = `Uploading ${i + 1}/${imageFiles.length} texture images (${sku})...`;
+          const path = `stones/${sku.toLowerCase()}.png`; // Standardise to png
+          
+          if (supabaseClient) {
+            // Upload to Supabase bucket 'ratedworktops'
+            await supabaseClient.storage.from('ratedworktops').upload(path, file, {
+              upsert: true,
+              contentType: file.type || 'image/png'
+            });
+          }
+          
+          // Local storage mock upload
+          const readerImg = new FileReader();
+          await new Promise((resUpload) => {
+            readerImg.onload = (evt) => {
+              localStorage.setItem('rw_stone_img_' + sku.toLowerCase(), evt.target.result);
+              resUpload();
+            };
+            readerImg.readAsDataURL(file);
+          });
+          
+          const percent = 60 + Math.round(((i + 1) / imageFiles.length) * 35);
+          progressBar.style.width = `${percent}%`;
+        }
+      }
+      
+      progressBar.style.width = '100%';
+      progressStatus.textContent = 'Import completed successfully!';
+      
+      showToast(`Imported ${parsedColours.length} colours successfully!`);
+      
+      setTimeout(async () => {
+        closeModal('bulk-import-modal');
+        await renderBrands();
+        await renderStoneStats();
+      }, 1000);
+      
+    } catch (err) {
+      console.error(err);
+      progressStatus.textContent = `Error: ${err.message}`;
+      progressBar.style.width = '0%';
+      importBtn.disabled = false;
+      showToast(`Bulk Import failed: ${err.message}`, 'error');
+    }
+  };
+  
+  reader.onerror = () => {
+    progressStatus.textContent = 'Error reading CSV file.';
+    importBtn.disabled = false;
+    showToast('Failed to read CSV file.', 'error');
+  };
+  
+  reader.readAsText(csvFile);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {

@@ -12,12 +12,12 @@
   <div class="auth-bg"></div>
   <div class="auth-grid"></div>
 
-  <div class="auth-page">
     <div class="auth-card fade-up" style="max-width:480px">
+      <div id="register-inputs-container">
 
-      <div class="auth-logo">
-        <a href="index.html">
-          <div class="logo-icon-lg">R</div>
+        <div class="auth-logo">
+          <a href="index.html">
+            <div class="logo-icon-lg">R</div>
         </a>
         <h1 class="auth-title">Start for free</h1>
         <p class="auth-subtitle">Get 10 free visualisation credits on sign up</p>
@@ -122,6 +122,18 @@
       <div style="text-align:center;margin-top:12px">
         <a href="index.html" style="font-size:12px;color:var(--text-muted)">← Back to homepage</a>
       </div>
+      </div> <!-- End #register-inputs-container -->
+
+      <!-- Success verification card -->
+      <div id="register-success-card" style="display:none; text-align:center; padding: 24px 10px;">
+        <div style="font-size:54px; margin-bottom: 20px;">✉️</div>
+        <h3 style="color:var(--text-primary); margin-bottom: 12px; font-size:20px; font-weight:700">Verify Your Email</h3>
+        <p style="color:var(--text-secondary); line-height: 1.6; font-size:14px; margin-bottom: 24px;">
+          We've sent a verification link to <strong id="verification-email" style="color:var(--gold)"></strong>.<br/>
+          Please click the link in the email to activate your account.
+        </p>
+        <a href="login.html" class="btn btn-primary btn-lg w-full" style="justify-content:center; text-decoration:none; display:inline-flex; align-items:center;">Go to Sign In</a>
+      </div>
     </div>
   </div>
 
@@ -217,12 +229,11 @@
 
       const result = await registerUser({ name, email, password });
       if (result.ok) {
-        // We no longer manually set current_user to localStorage,
-        // Supabase manages session automatically via secure cookies/localStorage.
-        showToast('Account created! Welcome to RatedWorktops 🎉');
-        setTimeout(() => {
-          window.location.href = 'dashboard.html' + window.location.search;
-        }, 1000);
+        // Show verification success view instead of redirecting
+        document.getElementById('register-inputs-container').style.display = 'none';
+        document.getElementById('verification-email').textContent = email;
+        document.getElementById('register-success-card').style.display = 'block';
+        showToast('Account registered! Please verify your email.', 'success');
       } else {
         document.getElementById('form-error').textContent = result.error;
         document.getElementById('form-error').style.display = 'block';
