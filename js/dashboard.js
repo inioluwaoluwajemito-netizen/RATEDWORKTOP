@@ -85,26 +85,35 @@ async function generateRender() {
     formData.append('model', 'dall-e-2');
 
     let response;
+    let proxySucceeded = false;
     
     // Check if we are online/using real Supabase to call our Edge Function proxy
     if (supabaseClient && useRealSupabase) {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const token = session?.access_token;
-      
-      if (token) {
-        // Call Supabase Edge Function proxy
-        response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        });
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const token = session?.access_token;
+        
+        if (token) {
+          // Call Supabase Edge Function proxy
+          response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+          
+          if (response.status !== 404) {
+            proxySucceeded = true;
+          }
+        }
+      } catch (e) {
+        console.warn("Supabase Edge Function proxy call failed, trying local fallback:", e);
       }
     }
 
-    // Fallback: If disconnected/offline or no session found, default to prompt for personal key
-    if (!response) {
+    // Fallback: If proxy failed/was not found (404), default to prompt for personal key
+    if (!proxySucceeded) {
       let apiKey = localStorage.getItem('openai_api_key');
       if (!apiKey) {
         apiKey = prompt("Please enter your OpenAI API Key (offline fallback local cache):");
