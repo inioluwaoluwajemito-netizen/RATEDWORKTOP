@@ -107,7 +107,7 @@ async function generateRender() {
     processingText.textContent = `Applying ${stoneName} with AI...`;
 
     const formData = new FormData();
-    formData.append('model', 'dall-e-2');
+    formData.append('model', 'gpt-image-1');
     formData.append('image', kitchenBlob, 'kitchen.png');
     formData.append('mask', maskBlob, 'mask.png');
     formData.append('prompt', prompt);

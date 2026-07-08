@@ -82,7 +82,7 @@ async function generateRender() {
     formData.append('prompt', `Replace the kitchen countertop and splashback surfaces with ${selectedStone.name} stone material. Make it photorealistic, matching the lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`);
     formData.append('n', '1');
     formData.append('size', '1024x1024');
-    formData.append('model', 'dall-e-2');
+    formData.append('model', 'gpt-image-1');
 
     let response;
     let proxySucceeded = false;
