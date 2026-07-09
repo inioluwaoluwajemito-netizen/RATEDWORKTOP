@@ -84,54 +84,23 @@ async function generateRender() {
     formData.append('size', '1024x1024');
     formData.append('model', 'gpt-image-1');
 
-    let response;
-    let proxySucceeded = false;
-    
-    // Check if we are online/using real Supabase to call our Edge Function proxy
-    if (supabaseClient && useRealSupabase) {
-      try {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        const token = session?.access_token;
-        
-        if (token) {
-          // Call Supabase Edge Function proxy
-          response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            },
-            body: formData
-          });
-          
-          if (response.status !== 404) {
-            proxySucceeded = true;
-          }
-        }
-      } catch (e) {
-        console.warn("Supabase Edge Function proxy call failed, trying local fallback:", e);
-      }
+    if (!supabaseClient || !useRealSupabase) {
+      throw new Error("Database is disconnected. AI render requires a live database connection.");
     }
 
-    // Fallback: If proxy failed/was not found (404), default to prompt for personal key
-    if (!proxySucceeded) {
-      let apiKey = localStorage.getItem('openai_api_key');
-      if (!apiKey) {
-        apiKey = prompt("Please enter your OpenAI API Key (offline fallback local cache):");
-        if (apiKey) {
-          localStorage.setItem('openai_api_key', apiKey.trim());
-        } else {
-          throw new Error("OpenAI API Key is required to generate AI renders.");
-        }
-      }
-      
-      response = await fetch('https://api.openai.com/v1/images/edits', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: formData
-      });
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const token = session?.access_token;
+    if (!token) {
+      throw new Error("Authentication session expired. Please log in again.");
     }
+
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -284,6 +253,9 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints) {
 
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Clear any cached API keys immediately to disconnect
+  localStorage.removeItem('openai_api_key');
+
   // 1. Check Authentication
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {

@@ -768,6 +768,7 @@ async function requireAuth(redirect = 'login.html') {
 }
 
 async function logout() {
+  localStorage.removeItem('openai_api_key');
   if (supabaseClient) await supabaseClient.auth.signOut();
   window.location.href = 'index.html';
 }
