@@ -103,51 +103,45 @@ async function generateRender() {
     const stoneName = selectedStone.name;
     const prompt = `Replace the kitchen countertop and splashback surfaces with ${stoneName} stone material. Make it photorealistic, matching the lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`;
 
-    // Step 4: Call OpenAI Images Edit API
-    processingText.textContent = `Applying ${stoneName} with AI...`;
+    // Step 4: Call Google Gemini API (Imagen 3) directly instead of OpenAI Proxy
+    processingText.textContent = `Generating ${stoneName} kitchen with Google AI...`;
 
-    const formData = new FormData();
-    formData.append('model', 'gpt-image-1');
-    formData.append('image', kitchenBlob, 'kitchen.png');
-    formData.append('mask', maskBlob, 'mask.png');
-    formData.append('prompt', prompt);
-    formData.append('size', '1024x1024');
+    const googleApiKey = "AIzaSyAFpMKbIFIdke9DG2pvJqHCUhgrMxKFHJs";
+    const googleEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${googleApiKey}`;
+    
+    // Create the body for Imagen text-to-image
+    const requestBody = {
+      instances: [
+        { prompt: `Photorealistic kitchen featuring ${stoneName} stone worktops and splashback. High quality interior design photography, modern lighting.` }
+      ],
+      parameters: {
+        sampleCount: 1
+      }
+    };
 
-    if (!supabaseClient || !useRealSupabase) {
-      throw new Error("Database is disconnected. AI render requires a live database connection.");
-    }
-
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const token = session?.access_token;
-    if (!token) {
-      throw new Error("Authentication session expired. Please log in again.");
-    }
-
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
+    const response = await fetch(googleEndpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Content-Type': 'application/json'
       },
-      body: formData
+      body: JSON.stringify(requestBody)
     });
 
     const result = await response.json();
 
-    if (result.error) {
-      throw new Error(result.error.message);
+    if (!response.ok) {
+      throw new Error(result.error?.message || 'Google API request failed. Ensure your API key is valid for Imagen 3.');
     }
 
     // Step 5: Display the generated image
     processingText.textContent = 'Rendering complete!';
-    
-    // The API returns base64 or URL
+
+    // Parse base64 image from Google API result
     let generatedImageUrl;
-    if (result.data && result.data[0]) {
-      if (result.data[0].url) {
-        generatedImageUrl = result.data[0].url;
-      } else if (result.data[0].b64_json) {
-        generatedImageUrl = 'data:image/png;base64,' + result.data[0].b64_json;
-      }
+    if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+      generatedImageUrl = 'data:image/jpeg;base64,' + result.predictions[0].bytesBase64Encoded;
+    } else {
+      throw new Error('No image returned from Google AI');
     }
 
     if (generatedImageUrl) {
@@ -155,8 +149,6 @@ async function generateRender() {
       window._isAIRendered = true; // Mark as AI rendered to bypass overlay on save/download
       simulatedHighlight.style.display = 'none';
       drawingCanvas.style.display = 'none';
-    } else {
-      throw new Error('No image returned from AI');
     }
 
     processingOverlay.style.display = 'none';
