@@ -518,51 +518,56 @@
       height: 20px;
     }
 
-    /* Mobile media query */
-    @media (max-width: 900px) {
-      body {
-        padding-bottom: 64px;
-        height: auto;
-        min-height: 100vh;
-        overflow-y: auto;
-      }
+    /* Mobile & Tablet Drawer Overlays */
+    .drawer-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 80; display: none; backdrop-filter: blur(4px);
+    }
+    .drawer-overlay.active { display: block; }
+    
+    .tablet-btn {
+      position: absolute; top: 16px; z-index: 10;
+      background: var(--bg-secondary); border: 1px solid var(--border);
+      color: var(--text-primary); padding: 8px 16px; border-radius: 20px;
+      display: none; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
+      box-shadow: var(--shadow-card); cursor: pointer;
+    }
+    .tablet-btn-left { left: 16px; }
+    .tablet-btn-right { right: 16px; }
 
-      .vis-navbar {
-        padding: 0 16px;
+    /* Tablet media query (Sliding Drawers) */
+    @media (max-width: 1024px) {
+      .vis-sidebar, .vis-control-panel {
+        position: fixed; top: 60px; bottom: 0; z-index: 90;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: auto; border: none; box-shadow: 0 0 30px rgba(0,0,0,0.8);
       }
+      .vis-sidebar { left: 0; transform: translateX(-100%); }
+      .vis-sidebar.drawer-open { transform: translateX(0); }
+      
+      .vis-control-panel { right: 0; transform: translateX(100%); }
+      .vis-control-panel.drawer-open { transform: translateX(0); }
 
-      .vis-layout {
-        flex-direction: column;
-        height: calc(100vh - 124px); /* navbar 60px + mobile bottom nav 64px */
-        overflow: hidden;
-      }
+      .tablet-btn { display: flex; }
+      .mobile-nav-bar { display: none !important; }
+    }
 
+    /* Mobile media query (Bottom Tabs) */
+    @media (max-width: 767px) {
+      body { padding-bottom: 64px; height: auto; min-height: 100vh; overflow-y: auto; }
+      .vis-navbar { padding: 0 16px; }
+      .vis-layout { flex-direction: column; height: calc(100vh - 124px); overflow: hidden; }
+      
+      .tablet-btn { display: none !important; }
+      
       .vis-sidebar, .vis-main, .vis-control-panel {
-        display: none !important;
-        width: 100% !important;
-        height: 100% !important;
-        flex: 1 !important;
-        border: none !important;
+        position: relative !important; top: 0 !important; left: 0 !important; right: 0 !important; transform: none !important;
+        display: none !important; width: 100% !important; height: 100% !important; flex: 1 !important; z-index: 1 !important; box-shadow: none !important;
       }
+      .vis-sidebar.active-tab, .vis-main.active-tab, .vis-control-panel.active-tab { display: flex !important; }
+      .mobile-nav-bar { display: flex !important; }
 
-      .vis-sidebar.active-tab, .vis-main.active-tab, .vis-control-panel.active-tab {
-        display: flex !important;
-      }
-
-      .mobile-nav-bar {
-        display: flex !important;
-      }
-
-      /* Adjust internal workspace dimensions for mobile screen constraints */
-      .upload-area {
-        height: 100% !important;
-        max-height: 100% !important;
-        border-radius: 12px;
-      }
-
-      .stone-list {
-        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-      }
+      .upload-area { height: 100% !important; max-height: 100% !important; border-radius: 12px; }
+      .stone-list { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
     }
 
     /* Modal Overlay & Card styling */
@@ -643,6 +648,9 @@
   </div>
 
   <div class="vis-layout">
+    <!-- Tablet Overlay -->
+    <div class="drawer-overlay" id="drawer-overlay"></div>
+
     <!-- Sidebar -->
     <aside class="vis-sidebar" id="vis-sidebar">
       <div class="sidebar-header">
@@ -672,16 +680,12 @@
 
     <!-- Main Canvas -->
     <main class="vis-main active-tab" id="vis-main">
+      <button class="tablet-btn tablet-btn-left" id="tablet-catalog-btn"><i data-lucide="layout-grid" style="width:16px;height:16px;"></i> Catalog</button>
+      <button class="tablet-btn tablet-btn-right" id="tablet-controls-btn"><i data-lucide="sliders" style="width:16px;height:16px;"></i> Controls</button>
+      
       <div class="upload-area" id="upload-area" style="position:relative;">
-        <!-- Floating Drawing Toolbar (Disabled for Auto AI Mode) -->
-        <div id="drawing-toolbar" style="display:none; position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:25; background:rgba(15,15,24,0.85); backdrop-filter:blur(12px); border:1px solid var(--border); padding:6px 14px; border-radius:30px; align-items:center; gap:8px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-          <!-- Tools removed as AI detects worktops automatically -->
-        </div>
-
         <!-- Floating Preview Wrapper centered inside upload-area -->
         <div id="preview-wrapper" style="position:relative; display:none; max-width:100%; max-height:100%; border-radius:12px; overflow:hidden;">
-          <!-- Drawing Canvas Layer -->
-          <canvas id="drawing-canvas" style="position:absolute; inset:0; width:100%; height:100%; z-index:12; display:none; pointer-events:none;"></canvas>
 
           <img id="preview-image" class="preview-image" src="" alt="Kitchen Preview" style="display:block; max-width:100%; max-height:100%; object-fit:contain;"/>
           
@@ -803,9 +807,9 @@
       <i data-lucide="layout-grid"></i>
       <span>Catalog</span>
     </button>
-    <button class="mobile-nav-item active" id="nav-tab-canvas">
+    <button class="mobile-nav-item active" id="nav-tab-workspace">
       <i data-lucide="image"></i>
-      <span>Canvas</span>
+      <span>Workspace</span>
     </button>
     <button class="mobile-nav-item" id="nav-tab-controls">
       <i data-lucide="sliders"></i>

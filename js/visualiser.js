@@ -31,11 +31,11 @@ const processingOverlay = document.getElementById('processing-overlay');
 const processingText = document.getElementById('processing-text');
 const simulatedHighlight = document.getElementById('simulated-highlight');
 
-const drawingCanvas = document.getElementById('drawing-canvas');
+
 const drawModeBtn = document.getElementById('draw-mode-btn');
 const clearPointsBtn = document.getElementById('clear-points-btn');
 const drawingTip = document.getElementById('drawing-tip');
-const drawingToolbar = document.getElementById('drawing-toolbar');
+
 let isRendering = false;
 
 async function generateRender() {
@@ -125,7 +125,7 @@ async function generateRender() {
     previewImage.src = generatedImageUrl;
     window._isAIRendered = true; // Mark as AI rendered to bypass overlay on save/download
     simulatedHighlight.style.display = 'none';
-    drawingCanvas.style.display = 'none';
+    
 
     processingOverlay.style.display = 'none';
 
@@ -578,20 +578,20 @@ function setupDrawingListeners() {
     points.push({ x, y });
 
     clearPointsBtn.style.display = 'inline-flex';
-    redrawCanvas();
+    
   });
 
   drawModeBtn.addEventListener('click', () => {
     isDrawMode = !isDrawMode;
     if (isDrawMode) {
-      drawingCanvas.style.display = 'block';
-      drawingCanvas.style.pointerEvents = 'auto';
+      
+      
       drawModeBtn.classList.remove('btn-ghost');
       drawModeBtn.classList.add('btn-primary');
       drawModeBtn.innerHTML = `<i data-lucide="check" style="width:13px;height:13px;"></i> Done Drawing`;
       drawingTip.textContent = 'Click on countertop corners. When finished, click "Done Drawing"';
     } else {
-      drawingCanvas.style.pointerEvents = 'none';
+      
       drawModeBtn.classList.remove('btn-primary');
       drawModeBtn.classList.add('btn-ghost');
       drawModeBtn.innerHTML = `<i data-lucide="pen-tool" style="width:13px;height:13px;"></i> Draw Shape`;
@@ -607,7 +607,7 @@ function setupDrawingListeners() {
       }
     }
     lucide.createIcons();
-    redrawCanvas();
+    
   });
 
   clearPointsBtn.addEventListener('click', () => {
@@ -617,7 +617,7 @@ function setupDrawingListeners() {
 
     // Hide rendering overlay and return to drawing state
     simulatedHighlight.style.display = 'none';
-    drawingCanvas.style.display = 'block';
+    
 
     // Swap buttons back to pre-render state
     const preControls = document.getElementById('pre-render-controls');
@@ -625,7 +625,7 @@ function setupDrawingListeners() {
     const postActions = document.getElementById('post-render-actions');
     if (postActions) postActions.style.display = 'none';
 
-    redrawCanvas();
+    
   });
 
   window.addEventListener('resize', redrawCanvas);
@@ -701,7 +701,7 @@ function setupActionListeners() {
     }
 
     drawingToolbar.style.display = 'none';
-    drawingCanvas.style.display = 'none';
+    
     clearPointsBtn.style.display = 'none';
     drawingTip.textContent = 'Click on photo to trace countertop';
 
@@ -713,7 +713,7 @@ function setupActionListeners() {
     simulatedHighlight.style.display = 'none';
 
     // Hide drawing components if active
-    drawingCanvas.style.display = 'none';
+    
 
     // Show pre-render controls
     const preRenderControls = document.getElementById('pre-render-controls');
@@ -757,14 +757,14 @@ function setupActionListeners() {
 
       // Clear points and redraw canvas
       points = [];
-      redrawCanvas();
+      
       clearPointsBtn.style.display = 'none';
       drawingTip.textContent = 'Click on photo to trace countertop';
 
       // Hide tools and canvas
       if (actionBar) actionBar.classList.remove('visible');
       drawingToolbar.style.display = 'none';
-      drawingCanvas.style.display = 'none';
+      
 
       // Hide highlights
       simulatedHighlight.style.display = 'none';
@@ -1178,19 +1178,19 @@ function resetSaveBtn(btn) {
 
 function setupMobileNavListeners() {
   const tabCatalog = document.getElementById('nav-tab-catalog');
-  const tabCanvas = document.getElementById('nav-tab-canvas');
+  const tabWorkspace = document.getElementById('nav-tab-workspace');
   const tabControls = document.getElementById('nav-tab-controls');
 
   const visSidebar = document.getElementById('vis-sidebar');
   const visMain = document.getElementById('vis-main');
   const visControlPanel = document.getElementById('vis-control-panel');
 
-  if (!tabCatalog || !tabCanvas || !tabControls) return;
+  if (!tabCatalog || !tabWorkspace || !tabControls) return;
 
   function switchTab(activeTabBtn, activePanel) {
     // Remove active class from all tabs
     tabCatalog.classList.remove('active');
-    tabCanvas.classList.remove('active');
+    tabWorkspace.classList.remove('active');
     tabControls.classList.remove('active');
 
     // Remove active-tab class from all panels
@@ -1204,13 +1204,40 @@ function setupMobileNavListeners() {
 
     // Redraw canvas context on transition to ensure correct scaling/coordinates matching
     setTimeout(() => {
-      redrawCanvas();
+      
     }, 50);
   }
 
   tabCatalog.addEventListener('click', () => switchTab(tabCatalog, visSidebar));
-  tabCanvas.addEventListener('click', () => switchTab(tabCanvas, visMain));
+  tabWorkspace.addEventListener('click', () => switchTab(tabWorkspace, visMain));
   tabControls.addEventListener('click', () => switchTab(tabControls, visControlPanel));
+
+  // Tablet Drawer Logic
+  const tabletCatalogBtn = document.getElementById('tablet-catalog-btn');
+  const tabletControlsBtn = document.getElementById('tablet-controls-btn');
+  const drawerOverlay = document.getElementById('drawer-overlay');
+
+  if (tabletCatalogBtn && drawerOverlay) {
+    tabletCatalogBtn.addEventListener('click', () => {
+      visSidebar.classList.add('drawer-open');
+      drawerOverlay.classList.add('active');
+    });
+  }
+
+  if (tabletControlsBtn && drawerOverlay) {
+    tabletControlsBtn.addEventListener('click', () => {
+      visControlPanel.classList.add('drawer-open');
+      drawerOverlay.classList.add('active');
+    });
+  }
+
+  if (drawerOverlay) {
+    drawerOverlay.addEventListener('click', () => {
+      visSidebar.classList.remove('drawer-open');
+      visControlPanel.classList.remove('drawer-open');
+      drawerOverlay.classList.remove('active');
+    });
+  }
 }
 
 
@@ -1264,6 +1291,6 @@ function updateRenderInstantly() {
     <polygon points="${splashbackPoints}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" style="pointer-events: none;" />
   `;
 
-  drawingCanvas.style.display = 'none';
+  
   simulatedHighlight.style.display = 'block';
 }
