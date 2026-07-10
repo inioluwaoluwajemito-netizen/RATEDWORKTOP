@@ -474,22 +474,24 @@
       color: var(--gold-light);
     }
 
-    /* Mobile Navigation Bar */
+    /* Premium Native App Mobile Nav Bar */
     .mobile-nav-bar {
       display: none;
       position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 64px;
-      background: rgba(15, 15, 22, 0.95);
-      backdrop-filter: blur(12px);
-      border-top: 1px solid var(--border);
+      bottom: 0; left: 0; right: 0;
+      height: calc(64px + env(safe-area-inset-bottom));
+      padding-bottom: env(safe-area-inset-bottom);
+      background: rgba(9, 9, 15, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255,255,255,0.05);
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
       justify-content: space-around;
       align-items: center;
       z-index: 100;
-      padding: 0 16px;
-      box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+      padding: 0 16px env(safe-area-inset-bottom);
+      box-shadow: 0 -4px 30px rgba(0,0,0,0.5);
     }
 
     .mobile-nav-item {
@@ -510,7 +512,13 @@
     }
 
     .mobile-nav-item.active {
-      color: var(--gold);
+      color: #000;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+      border-radius: 12px;
+      padding: 8px 16px;
+      height: auto;
+      box-shadow: 0 4px 12px rgba(201,169,110,0.3);
+      transform: translateY(-4px);
     }
 
     .mobile-nav-item svg {
@@ -553,9 +561,18 @@
 
     /* Mobile media query (Bottom Tabs) */
     @media (max-width: 767px) {
-      body { padding-bottom: 64px; height: auto; min-height: 100vh; overflow-y: auto; }
-      .vis-navbar { padding: 0 16px; }
-      .vis-layout { flex-direction: column; height: calc(100vh - 124px); overflow: hidden; }
+      body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); height: auto; min-height: 100vh; overflow-y: auto; }
+      
+      /* Condense Headers */
+      .vis-navbar { height: 50px; padding: 0 16px; }
+      .vis-header-bar { padding: 16px 16px 12px !important; }
+      .vis-header-bar h1 { font-size: 24px !important; }
+      .vis-header-bar > div:first-child > div { font-size: 10px !important; margin-bottom: 2px !important; }
+      .vis-logo-icon { width: 24px; height: 24px; font-size: 12px; }
+      .vis-logo { font-size: 16px; }
+      .vis-nav-actions { display: none !important; } /* Hidden on mobile to save space, use global menu later if needed */
+
+      .vis-layout { flex-direction: column; height: calc(100vh - 100px - calc(64px + env(safe-area-inset-bottom))); overflow: hidden; }
       
       .tablet-btn { display: none !important; }
       

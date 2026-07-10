@@ -1151,6 +1151,12 @@ async function buildNav(activePage = '') {
       <div class="nav-links">
         ${links.map(l => `<a href="${l.href}" class="nav-link ${activePage === l.href ? 'active' : ''}">${l.label}</a>`).join('')}
       </div>
+      
+      <!-- Mobile Menu Toggle Button (Visible only on mobile) -->
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle Menu">
+        <i data-lucide="menu" style="width:24px;height:24px;color:var(--text-primary);"></i>
+      </button>
+
       <div class="nav-actions">
         ${user
           ? `<a href="account.html" class="credits-badge" style="text-decoration:none; cursor:pointer; display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--gold-glow); border:1px solid var(--border-gold); border-radius:99px; font-size:12px; font-weight:600; color:var(--gold);"><i data-lucide="zap" style="width:12px;height:12px;color:var(--gold);"></i> <span id="credits-count">${user.credits ?? 0}</span> credits</a>
@@ -1193,12 +1199,56 @@ async function buildNav(activePage = '') {
       menu.style.display = 'none';
     }
   });
+
+  // Add the mobile menu overlay to the body if it doesn't exist
+  if (!document.getElementById('mobile-menu-overlay')) {
+    const overlay = document.createElement('div');
+    overlay.id = 'mobile-menu-overlay';
+    overlay.className = 'mobile-menu-overlay';
+    
+    let mobileLinksHtml = links.map(l => `<a href="${l.href}" class="mobile-nav-overlay-link ${activePage === l.href ? 'active' : ''}">${l.label}</a>`).join('');
+    
+    let mobileAuthHtml = user 
+      ? `<a href="account.html" class="btn btn-primary" style="width:100%; justify-content:center; margin-bottom:12px;">Top up credits</a>
+         <button onclick="logout()" class="btn btn-danger" style="width:100%; justify-content:center; background:rgba(248,113,113,0.1); border:none; color:var(--danger);">Sign Out</button>`
+      : `<a href="login.html" class="btn btn-ghost" style="width:100%; justify-content:center; margin-bottom:12px;">Sign In</a>
+         <a href="register.html" class="btn btn-primary" style="width:100%; justify-content:center;">Start Free</a>`;
+
+    overlay.innerHTML = `
+      <div class="mobile-menu-header">
+        <div class="logo-icon" style="width:36px; height:36px; background:var(--gold); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif; font-size:20px; font-weight:800; color:#000;">R</div>
+        <button class="mobile-menu-close" onclick="toggleMobileMenu()">
+          <i data-lucide="x" style="width:24px;height:24px;color:var(--text-primary);"></i>
+        </button>
+      </div>
+      <div class="mobile-menu-content">
+        ${mobileLinksHtml}
+      </div>
+      <div class="mobile-menu-footer">
+        ${mobileAuthHtml}
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
 }
 
 function toggleUserMenu() {
   const menu = document.getElementById('user-menu');
   if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
 }
+
+// Mobile Menu Toggle Function
+window.toggleMobileMenu = function() {
+  const overlay = document.getElementById('mobile-menu-overlay');
+  if (overlay) {
+    overlay.classList.toggle('open');
+    if (overlay.classList.contains('open')) {
+      document.body.style.overflow = 'hidden'; // Prevent scrolling when menu is open
+    } else {
+      document.body.style.overflow = '';
+    }
+  }
+};
 
 // ── Footer build ──────────────────────────────
 function buildFooter() {
