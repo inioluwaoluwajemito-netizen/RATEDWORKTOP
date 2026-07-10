@@ -68,8 +68,7 @@ async function generateRender() {
     const kitchenResponse = await fetch(previewImage.src);
     const kitchenBlob = await kitchenResponse.blob();
 
-    // The user requested to use their Google API Key
-    const googleApiKey = "AIzaSyAFpMKbIFIdke9DG2pvJqHCUhgrMxKFHJs";
+    // The Google API key has been removed for security.
     
     // Step 2: Build the prompt for the kitchen render
     const stoneName = selectedStone.name;
