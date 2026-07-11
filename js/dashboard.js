@@ -31,11 +31,11 @@ const processingOverlay = document.getElementById('processing-overlay');
 const processingText = document.getElementById('processing-text');
 const simulatedHighlight = document.getElementById('simulated-highlight');
 
-const drawingCanvas = document.getElementById('drawing-canvas');
+
 const drawModeBtn = document.getElementById('draw-mode-btn');
 const clearPointsBtn = document.getElementById('clear-points-btn');
 const drawingTip = document.getElementById('drawing-tip');
-const drawingToolbar = document.getElementById('drawing-toolbar');
+
 let isRendering = false;
 
 // Visualisation variables
@@ -131,7 +131,7 @@ async function generateRender() {
           const rCtx = renderCanvas.getContext('2d');
           rCtx.drawImage(renderedImage, 0, 0, renderCanvas.width, renderCanvas.height);
           
-          drawingCanvas.style.display = 'none';
+          
           simulatedHighlight.style.display = 'none';
           renderCanvas.style.display = 'block';
           window._isAIRendered = true; // Mark as AI rendered to bypass overlay on save/download
@@ -669,20 +669,20 @@ function setupDrawingListeners() {
     points.push({ x, y });
     
     clearPointsBtn.style.display = 'inline-flex';
-    redrawCanvas();
+    
   });
 
   drawModeBtn.addEventListener('click', () => {
     isDrawMode = !isDrawMode;
     if (isDrawMode) {
-      drawingCanvas.style.display = 'block';
-      drawingCanvas.style.pointerEvents = 'auto';
+      
+      
       drawModeBtn.classList.remove('btn-ghost');
       drawModeBtn.classList.add('btn-primary');
       drawModeBtn.innerHTML = `<i data-lucide="check" style="width:13px;height:13px;"></i> Done Drawing`;
       drawingTip.textContent = 'Click on countertop corners. When finished, click "Done Drawing"';
     } else {
-      drawingCanvas.style.pointerEvents = 'none';
+      
       drawModeBtn.classList.remove('btn-primary');
       drawModeBtn.classList.add('btn-ghost');
       drawModeBtn.innerHTML = `<i data-lucide="pen-tool" style="width:13px;height:13px;"></i> Draw Shape`;
@@ -698,7 +698,7 @@ function setupDrawingListeners() {
       }
     }
     lucide.createIcons();
-    redrawCanvas();
+    
   });
 
   clearPointsBtn.addEventListener('click', () => {
@@ -708,7 +708,7 @@ function setupDrawingListeners() {
     
     // Hide rendering overlay and return to drawing state
     simulatedHighlight.style.display = 'none';
-    drawingCanvas.style.display = 'block';
+    
     
     // Swap buttons back to pre-render state
     const preControls = document.getElementById('pre-render-controls');
@@ -716,7 +716,7 @@ function setupDrawingListeners() {
     const postActions = document.getElementById('post-render-actions');
     if (postActions) postActions.style.display = 'none';
     
-    redrawCanvas();
+    
   });
 
   window.addEventListener('resize', redrawCanvas);
@@ -792,7 +792,7 @@ function setupActionListeners() {
     }
     
     drawingToolbar.style.display = 'none';
-    drawingCanvas.style.display = 'none';
+    
     clearPointsBtn.style.display = 'none';
     drawingTip.textContent = 'Click on photo to trace countertop';
     
@@ -816,7 +816,7 @@ function setupActionListeners() {
     cacheImageSrc = '';
     
     // Hide drawing components if active
-    drawingCanvas.style.display = 'none';
+    
 
     // Show pre-render controls
     const preRenderControls = document.getElementById('pre-render-controls');
@@ -860,14 +860,14 @@ function setupActionListeners() {
 
       // Clear points and redraw canvas
       points = [];
-      redrawCanvas();
+      
       clearPointsBtn.style.display = 'none';
       drawingTip.textContent = 'Click on photo to trace countertop';
       
       // Hide tools and canvas
       if (actionBar) actionBar.classList.remove('visible');
       drawingToolbar.style.display = 'none';
-      drawingCanvas.style.display = 'none';
+      
       
       // Hide rendering canvas
       const renderCanvas = document.getElementById('render-canvas');
@@ -1346,7 +1346,7 @@ function setupMobileNavListeners() {
 
     // Redraw canvas context on transition to ensure correct scaling/coordinates matching
     setTimeout(() => {
-      redrawCanvas();
+      
     }, 50);
   }
 
@@ -1379,7 +1379,7 @@ function updateRenderInstantly() {
       autoSplashbackPoints
     );
 
-    drawingCanvas.style.display = 'none';
+    
     simulatedHighlight.style.display = 'none';
     renderCanvas.style.display = 'block';
   };
