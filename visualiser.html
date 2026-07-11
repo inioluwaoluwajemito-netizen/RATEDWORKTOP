@@ -474,57 +474,9 @@
       color: var(--gold-light);
     }
 
-    /* Premium Native App Mobile Nav Bar */
-    .mobile-nav-bar {
-      display: none;
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      height: calc(64px + env(safe-area-inset-bottom));
-      padding-bottom: env(safe-area-inset-bottom);
-      background: rgba(9, 9, 15, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-top: 1px solid rgba(255,255,255,0.05);
-      border-top-left-radius: 20px;
-      border-top-right-radius: 20px;
-      justify-content: space-around;
-      align-items: center;
-      z-index: 100;
-      padding: 0 16px env(safe-area-inset-bottom);
-      box-shadow: 0 -4px 30px rgba(0,0,0,0.5);
-    }
 
-    .mobile-nav-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      background: none;
-      border: none;
-      color: var(--text-secondary);
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      flex: 1;
-      height: 100%;
-    }
 
-    .mobile-nav-item.active {
-      color: #000;
-      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
-      border-radius: 12px;
-      padding: 8px 16px;
-      height: auto;
-      box-shadow: 0 4px 12px rgba(201,169,110,0.3);
-      transform: translateY(-4px);
-    }
 
-    .mobile-nav-item svg {
-      width: 20px;
-      height: 20px;
-    }
 
     /* Mobile & Tablet Drawer Overlays */
     .drawer-overlay {
@@ -542,49 +494,49 @@
     .tablet-btn-left { left: 16px; }
     .tablet-btn-right { right: 16px; }
 
-    /* Tablet media query (Sliding Drawers) */
+    /* Mobile & Tablet Vertical Stack Layout */
     @media (max-width: 1024px) {
-      .vis-sidebar, .vis-control-panel {
-        position: fixed; top: 60px; bottom: 0; z-index: 90;
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        height: auto; border: none; box-shadow: 0 0 30px rgba(0,0,0,0.8);
-      }
-      .vis-sidebar { left: 0; transform: translateX(-100%); }
-      .vis-sidebar.drawer-open { transform: translateX(0); }
-      
-      .vis-control-panel { right: 0; transform: translateX(100%); }
-      .vis-control-panel.drawer-open { transform: translateX(0); }
-
-      .tablet-btn { display: flex; }
-      .mobile-nav-bar { display: none !important; }
-    }
-
-    /* Mobile media query (Bottom Tabs) */
-    @media (max-width: 767px) {
-      body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); height: auto; min-height: 100vh; overflow-y: auto; }
+      body { padding-bottom: env(safe-area-inset-bottom); height: auto; min-height: 100vh; overflow-y: auto; overflow-x: hidden; }
       
       /* Condense Headers */
       .vis-navbar { height: 50px; padding: 0 16px; }
       .vis-header-bar { padding: 16px 16px 12px !important; }
-      .vis-header-bar h1 { font-size: 24px !important; }
+      .vis-header-bar h1 { font-size: 20px !important; }
       .vis-header-bar > div:first-child > div { font-size: 10px !important; margin-bottom: 2px !important; }
       .vis-logo-icon { width: 24px; height: 24px; font-size: 12px; }
       .vis-logo { font-size: 16px; }
-      .vis-nav-actions { display: none !important; } /* Hidden on mobile to save space, use global menu later if needed */
+      .vis-nav-actions { display: none !important; } /* Hidden on mobile */
 
-      .vis-layout { flex-direction: column; height: calc(100vh - 100px - calc(64px + env(safe-area-inset-bottom))); overflow: hidden; }
+      /* Make the layout a scrolling column */
+      .vis-layout { flex-direction: column; height: auto; overflow-y: visible; overflow-x: hidden; }
       
-      .tablet-btn { display: none !important; }
+      /* Hide drawer/tab buttons */
+      .tablet-btn, .mobile-nav-bar, .drawer-overlay { display: none !important; }
       
-      .vis-sidebar, .vis-main, .vis-control-panel {
-        position: relative !important; top: 0 !important; left: 0 !important; right: 0 !important; transform: none !important;
-        display: none !important; width: 100% !important; height: 100% !important; flex: 1 !important; z-index: 1 !important; box-shadow: none !important;
+      /* Panel Stack Ordering */
+      .vis-main {
+        order: 1; /* Top */
+        position: relative !important; width: 100% !important; flex: none !important;
+        height: auto !important; min-height: 350px;
+        padding: 16px !important;
       }
-      .vis-sidebar.active-tab, .vis-main.active-tab, .vis-control-panel.active-tab { display: flex !important; }
-      .mobile-nav-bar { display: flex !important; }
+      .vis-control-panel {
+        order: 2; /* Middle */
+        position: relative !important; width: 100% !important; flex: none !important;
+        height: auto !important; border-left: none !important; border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+      }
+      .vis-sidebar {
+        order: 3; /* Bottom */
+        position: relative !important; width: 100% !important; flex: none !important;
+        height: 600px !important; border-right: none !important;
+      }
 
-      .upload-area { height: 100% !important; max-height: 100% !important; border-radius: 12px; }
-      .stone-list { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+      /* Fix internals for vertical stack: Show all panels unconditionally */
+      .vis-sidebar, .vis-main, .vis-control-panel { display: flex !important; }
+      
+      .upload-area { height: 350px !important; max-height: 100% !important; border-radius: 12px; }
+      .stone-list { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
     }
 
     /* Modal Overlay & Card styling */
@@ -666,7 +618,7 @@
 
   <div class="vis-layout">
     <!-- Tablet Overlay -->
-    <div class="drawer-overlay" id="drawer-overlay"></div>
+    
 
     <!-- Sidebar -->
     <aside class="vis-sidebar" id="vis-sidebar">
@@ -697,8 +649,8 @@
 
     <!-- Main Canvas -->
     <main class="vis-main active-tab" id="vis-main">
-      <button class="tablet-btn tablet-btn-left" id="tablet-catalog-btn"><i data-lucide="layout-grid" style="width:16px;height:16px;"></i> Catalog</button>
-      <button class="tablet-btn tablet-btn-right" id="tablet-controls-btn"><i data-lucide="sliders" style="width:16px;height:16px;"></i> Controls</button>
+      
+      
       
       <div class="upload-area" id="upload-area" style="position:relative;">
         <!-- Floating Preview Wrapper centered inside upload-area -->
