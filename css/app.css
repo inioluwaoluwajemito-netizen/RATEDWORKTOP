@@ -696,6 +696,14 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   }
 }
 
+/* -- MOBILE MENU OVERLAY ----------------------- */
+.mobile-menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
 /* Mobile (767px and below) */
 @media (max-width: 767px) {
   .nav-links { display: none; }
@@ -706,13 +714,6 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   .container { padding: 0 16px; }
   .auth-card { padding: 28px 22px; }
   .auth-divider { margin: 20px -22px; }
-}
-/* -- MOBILE MENU OVERLAY ----------------------- */
-.mobile-menu-btn {
-  display: none;
-  background: transparent;
-  border: none;
-  cursor: pointer;
 }
 
 .mobile-menu-overlay {
