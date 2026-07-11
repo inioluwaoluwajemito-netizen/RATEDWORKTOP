@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupActionListeners();
 
   // 6. Setup Shape Drawing Listeners
-  setupDrawingListeners();
+  /* setupDrawingListeners removed */
 
   // Mode Selection Tabs Wire Up
   const modeAutoBtn = document.getElementById('mode-auto-btn');
