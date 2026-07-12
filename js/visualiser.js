@@ -375,7 +375,7 @@ function renderStones() {
     const categoryLabel = (stone.categoryName || stone.category || 'Marble').toUpperCase();
     const finishLabel = (stone.texture === 'granite' || stone.texture === 'slate') ? 'HONED' : 'POLISHED';
     el.innerHTML = `
-      <div class="stone-thumb" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
+      <div class="stone-thumb" style="background-image: url('${imgUrl}'), ${getTexture(stone.texture || 'default')}; background-size: cover; background-position: center;"></div>
       <div class="stone-info">
         <div class="stone-name" title="${stone.name}">${stone.name}</div>
         <div class="stone-brand">${categoryLabel} · ${finishLabel}</div>
@@ -417,7 +417,7 @@ function updateSelectedMaterialCard(stone) {
     container.innerHTML = `
       <div id="selected-material-card" class="material-card-selected fade-up" style="animation-duration: 0.3s;">
         <div class="material-card-header">
-          <div class="material-card-thumb" style="background-image: url('${imgUrl}');"></div>
+          <div class="material-card-thumb" style="background-image: url('${imgUrl}'), ${getTexture(stone.texture || 'default')};"></div>
           <div class="material-card-details">
             <div class="material-card-name" title="${stone.name}">${stone.name}</div>
             <div class="material-card-brand">${stone.brandName}</div>
