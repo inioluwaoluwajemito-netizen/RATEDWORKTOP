@@ -533,21 +533,23 @@ async function handleFile(file) {
 
   showToast('Uploading to secure database storage...', 'info');
 
-  const uuid = Math.random().toString(36).substring(2, 15);
-  const path = `originals/${currentUser?.id || 'guest'}/${uuid}.jpg`;
+  const path = `originals/${currentUser?.id || 'guest'}/current_kitchen.jpg`;
   const uploadRes = await uploadFileToStorage('ratedworktops', path, optimizedFile);
 
   if (uploadRes.ok) {
-    originalFileUrl = uploadRes.url;
+    // Append timestamp cache-buster so if URL is ever viewed, it breaks the cache
+    originalFileUrl = uploadRes.url + `?t=${Date.now()}`;
     showToast('Image uploaded successfully!', 'success');
     
     // Log the upload in the database
     if (supabaseClient) {
-      supabaseClient.from('kitchen_uploads').insert([{
-        user_id: currentUser?.id || 'guest',
-        image_url: uploadRes.url
-      }]).then(({ error }) => {
-        if (error) console.error('Failed to log kitchen upload:', error);
+      supabaseClient.from('kitchen_uploads').delete().eq('user_id', currentUser?.id || 'guest').then(() => {
+        supabaseClient.from('kitchen_uploads').insert([{
+          user_id: currentUser?.id || 'guest',
+          image_url: uploadRes.url
+        }]).then(({ error }) => {
+          if (error) console.error('Failed to log kitchen upload:', error);
+        });
       });
     }
   } else {
