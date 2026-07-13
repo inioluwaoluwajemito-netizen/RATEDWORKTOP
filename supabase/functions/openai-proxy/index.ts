@@ -71,9 +71,8 @@ serve(async (req) => {
     // 3. Parse JSON from frontend (contains image and mask as base64 URIs, and prompt)
     const bodyJson = await req.json();
 
-    // 4. Forward request to Replicate API (using Prefer: wait=60 for synchronous response)
+    // 4. Forward request to Replicate API (using Prefer: wait for synchronous response)
     const replicatePayload = {
-      version: "95b7223104132402a9ae91cc677285bc5eb997834bd2349fa486f53910fd68b3", // stability-ai/stable-diffusion-inpainting
       input: {
         prompt: bodyJson.prompt,
         image: bodyJson.image,
@@ -82,7 +81,7 @@ serve(async (req) => {
       }
     };
 
-    const response = await fetch('https://api.replicate.com/v1/predictions', {
+    const response = await fetch('https://api.replicate.com/v1/models/stability-ai/stable-diffusion-inpainting/predictions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
@@ -101,7 +100,7 @@ serve(async (req) => {
     } else if (resData.error) {
       mappedOutput.error = { message: resData.error };
     } else {
-      mappedOutput.error = { message: "Prediction timed out or failed. Status: " + resData.status };
+      mappedOutput.error = { message: `Replicate API Error: ${resData.status} - ${resData.detail || resData.title || JSON.stringify(resData)}` };
     }
 
     return new Response(JSON.stringify(mappedOutput), {
