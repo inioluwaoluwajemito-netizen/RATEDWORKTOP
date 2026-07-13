@@ -76,10 +76,14 @@ async function generateRender() {
 
     processingText.textContent = 'Generating photorealistic stone surface with AI...';
 
+    const categoryLabel = selectedStone.categoryName || selectedStone.category || 'stone';
+    const finishLabel = (selectedStone.texture === 'granite' || selectedStone.texture === 'slate') ? 'honed' : 'polished';
+    const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${finishLabel} ${categoryLabel} material with distinct surface patterns. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`;
+
     const formData = new FormData();
     formData.append('image', imageBlob, 'image.png');
     formData.append('mask', maskBlob, 'mask.png');
-    formData.append('prompt', `Replace the kitchen countertop and splashback surfaces with ${selectedStone.name} stone material. Make it photorealistic, matching the lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`);
+    formData.append('prompt', enhancedPrompt);
     formData.append('n', '1');
     formData.append('size', '1024x1024');
     formData.append('model', 'gpt-image-1');

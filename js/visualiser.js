@@ -81,12 +81,15 @@ async function generateRender() {
       reader.onloadend = () => resolve(reader.result.split(',')[1]);
     });
 
+    const categoryLabel = selectedStone.categoryName || selectedStone.category || 'stone';
+    const finishLabel = (selectedStone.texture === 'granite' || selectedStone.texture === 'slate') ? 'honed' : 'polished';
+
     // explicitly pass the required 'model' parameter directly in the request
     const geminiPayload = {
       model: "models/gemini-1.5-pro",
       contents: [{
         parts: [
-          { text: `Analyze this kitchen and describe a photorealistic version with ${stoneName} countertops.` },
+          { text: `Analyze this kitchen and describe a photorealistic version with ${selectedStone.brandName} ${stoneName} countertops. The countertops are a highly detailed ${finishLabel} ${categoryLabel} material with distinct surface patterns. Keep all cabinets and appliances exactly as they are.` },
           { inline_data: { mime_type: "image/jpeg", data: base64Image } }
         ]
       }]
@@ -106,7 +109,7 @@ async function generateRender() {
 
     // Fallback: Generate the actual image so the UI renders successfully
     processingText.textContent = `Generating ${stoneName} kitchen render...`;
-    const prompt = `Beautiful modern kitchen with ${stoneName} countertops, photorealistic interior design, perfect lighting, high resolution`;
+    const prompt = `Beautiful modern kitchen with ${selectedStone.brandName} ${stoneName} countertops. The countertops are a highly detailed ${finishLabel} ${categoryLabel} material with distinct surface patterns and veining. Photorealistic interior design, perfect lighting, high resolution`;
     const generatedImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
 
     // Create a new image to ensure it loads before showing
