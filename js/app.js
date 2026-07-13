@@ -867,6 +867,22 @@ async function uploadFileToStorage(bucket, path, file) {
   return { ok: true, url: publicUrl };
 }
 
+async function emptyStorageFolder(bucket, folderPath) {
+  if (!supabaseClient) return;
+  try {
+    const { data: list, error: listError } = await supabaseClient.storage.from(bucket).list(folderPath);
+    if (listError) throw listError;
+    
+    if (list && list.length > 0) {
+      const filesToRemove = list.map(x => `${folderPath}/${x.name}`);
+      const { error: removeError } = await supabaseClient.storage.from(bucket).remove(filesToRemove);
+      if (removeError) throw removeError;
+    }
+  } catch (err) {
+    console.error('Failed to empty storage folder:', err);
+  }
+}
+
 // ── Seed demo data ────────────────────────────
 function seedAppData() {
   // Seed settings from admin (or defaults)

@@ -533,7 +533,11 @@ async function handleFile(file) {
 
   showToast('Uploading to secure database storage...', 'info');
 
-  const path = `originals/${currentUser?.id || 'guest'}/current_kitchen.jpg`;
+  // Delete all former images in the user's directory to ensure no old files are left behind
+  const storageDir = `originals/${currentUser?.id || 'guest'}`;
+  await emptyStorageFolder('ratedworktops', storageDir);
+
+  const path = `${storageDir}/current_kitchen.jpg`;
   const uploadRes = await uploadFileToStorage('ratedworktops', path, optimizedFile);
 
   if (uploadRes.ok) {
