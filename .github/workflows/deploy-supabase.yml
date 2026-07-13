@@ -18,6 +18,9 @@ jobs:
         with:
           version: latest
 
+      - name: Initialize Supabase
+        run: supabase init
+
       - name: Deploy openai-proxy
         run: supabase functions deploy openai-proxy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
