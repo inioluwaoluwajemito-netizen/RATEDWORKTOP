@@ -56,10 +56,10 @@ serve(async (req) => {
       });
     }
 
-    // 2. Retrieve the master OpenAI API Key from Deno secrets
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: { message: "Server configuration error: OPENAI_API_KEY secret is not set in Supabase." } }), {
+    // 2. Retrieve the Replicate API Key from Deno secrets
+    const REPLICATE_API_TOKEN = Deno.env.get("REPLICATE_API_TOKEN");
+    if (!REPLICATE_API_TOKEN) {
+      return new Response(JSON.stringify({ error: { message: "Server configuration error: REPLICATE_API_TOKEN secret is not set in Supabase." } }), {
         status: 500,
         headers: { 
           'Content-Type': 'application/json', 
@@ -68,21 +68,43 @@ serve(async (req) => {
       });
     }
 
-    // 3. Parse the incoming multipart form data (contains: image, mask, prompt, model, size)
-    const body = await req.formData();
+    // 3. Parse JSON from frontend (contains image and mask as base64 URIs, and prompt)
+    const bodyJson = await req.json();
 
-    // 4. Forward request to OpenAI API using our master key
-    const response = await fetch('https://api.openai.com/v1/images/edits', {
+    // 4. Forward request to Replicate API (using Prefer: wait=60 for synchronous response)
+    const replicatePayload = {
+      input: {
+        prompt: bodyJson.prompt,
+        image: bodyJson.image,
+        mask: bodyJson.mask,
+        num_outputs: 1
+      }
+    };
+
+    const response = await fetch('https://api.replicate.com/v1/models/stability-ai/stable-diffusion-inpainting/predictions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
+        'Authorization': `Token ${REPLICATE_API_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'wait=60'
       },
-      body: body
+      body: JSON.stringify(replicatePayload)
     });
 
     const resData = await response.json();
-    return new Response(JSON.stringify(resData), {
-      status: response.status,
+    
+    // Map Replicate's response to match the OpenAI format the frontend expects: { data: [{ url: "..." }] }
+    let mappedOutput = { data: [] };
+    if (resData.status === "succeeded" && resData.output && resData.output.length > 0) {
+      mappedOutput.data.push({ url: resData.output[0] });
+    } else if (resData.error) {
+      mappedOutput.error = { message: resData.error };
+    } else {
+      mappedOutput.error = { message: "Prediction timed out or failed. Status: " + resData.status };
+    }
+
+    return new Response(JSON.stringify(mappedOutput), {
+      status: response.status === 201 || response.status === 200 ? 200 : response.status,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
@@ -90,7 +112,7 @@ serve(async (req) => {
     });
 
   } catch (err) {
-    console.error("OpenAI Proxy Error:", err);
+    console.error("Proxy Error:", err);
     return new Response(JSON.stringify({ error: { message: err.message } }), {
       status: 500,
       headers: { 

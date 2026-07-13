@@ -80,13 +80,14 @@ async function generateRender() {
     const finishLabel = (selectedStone.texture === 'granite' || selectedStone.texture === 'slate') ? 'honed' : 'polished';
     const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${finishLabel} ${categoryLabel} material with distinct surface patterns. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`;
 
-    const formData = new FormData();
-    formData.append('image', imageBlob, 'image.png');
-    formData.append('mask', maskBlob, 'mask.png');
-    formData.append('prompt', enhancedPrompt);
-    formData.append('n', '1');
-    formData.append('size', '1024x1024');
-    formData.append('model', 'gpt-image-1');
+    const imageUri = imageCanvas.toDataURL('image/png');
+    const maskUri = maskCanvas.toDataURL('image/png');
+
+    const payload = {
+      image: imageUri,
+      mask: maskUri,
+      prompt: enhancedPrompt
+    };
 
     if (!supabaseClient || !useRealSupabase) {
       throw new Error("Database is disconnected. AI render requires a live database connection.");
@@ -101,9 +102,10 @@ async function generateRender() {
     const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       },
-      body: formData
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
