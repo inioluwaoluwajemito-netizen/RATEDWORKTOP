@@ -599,6 +599,43 @@
         </a>
         <a href="#how-it-works" class="hero-link">See how it works</a>
       </div>
+
+      <!-- App Store Badges -->
+      <div style="margin-top:28px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+        <span style="font-size:12px; color:var(--text-muted); letter-spacing:0.05em; text-transform:uppercase; font-weight:600;">Also available on</span>
+        <!-- Google Play -->
+        <a href="https://play.google.com/store" target="_blank" rel="noopener"
+          id="hero-android-badge"
+          style="display:inline-flex; align-items:center; gap:10px; padding:9px 18px; border-radius:10px; background:#111; border:1px solid rgba(255,255,255,0.15); text-decoration:none; transition:all 0.2s; hover:border-color:var(--gold);"
+          onmouseover="this.style.borderColor='var(--gold)'; this.style.background='#1a1a1a';"
+          onmouseout="this.style.borderColor='rgba(255,255,255,0.15)'; this.style.background='#111';">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3.18 23.76a1.5 1.5 0 01-.68-.16c-.44-.24-.5-.74-.5-1.1V1.5C2 1.14 2.06.64 2.5.4a1.5 1.5 0 011.6.14l17 10.5a1.5 1.5 0 010 2.52L4.1 24a1.5 1.5 0 01-.92.26z" fill="#EA4335"/>
+            <path d="M2 1.5v21l10.5-10.5L2 1.5z" fill="#4285F4"/>
+            <path d="M2 22.5l10.5-10.5 3.5 3.5-12.36 7.6A1.5 1.5 0 012 22.5z" fill="#34A853"/>
+            <path d="M2 1.5A1.5 1.5 0 013.64.4l12.36 7.6L12.5 12 2 1.5z" fill="#FBBC05"/>
+          </svg>
+          <div style="text-align:left; line-height:1.2;">
+            <div style="font-size:9px; color:rgba(255,255,255,0.5); font-weight:500; letter-spacing:0.05em;">GET IT ON</div>
+            <div style="font-size:14px; color:#fff; font-weight:700;">Google Play</div>
+          </div>
+        </a>
+        <!-- Apple App Store -->
+        <a href="https://apps.apple.com" target="_blank" rel="noopener"
+          id="hero-ios-badge"
+          style="display:inline-flex; align-items:center; gap:10px; padding:9px 18px; border-radius:10px; background:#111; border:1px solid rgba(255,255,255,0.15); text-decoration:none; transition:all 0.2s;"
+          onmouseover="this.style.borderColor='var(--gold)'; this.style.background='#1a1a1a';"
+          onmouseout="this.style.borderColor='rgba(255,255,255,0.15)'; this.style.background='#111';">
+          <svg width="20" height="24" viewBox="0 0 814 1000" fill="#fff" xmlns="http://www.w3.org/2000/svg">
+            <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.5-155.5-105.5c-43.3-60.6-77.5-154.5-77.5-243.9 0-135 88-206.3 174.2-206.3 46.5 0 85 28.5 114.2 28.5 27.8 0 70.9-30.9 121.1-30.9 19.4 0 108.2 1.9 163.9 63.9z" fill="#fff"/>
+            <path d="M540 102c14.5-22 24.9-52.1 24.9-82.1 0-4.5-.5-9-.5-12.8-23.4 0.5-52.2 15.5-69.7 37.4-15.5 19.3-27.8 49.4-27.8 79.6 0 4.7.5 9.5 1.9 13.5 1.9.5 4.5.5 6.5.5 20.4 0 47.1-14.5 64.7-36.1z" fill="#fff"/>
+          </svg>
+          <div style="text-align:left; line-height:1.2;">
+            <div style="font-size:9px; color:rgba(255,255,255,0.5); font-weight:500; letter-spacing:0.05em;">DOWNLOAD ON THE</div>
+            <div style="font-size:14px; color:#fff; font-weight:700;">App Store</div>
+          </div>
+        </a>
+      </div>
     </div>
   </header>
 
@@ -767,6 +804,57 @@
       <div class="pricing-grid" id="pricing-plans-grid">
         <!-- Cards loaded dynamically via JavaScript based on localStorage mode -->
       </div>
+    </div>
+  </section>
+
+  <!-- Download Our App Section -->
+  <section style="padding:80px 20px; text-align:center; background:linear-gradient(135deg, #0d0d10 0%, #131318 100%); border-top:1px solid rgba(255,255,255,0.06); border-bottom:1px solid rgba(255,255,255,0.06);" id="download-app">
+    <div style="max-width:600px; margin:0 auto;">
+      <span style="display:inline-block; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--gold); font-weight:700; margin-bottom:14px; background:rgba(212,175,55,0.1); padding:5px 16px; border-radius:20px; border:1px solid rgba(212,175,55,0.2);">Mobile App</span>
+      <h2 style="font-family:'Playfair Display',serif; font-size:clamp(28px,4vw,42px); font-weight:700; color:#fff; margin:0 0 16px; line-height:1.2;">Take RatedWorktops <span style="color:var(--gold);">Everywhere</span></h2>
+      <p style="color:rgba(255,255,255,0.55); font-size:16px; line-height:1.7; margin:0 0 40px;">Download our mobile app and visualise your dream kitchen from anywhere — on your phone or tablet, in just a few taps.</p>
+
+      <div style="display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap;">
+
+        <!-- Google Play Store Badge -->
+        <a href="https://play.google.com/store" target="_blank" rel="noopener"
+          id="download-android-btn"
+          style="display:inline-flex; align-items:center; gap:14px; padding:14px 28px; border-radius:14px; background:#111; border:1px solid rgba(255,255,255,0.15); text-decoration:none; min-width:200px; transition:all 0.25s; box-shadow:0 4px 20px rgba(0,0,0,0.4);"
+          onmouseover="this.style.borderColor='#34A853'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 30px rgba(52,168,83,0.25)';"
+          onmouseout="this.style.borderColor='rgba(255,255,255,0.15)'; this.style.transform='none'; this.style.boxShadow='0 4px 20px rgba(0,0,0,0.4)';">
+          <!-- Google Play SVG Logo -->
+          <svg width="32" height="32" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1.72 0.34C1.27 0.6 1 1.08 1 1.67V22.33C1 22.92 1.27 23.4 1.72 23.66L1.84 23.77L12.99 12.62V12.37L1.84 1.22Z" fill="#4285F4"/>
+            <path d="M16.66 16.29L12.99 12.62V12.38L16.66 8.71L16.8 8.79L21.17 11.27C22.41 11.97 22.41 13.03 21.17 13.73L16.8 16.21Z" fill="#FBBC05"/>
+            <path d="M16.8 16.21L12.99 12.4L1.72 23.67C2.17 24.12 2.9 24.17 3.73 23.72L16.8 16.21Z" fill="#34A853"/>
+            <path d="M16.8 8.79L3.73 1.28C2.9 0.83 2.17 0.88 1.72 1.33L12.99 12.6Z" fill="#EA4335"/>
+          </svg>
+          <div style="text-align:left; line-height:1.3;">
+            <div style="font-size:10px; color:rgba(255,255,255,0.45); font-weight:500; letter-spacing:0.06em; text-transform:uppercase;">Get it on</div>
+            <div style="font-size:18px; color:#fff; font-weight:700; letter-spacing:-0.02em;">Google Play</div>
+          </div>
+        </a>
+
+        <!-- Apple App Store Badge -->
+        <a href="https://apps.apple.com" target="_blank" rel="noopener"
+          id="download-ios-btn"
+          style="display:inline-flex; align-items:center; gap:14px; padding:14px 28px; border-radius:14px; background:#111; border:1px solid rgba(255,255,255,0.15); text-decoration:none; min-width:200px; transition:all 0.25s; box-shadow:0 4px 20px rgba(0,0,0,0.4);"
+          onmouseover="this.style.borderColor='#fff'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 30px rgba(255,255,255,0.1)';"
+          onmouseout="this.style.borderColor='rgba(255,255,255,0.15)'; this.style.transform='none'; this.style.boxShadow='0 4px 20px rgba(0,0,0,0.4)';">
+          <!-- Apple Logo SVG -->
+          <svg width="28" height="34" viewBox="0 0 814 1000" fill="#fff" xmlns="http://www.w3.org/2000/svg">
+            <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.5-155.5-105.5C61.5 794 27.3 700.1 27.3 610.7c0-135 88-206.3 174.2-206.3 46.5 0 85 28.5 114.2 28.5 27.8 0 70.9-30.9 121.1-30.9 19.4 0 108.2 1.9 163.9 63.9z"/>
+            <path d="M540 102c14.5-22 24.9-52.1 24.9-82.1 0-4.5-.5-9-.5-12.8-23.4.5-52.2 15.5-69.7 37.4-15.5 19.3-27.8 49.4-27.8 79.6 0 4.7.5 9.5 1.9 13.5 1.9.5 4.5.5 6.5.5 20.4 0 47.1-14.5 64.7-36.1z"/>
+          </svg>
+          <div style="text-align:left; line-height:1.3;">
+            <div style="font-size:10px; color:rgba(255,255,255,0.45); font-weight:500; letter-spacing:0.06em; text-transform:uppercase;">Download on the</div>
+            <div style="font-size:18px; color:#fff; font-weight:700; letter-spacing:-0.02em;">App Store</div>
+          </div>
+        </a>
+
+      </div>
+
+      <p style="margin-top:28px; font-size:12px; color:rgba(255,255,255,0.3);">Free to download • iOS 14+ & Android 8+</p>
     </div>
   </section>
 
