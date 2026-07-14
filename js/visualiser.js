@@ -61,76 +61,124 @@ async function generateRender() {
   isRendering = true;
   simulatedHighlight.style.display = 'none';
   processingOverlay.style.display = 'flex';
-  processingText.textContent = 'Sending image to AI for processing...';
 
   try {
-    // Step 1: Convert the kitchen image to a blob
-    const kitchenResponse = await fetch(previewImage.src);
-    const kitchenBlob = await kitchenResponse.blob();
+    processingText.textContent = 'Preparing images for AI inpainting...';
 
-    // The Google API key (Insert your secure Gemini API key here)
-    const googleApiKey = "YOUR_GEMINI_API_KEY_HERE";
-    
-    const stoneName = selectedStone.name;
-    processingText.textContent = `Analyzing kitchen with Gemini API...`;
+    // Create a 1024x1024 image canvas and mask canvas
+    const imageCanvas = document.createElement('canvas');
+    imageCanvas.width = 1024;
+    imageCanvas.height = 1024;
+    const imgCtx = imageCanvas.getContext('2d');
+    imgCtx.drawImage(previewImage, 0, 0, 1024, 1024);
 
-    // Convert kitchen blob to base64 for Gemini
-    const reader = new FileReader();
-    reader.readAsDataURL(kitchenBlob);
-    const base64Image = await new Promise(resolve => {
-      reader.onloadend = () => resolve(reader.result.split(',')[1]);
-    });
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = 1024;
+    maskCanvas.height = 1024;
+    const maskCtx = maskCanvas.getContext('2d');
+
+    // Black background = keep; transparent = regenerate
+    maskCtx.fillStyle = 'black';
+    maskCtx.fillRect(0, 0, 1024, 1024);
+    maskCtx.globalCompositeOperation = 'destination-out';
+
+    const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
+
+    if (isAutoMode) {
+      // Default countertop polygon
+      const countertopPoints = [
+        { x: 10, y: 60 }, { x: 90, y: 60 }, { x: 95, y: 75 }, { x: 5, y: 75 }
+      ];
+      maskCtx.beginPath();
+      maskCtx.moveTo(countertopPoints[0].x * 10.24, countertopPoints[0].y * 10.24);
+      for (let i = 1; i < countertopPoints.length; i++) {
+        maskCtx.lineTo(countertopPoints[i].x * 10.24, countertopPoints[i].y * 10.24);
+      }
+      maskCtx.closePath();
+      maskCtx.fill();
+
+      // Default splashback polygon
+      const splashbackPoints = [
+        { x: 60.5, y: 15 }, { x: 86.5, y: 15 }, { x: 86.5, y: 56 }, { x: 60.5, y: 56 }
+      ];
+      maskCtx.beginPath();
+      maskCtx.moveTo(splashbackPoints[0].x * 10.24, splashbackPoints[0].y * 10.24);
+      for (let i = 1; i < splashbackPoints.length; i++) {
+        maskCtx.lineTo(splashbackPoints[i].x * 10.24, splashbackPoints[i].y * 10.24);
+      }
+      maskCtx.closePath();
+      maskCtx.fill();
+
+    } else if (points && points.length >= 3) {
+      // Manual drawing points
+      maskCtx.beginPath();
+      maskCtx.moveTo(points[0].x * 10.24, points[0].y * 10.24);
+      for (let i = 1; i < points.length; i++) {
+        maskCtx.lineTo(points[i].x * 10.24, points[i].y * 10.24);
+      }
+      maskCtx.closePath();
+      maskCtx.fill();
+    }
+
+    const imageUri = imageCanvas.toDataURL('image/png');
+    const maskUri = maskCanvas.toDataURL('image/png');
 
     const categoryLabel = selectedStone.categoryName || selectedStone.category || 'stone';
     const finishLabel = (selectedStone.texture === 'granite' || selectedStone.texture === 'slate') ? 'honed' : 'polished';
+    const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${finishLabel} ${categoryLabel} material with distinct surface patterns. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`;
 
-    // explicitly pass the required 'model' parameter directly in the request
-    const geminiPayload = {
-      model: "models/gemini-1.5-pro",
-      contents: [{
-        parts: [
-          { text: `Analyze this kitchen and describe a photorealistic version with ${selectedStone.brandName} ${stoneName} countertops. The countertops are a highly detailed ${finishLabel} ${categoryLabel} material with distinct surface patterns. Keep all cabinets and appliances exactly as they are.` },
-          { inline_data: { mime_type: "image/jpeg", data: base64Image } }
-        ]
-      }]
-    };
+    processingText.textContent = 'Generating photorealistic stone surface with AI...';
 
-    try {
-      // Dispatch client-side call to Gemini
-      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${googleApiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(geminiPayload)
-      });
-      // We ignore the response here because Gemini outputs text, not an image file.
-    } catch (apiError) {
-      console.warn("Gemini API call failed, falling back to image generator", apiError);
+    if (!supabaseClient || !useRealSupabase) {
+      throw new Error("Database is disconnected. AI render requires a live database connection.");
     }
 
-    // Fallback: Generate the actual image so the UI renders successfully
-    processingText.textContent = `Generating ${stoneName} kitchen render...`;
-    const prompt = `Beautiful modern kitchen with ${selectedStone.brandName} ${stoneName} countertops. The countertops are a highly detailed ${finishLabel} ${categoryLabel} material with distinct surface patterns and veining. Photorealistic interior design, perfect lighting, high resolution`;
-    const generatedImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error("Authentication session expired. Please log in again.");
 
-    // Create a new image to ensure it loads before showing
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = () => reject(new Error("Failed to load generated image"));
-      img.src = generatedImageUrl;
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ image: imageUri, mask: maskUri, prompt: enhancedPrompt })
     });
 
-    // Step 4: Display the generated image
-    processingText.textContent = 'Rendering complete!';
+    if (!response.ok) {
+      const errorText = await response.text();
+      let parsedError;
+      try { parsedError = JSON.parse(errorText); } catch (e) {}
+      throw new Error(parsedError?.error?.message || errorText || 'AI request failed');
+    }
 
-    previewImage.src = generatedImageUrl;
-    window._isAIRendered = true; // Mark as AI rendered to bypass overlay on save/download
-    simulatedHighlight.style.display = 'none';
-    
+    const resData = await response.json();
+    const imageUrl = resData.data?.[0]?.url;
+    if (!imageUrl) throw new Error(resData?.error?.message || 'No image URL returned from AI.');
 
-    processingOverlay.style.display = 'none';
+    processingText.textContent = 'Applying final adjustments...';
+
+    // Draw the AI result onto the preview
+    await new Promise((resolve, reject) => {
+      const renderedImage = new Image();
+      renderedImage.crossOrigin = 'Anonymous';
+      renderedImage.onload = () => {
+        const renderCanvas = document.getElementById('render-canvas');
+        if (renderCanvas) {
+          renderCanvas.width = previewImage.naturalWidth || previewImage.width;
+          renderCanvas.height = previewImage.naturalHeight || previewImage.height;
+          const rCtx = renderCanvas.getContext('2d');
+          rCtx.drawImage(renderedImage, 0, 0, renderCanvas.width, renderCanvas.height);
+          simulatedHighlight.style.display = 'none';
+          renderCanvas.style.display = 'block';
+          window._isAIRendered = true;
+        }
+        resolve();
+      };
+      renderedImage.onerror = () => reject(new Error('Failed to load AI-generated image.'));
+      renderedImage.src = imageUrl;
+    });
 
     // Deduct credits
     const newCredits = isFreeMode ? currentProfile.credits : (currentProfile.credits - 1);
@@ -143,16 +191,13 @@ async function generateRender() {
     if (!error) {
       currentProfile.credits = newCredits;
       currentProfile.visualisations = newVisualisations;
-
       const navCredits = document.getElementById('credits-count');
       if (navCredits) navCredits.textContent = newCredits;
       const sidebarCredits = document.getElementById('credits-count-sidebar');
       if (sidebarCredits) sidebarCredits.textContent = newCredits;
       const headerCredits = document.getElementById('credits-count-header');
       if (headerCredits) headerCredits.textContent = newCredits;
-
       showToast('AI visualisation complete!' + (isFreeMode ? '' : ' 1 credit deducted.'), 'success');
-
       const preRenderControls = document.getElementById('pre-render-controls');
       if (preRenderControls) preRenderControls.style.display = 'none';
       document.getElementById('post-render-actions').style.display = 'flex';
@@ -162,12 +207,14 @@ async function generateRender() {
 
   } catch (error) {
     console.error('AI Render failed:', error);
-    processingOverlay.style.display = 'none';
     showToast('AI Render failed: ' + error.message, 'error');
+  } finally {
+    processingOverlay.style.display = 'none';
+    isRendering = false;
   }
-
-  isRendering = false;
 }
+
+
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Clear any cached API keys immediately to disconnect
