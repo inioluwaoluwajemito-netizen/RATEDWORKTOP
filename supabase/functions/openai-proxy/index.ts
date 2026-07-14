@@ -75,7 +75,7 @@ serve(async (req) => {
 
     // --- 5. Build FormData for OpenAI ---
     const formData = new FormData();
-    formData.append("model", "dall-e-2");
+    formData.append("model", "gpt-image-1");
     formData.append("image", new Blob([imageBytes], { type: "image/png" }), "image.png");
     formData.append("mask", new Blob([maskBytes], { type: "image/png" }), "mask.png");
     formData.append("prompt", body.prompt);
@@ -83,12 +83,12 @@ serve(async (req) => {
     formData.append("size", "1024x1024");
 
     // --- 6. Call OpenAI images/edits ---
-    console.log("Sending request to OpenAI images/edits...");
+    console.log("Sending request to OpenAI images/edits with gpt-image-1...");
     const openAIResponse = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`
-        // Do NOT set Content-Type — browser/Deno sets multipart boundary automatically
+        // Do NOT set Content-Type — Deno sets multipart boundary automatically
       },
       body: formData
     });
@@ -105,7 +105,14 @@ serve(async (req) => {
       });
     }
 
-    // Return the full OpenAI response — { data: [{ url: "..." }] }
+    // gpt-image-1 returns b64_json — convert to a data URL so frontend gets { data: [{ url: "..." }] }
+    if (resData.data && resData.data.length > 0) {
+      const item = resData.data[0];
+      if (item.b64_json && !item.url) {
+        resData.data[0] = { url: `data:image/png;base64,${item.b64_json}` };
+      }
+    }
+
     return new Response(JSON.stringify(resData), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
