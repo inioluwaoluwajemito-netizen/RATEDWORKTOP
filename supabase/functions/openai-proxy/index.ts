@@ -73,7 +73,7 @@ serve(async (req) => {
 
     // 4. Forward request to Replicate API (using Prefer: wait for synchronous response)
     const replicatePayload = {
-      version: "stability-ai/stable-diffusion-inpainting",
+      version: "95b7223104132402a9ae91cc677285bc5eb997834bd2349fa486f53910fd68b3",
       input: {
         prompt: bodyJson.prompt,
         image: bodyJson.image,
@@ -85,7 +85,7 @@ serve(async (req) => {
     const response = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${REPLICATE_API_TOKEN}`,
+        'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
         'Content-Type': 'application/json',
         'Prefer': 'wait'
       },
