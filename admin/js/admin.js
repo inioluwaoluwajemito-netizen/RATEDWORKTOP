@@ -840,12 +840,12 @@ function seedData() {
     ]);
   }
 
-  // Analytics data
-  if (!store.get('analytics')) {
-    const last30 = [];
-    for (let i = 29; i >= 0; i--) {
+  // Analytics data (Generate 365 days)
+  if (!store.get('analytics') || store.get('analytics').length < 300) {
+    const yearData = [];
+    for (let i = 365; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i);
-      last30.push({
+      yearData.push({
         date: d.toISOString().split('T')[0],
         visualisations: Math.floor(Math.random() * 40) + 5,
         downloads: Math.floor(Math.random() * 20) + 2,
@@ -853,7 +853,7 @@ function seedData() {
         newUsers: Math.floor(Math.random() * 5)
       });
     }
-    store.set('analytics', last30);
+    store.set('analytics', yearData);
   }
 }
 
