@@ -872,7 +872,39 @@ function setupActionListeners() {
     await generateRender();
   });
 
-  document.getElementById('share-btn').addEventListener('click', () => {
+  document.getElementById('share-btn').addEventListener('click', async () => {
+    if (!previewImage.src) {
+      showToast('Generate a render first before sharing.', 'error');
+      return;
+    }
+    // Use already-uploaded share URL if available (set during generateRender)
+    // otherwise upload now from the render canvas
+    if (!window._shareImageUrl) {
+      showToast('Preparing your design for sharing...', 'info');
+      try {
+        const renderCanvas = document.getElementById('render-canvas');
+        const srcCanvas = (renderCanvas && renderCanvas.style.display !== 'none') ? renderCanvas : null;
+        if (srcCanvas) {
+          const shareBlob = await new Promise(res => srcCanvas.toBlob(res, 'image/jpeg', 0.92));
+          if (shareBlob) {
+            const sharePath = `shares/${currentUser.id}/${Date.now()}.jpg`;
+            const shareUpload = await uploadFileToStorage('ratedworktops', sharePath, shareBlob);
+            window._shareImageUrl = shareUpload.ok ? shareUpload.url : '';
+            window._shareImageBlob = shareBlob;
+          }
+        }
+      } catch (e) {
+        console.warn('Share prep failed:', e);
+      }
+    }
+    // Show preview in modal
+    const previewImg = document.getElementById('share-preview-img');
+    const previewText = document.getElementById('share-preview-text');
+    if (previewImg && window._shareImageUrl) {
+      previewImg.src = window._shareImageUrl;
+      previewImg.style.display = 'block';
+      if (previewText) previewText.style.display = 'none';
+    }
     document.getElementById('share-modal').classList.add('open');
   });
 
@@ -887,46 +919,49 @@ function setupActionListeners() {
   }
 
   document.getElementById('share-whatsapp').addEventListener('click', () => {
-    if (!selectedStone) return;
     trackShare();
-    const text = encodeURIComponent(`Check out this beautiful ${selectedStone.brandName} ${selectedStone.name} kitchen design I created on RatedWorktops!`);
-    const url = encodeURIComponent(`${window.location.origin}${window.location.pathname}?stone=${selectedStone.brand_id}-${selectedStone.id}`);
-    window.open(`https://api.whatsapp.com/send?text=${text}%20${url}`, '_blank');
+    const stoneName = selectedStone ? `${selectedStone.brandName} ${selectedStone.name}` : 'a stunning';
+    const text = encodeURIComponent(`Check out this beautiful ${stoneName} kitchen design I created on RatedWorktops!`);
+    const imageUrl = window._shareImageUrl ? `%0A%0A${encodeURIComponent(window._shareImageUrl)}` : '';
+    window.open(`https://api.whatsapp.com/send?text=${text}${imageUrl}`, '_blank');
     document.getElementById('share-modal').classList.remove('open');
   });
 
   document.getElementById('share-facebook').addEventListener('click', () => {
-    if (!selectedStone) return;
     trackShare();
-    const url = encodeURIComponent(`${window.location.origin}${window.location.pathname}?stone=${selectedStone.brand_id}-${selectedStone.id}`);
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
+    const shareUrl = window._shareImageUrl
+      ? encodeURIComponent(window._shareImageUrl)
+      : encodeURIComponent(window.location.href);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`, '_blank');
     document.getElementById('share-modal').classList.remove('open');
   });
 
   document.getElementById('share-x').addEventListener('click', () => {
-    if (!selectedStone) return;
     trackShare();
-    const text = encodeURIComponent(`Check out this beautiful ${selectedStone.brandName} ${selectedStone.name} kitchen design I created on @RatedWorktops!`);
-    const url = encodeURIComponent(`${window.location.origin}${window.location.pathname}?stone=${selectedStone.brand_id}-${selectedStone.id}`);
-    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+    const stoneName = selectedStone ? `${selectedStone.brandName} ${selectedStone.name}` : 'a stunning';
+    const text = encodeURIComponent(`Check out this beautiful ${stoneName} kitchen design I created on @RatedWorktops!`);
+    const shareUrl = window._shareImageUrl
+      ? encodeURIComponent(window._shareImageUrl)
+      : encodeURIComponent(window.location.href);
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${shareUrl}`, '_blank');
     document.getElementById('share-modal').classList.remove('open');
   });
 
   document.getElementById('share-email').addEventListener('click', () => {
-    if (!selectedStone) return;
     trackShare();
+    const stoneName = selectedStone ? `${selectedStone.brandName} ${selectedStone.name}` : 'a stunning';
     const subject = encodeURIComponent(`My Kitchen Design - RatedWorktops`);
-    const body = encodeURIComponent(`Hi!\n\nCheck out this beautiful ${selectedStone.brandName} ${selectedStone.name} kitchen design I created on RatedWorktops:\n\n${window.location.origin}${window.location.pathname}?stone=${selectedStone.brand_id}-${selectedStone.id}`);
+    const imageLink = window._shareImageUrl ? `\n\nView my design: ${window._shareImageUrl}` : '';
+    const body = encodeURIComponent(`Hi!\n\nCheck out this beautiful ${stoneName} kitchen design I created on RatedWorktops!${imageLink}\n\nCreated with RatedWorktops`);
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
     document.getElementById('share-modal').classList.remove('open');
   });
 
   document.getElementById('share-copy-link').addEventListener('click', () => {
-    if (!selectedStone) return;
     trackShare();
-    const shareLink = `${window.location.origin}${window.location.pathname}?stone=${selectedStone.brand_id}-${selectedStone.id}`;
+    const shareLink = window._shareImageUrl || window.location.href;
     navigator.clipboard.writeText(shareLink).then(() => {
-      showToast('Link copied to clipboard!', 'success');
+      showToast('Image link copied to clipboard!', 'success');
     }).catch(() => {
       showToast('Failed to copy link.', 'error');
     });
