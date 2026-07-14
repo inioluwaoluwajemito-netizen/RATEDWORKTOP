@@ -81,7 +81,6 @@ serve(async (req) => {
     formData.append("prompt", body.prompt);
     formData.append("n", "1");
     formData.append("size", "1024x1024");
-    formData.append("response_format", "url");
 
     // --- 6. Call OpenAI images/edits ---
     console.log("Sending request to OpenAI images/edits...");
