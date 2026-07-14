@@ -81,7 +81,7 @@ serve(async (req) => {
     formData.append("mask", new Blob([maskBytes], { type: "image/png" }), "mask.png");
     formData.append("prompt", body.prompt);
     formData.append("n", "1");
-    formData.append("size", "512x512");
+    formData.append("size", "1024x1024");
 
     // --- 6. Call OpenAI images/edits ---
     console.log("Sending request to OpenAI images/edits with gpt-image-1...");
