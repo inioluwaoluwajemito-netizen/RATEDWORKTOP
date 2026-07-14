@@ -38,6 +38,58 @@ const drawingTip = document.getElementById('drawing-tip');
 
 let isRendering = false;
 
+// ── Progress Bar Helper ────────────────────────────────────────
+const PROGRESS_STAGES = [
+  { pct: 15,  title: 'Preparing your photo...',          detail: 'Encoding image and mask' },
+  { pct: 40,  title: 'Sending to AI...',                 detail: 'Uploading to OpenAI' },
+  { pct: 85,  title: 'Rendering stone surface...',       detail: 'AI is painting your worktop' },
+  { pct: 100, title: 'Saving your design...',            detail: 'Almost there!' }
+];
+
+let _progressTicker = null;
+let _progressTarget = 0;
+
+function setProgress(stage) { // stage: 1-4
+  const s = PROGRESS_STAGES[stage - 1];
+  if (!s) return;
+  _progressTarget = s.pct;
+
+  const fill = document.getElementById('progress-fill');
+  const title = document.getElementById('processing-title');
+  const detail = document.getElementById('processing-text');
+  if (fill) fill.style.width = s.pct + '%';
+  if (title) title.textContent = s.title;
+  if (detail) detail.textContent = s.detail;
+
+  // Update step dots and lines
+  for (let i = 1; i <= 4; i++) {
+    const dot = document.getElementById(`step-dot-${i}`);
+    const lbl = document.getElementById(`step-lbl-${i}`);
+    const line = document.getElementById(`step-line-${i}`);
+    if (!dot) continue;
+    dot.className = 'progress-step-dot' + (i < stage ? ' done' : (i === stage ? ' active' : ''));
+    if (lbl) lbl.className = 'progress-step-text' + (i < stage ? ' done' : (i === stage ? ' active' : ''));
+    if (line) line.className = 'progress-step-line' + (i < stage ? ' done' : '');
+  }
+}
+
+function startProgressTicker() {
+  // Slowly creep the bar toward 82% during the AI wait to show it's alive
+  if (_progressTicker) clearInterval(_progressTicker);
+  let current = 40;
+  _progressTicker = setInterval(() => {
+    if (current >= 82) { clearInterval(_progressTicker); return; }
+    current += 0.6;
+    const fill = document.getElementById('progress-fill');
+    if (fill) fill.style.width = current + '%';
+  }, 300);
+}
+
+function stopProgressTicker() {
+  if (_progressTicker) { clearInterval(_progressTicker); _progressTicker = null; }
+}
+// ──────────────────────────────────────────────────────────────
+
 async function generateRender() {
   if (isRendering) return;
   if (!selectedStone) {
@@ -61,9 +113,10 @@ async function generateRender() {
   isRendering = true;
   simulatedHighlight.style.display = 'none';
   processingOverlay.style.display = 'flex';
+  setProgress(1); // Stage 1: Preparing
 
   try {
-    processingText.textContent = 'Preparing images for AI inpainting...';
+    // (no processingText.textContent needed — setProgress handles it);
 
     // Create a 512x512 canvas (smaller = faster upload + faster AI processing)
     // OpenAI gpt-image-1 works best at 512x512 for speed vs quality balance
@@ -132,7 +185,7 @@ async function generateRender() {
     const finishLabel = (selectedStone.texture === 'granite' || selectedStone.texture === 'slate') ? 'honed' : 'polished';
     const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${finishLabel} ${categoryLabel} material with distinct surface patterns. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`;
 
-    processingText.textContent = 'Generating photorealistic stone surface with AI...';
+    setProgress(2); // Stage 2: Sending to AI
 
     if (!supabaseClient || !useRealSupabase) {
       throw new Error("Database is disconnected. AI render requires a live database connection.");
@@ -141,6 +194,8 @@ async function generateRender() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const token = session?.access_token;
     if (!token) throw new Error("Authentication session expired. Please log in again.");
+
+    startProgressTicker(); // slowly animate bar during AI wait
 
     const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
       method: 'POST',
@@ -162,7 +217,8 @@ async function generateRender() {
     const imageUrl = resData.data?.[0]?.url;
     if (!imageUrl) throw new Error(resData?.error?.message || 'No image URL returned from AI.');
 
-    processingText.textContent = 'Applying final adjustments...';
+    stopProgressTicker();
+    setProgress(3); // Stage 3: Rendering to canvas
 
     // Draw the AI result onto the preview
     await new Promise((resolve, reject) => {
@@ -186,7 +242,7 @@ async function generateRender() {
     });
 
     // Upload AI result to Supabase Storage so share buttons get a real public URL
-    processingText.textContent = 'Saving your design...';
+    setProgress(4); // Stage 4: Saving
     try {
       const renderCanvas = document.getElementById('render-canvas');
       if (renderCanvas) {
@@ -229,11 +285,15 @@ async function generateRender() {
     }
 
   } catch (error) {
+    stopProgressTicker();
     console.error('AI Render failed:', error);
     showToast('AI Render failed: ' + error.message, 'error');
   } finally {
     processingOverlay.style.display = 'none';
     isRendering = false;
+    stopProgressTicker();
+    // Reset progress bar for next run
+    setTimeout(() => setProgress(1), 100);
   }
 }
 
