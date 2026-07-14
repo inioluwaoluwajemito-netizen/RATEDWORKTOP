@@ -13,6 +13,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Helper function to convert base64 data URI to a binary Blob
+function base64ToBlob(base64Uri: string): Blob {
+  const parts = base64Uri.split(';base64,');
+  const contentType = parts[0].split(':')[1];
+  const raw = atob(parts[1]);
+  const rawLength = raw.length;
+  const uInt8Array = new Uint8Array(rawLength);
+  for (let i = 0; i < rawLength; ++i) {
+    uInt8Array[i] = raw.charCodeAt(i);
+  }
+  return new Blob([uInt8Array], { type: contentType });
+}
+
 serve(async (req) => {
   // Handle CORS Preflight requests for cross-origin requests from the web app
   if (req.method === 'OPTIONS') {
@@ -56,10 +69,10 @@ serve(async (req) => {
       });
     }
 
-    // 2. Retrieve the Replicate API Key from Deno secrets
-    const REPLICATE_API_TOKEN = Deno.env.get("REPLICATE_API_TOKEN");
-    if (!REPLICATE_API_TOKEN) {
-      return new Response(JSON.stringify({ error: { message: "Server configuration error: REPLICATE_API_TOKEN secret is not set in Supabase." } }), {
+    // 2. Retrieve the OpenAI API Key from Deno secrets
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      return new Response(JSON.stringify({ error: { message: "Server configuration error: OPENAI_API_KEY secret is not set in Supabase." } }), {
         status: 500,
         headers: { 
           'Content-Type': 'application/json', 
@@ -71,41 +84,40 @@ serve(async (req) => {
     // 3. Parse JSON from frontend (contains image and mask as base64 URIs, and prompt)
     const bodyJson = await req.json();
 
-    // 4. Forward request to Replicate API (using Prefer: wait for synchronous response)
-    const replicatePayload = {
-      version: "95b7223104132402a9ae91cc677285bc5eb997834bd2349fa486f53910fd68b3",
-      input: {
-        prompt: bodyJson.prompt,
-        image: bodyJson.image,
-        mask: bodyJson.mask,
-        num_outputs: 1
-      }
-    };
+    if (!bodyJson.image || !bodyJson.mask || !bodyJson.prompt) {
+       return new Response(JSON.stringify({ error: { message: "Missing required fields: image, mask, or prompt." } }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
 
-    const response = await fetch('https://api.replicate.com/v1/predictions', {
+    // 4. Convert Base64 images to Blobs
+    const imageBlob = base64ToBlob(bodyJson.image);
+    const maskBlob = base64ToBlob(bodyJson.mask);
+
+    // 5. Construct FormData for OpenAI API
+    const formData = new FormData();
+    formData.append("image", imageBlob, "image.png");
+    formData.append("mask", maskBlob, "mask.png");
+    formData.append("prompt", bodyJson.prompt);
+    formData.append("n", "1");
+    formData.append("size", "1024x1024");
+
+    // 6. Forward request to OpenAI API
+    const response = await fetch('https://api.openai.com/v1/images/edits', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'wait'
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+        // Do NOT set Content-Type header here; fetch will automatically set it to multipart/form-data with the correct boundary
       },
-      body: JSON.stringify(replicatePayload)
+      body: formData
     });
 
     const resData = await response.json();
     
-    // Map Replicate's response to match the OpenAI format the frontend expects: { data: [{ url: "..." }] }
-    let mappedOutput = { data: [] };
-    if (resData.status === "succeeded" && resData.output && resData.output.length > 0) {
-      mappedOutput.data.push({ url: resData.output[0] });
-    } else if (resData.error) {
-      mappedOutput.error = { message: resData.error };
-    } else {
-      mappedOutput.error = { message: `Replicate API Error: ${resData.status} - ${resData.detail || resData.title || JSON.stringify(resData)}` };
-    }
-
-    return new Response(JSON.stringify(mappedOutput), {
-      status: response.status === 201 || response.status === 200 ? 200 : response.status,
+    // Return the response back to the frontend
+    return new Response(JSON.stringify(resData), {
+      status: response.status === 200 ? 200 : response.status,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'

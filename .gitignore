@@ -1,3 +1,12 @@
 git-portable/
 PushToGitHub.bat
 .gemini/
+
+# Deployment scripts (may contain API keys - keep local only)
+deploy.bat
+deploy-openai.bat
+
+# Supabase CLI executables (large binaries, not needed in repo)
+supabase.exe
+supabase-go.exe
+supabase.zip
