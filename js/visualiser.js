@@ -180,6 +180,24 @@ async function generateRender() {
       renderedImage.src = imageUrl;
     });
 
+    // Upload AI result to Supabase Storage so share buttons get a real public URL
+    processingText.textContent = 'Saving your design...';
+    try {
+      const renderCanvas = document.getElementById('render-canvas');
+      if (renderCanvas) {
+        const shareBlob = await new Promise(res => renderCanvas.toBlob(res, 'image/jpeg', 0.92));
+        if (shareBlob) {
+          const sharePath = `shares/${currentUser.id}/${Date.now()}.jpg`;
+          const shareUpload = await uploadFileToStorage('ratedworktops', sharePath, shareBlob);
+          window._shareImageUrl = shareUpload.ok ? shareUpload.url : '';
+          window._shareImageBlob = shareBlob;
+        }
+      }
+    } catch (uploadErr) {
+      console.warn('Share upload failed (non-critical):', uploadErr);
+      window._shareImageUrl = '';
+    }
+
     // Deduct credits
     const newCredits = isFreeMode ? currentProfile.credits : (currentProfile.credits - 1);
     const newVisualisations = (currentProfile.visualisations || 0) + 1;

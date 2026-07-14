@@ -136,17 +136,34 @@ async function generateRender() {
           renderCanvas.height = previewImage.naturalHeight || previewImage.height;
           const rCtx = renderCanvas.getContext('2d');
           rCtx.drawImage(renderedImage, 0, 0, renderCanvas.width, renderCanvas.height);
-          
-          
           simulatedHighlight.style.display = 'none';
           renderCanvas.style.display = 'block';
-          window._isAIRendered = true; // Mark as AI rendered to bypass overlay on save/download
+          window._isAIRendered = true;
         }
         resolve();
       };
-      renderedImage.onerror = (e) => reject(new Error('Failed to load inpainted image from OpenAI: ' + e.message));
+      renderedImage.onerror = (e) => reject(new Error('Failed to load AI image: ' + e.message));
       renderedImage.src = imageUrl;
     });
+
+    // Upload AI result to Supabase Storage so share buttons get a real public URL
+    // (gpt-image-1 returns a data URL which social platforms cannot accept directly)
+    processingText.textContent = 'Saving your design...';
+    try {
+      const renderCanvas = document.getElementById('render-canvas');
+      if (renderCanvas) {
+        const shareBlob = await new Promise(res => renderCanvas.toBlob(res, 'image/jpeg', 0.92));
+        if (shareBlob) {
+          const sharePath = `shares/${currentUser.id}/${Date.now()}.jpg`;
+          const shareUpload = await uploadFileToStorage('ratedworktops', sharePath, shareBlob);
+          window._shareImageUrl = shareUpload.ok ? shareUpload.url : '';
+          window._shareImageBlob = shareBlob;
+        }
+      }
+    } catch (uploadErr) {
+      console.warn('Share upload failed (non-critical):', uploadErr);
+      window._shareImageUrl = '';
+    }
 
     // Deduct credits and update metrics
     const newCredits = isFreeMode ? currentProfile.credits : (currentProfile.credits - 1);
