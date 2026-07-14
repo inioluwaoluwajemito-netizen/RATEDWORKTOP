@@ -741,30 +741,40 @@
 
   <!-- Share Modal -->
   <div class="modal-overlay" id="share-modal">
-    <div class="modal" style="width: 400px; text-align: center;">
+    <div class="modal" style="width: 420px; text-align: center;">
       <h2 style="margin-top:0; font-family:'Playfair Display',serif; font-size:24px;">Share your design</h2>
-      <p style="color:var(--text-muted); font-size:13px; margin-bottom:24px;">Show off your new kitchen worktop!</p>
-      
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
-        <button class="btn" id="share-whatsapp" style="background:#25D366; color:#fff; justify-content:center; border:none;">
-          WhatsApp
-        </button>
-        <button class="btn" id="share-facebook" style="background:#1877F2; color:#fff; justify-content:center; border:none;">
-          Facebook
-        </button>
-        <button class="btn" id="share-x" style="background:#000; border:1px solid #333; color:#fff; justify-content:center;">
-          X (Twitter)
-        </button>
-        <button class="btn" id="share-email" style="background:#ea4335; color:#fff; justify-content:center; border:none;">
-          Email
-        </button>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">Show off your new kitchen worktop!</p>
+
+      <!-- Image preview -->
+      <div style="margin-bottom:20px; border-radius:8px; overflow:hidden; background:var(--surface); min-height:80px; display:flex; align-items:center; justify-content:center;">
+        <img id="share-preview-img" src="" alt="Your design" style="display:none; width:100%; border-radius:8px; max-height:200px; object-fit:cover;">
+        <span id="share-preview-text" style="color:var(--text-muted); font-size:13px;">Generate an image to preview it here</span>
       </div>
-      
-      <button class="btn" id="share-copy-link" style="width:100%; justify-content:center; background:transparent; border:1px solid var(--border); color:var(--text-primary);">
-        <i data-lucide="link" style="width:16px;height:16px"></i> Copy Link
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+        <a id="share-whatsapp" href="#" target="_blank" rel="noopener"
+          style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; border-radius:8px; background:#25D366; color:#fff; font-weight:600; font-size:14px; text-decoration:none; cursor:pointer;">
+          WhatsApp
+        </a>
+        <a id="share-facebook" href="#" target="_blank" rel="noopener"
+          style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; border-radius:8px; background:#1877F2; color:#fff; font-weight:600; font-size:14px; text-decoration:none; cursor:pointer;">
+          Facebook
+        </a>
+        <a id="share-x" href="#" target="_blank" rel="noopener"
+          style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; border-radius:8px; background:#000; border:1px solid #333; color:#fff; font-weight:600; font-size:14px; text-decoration:none; cursor:pointer;">
+          X (Twitter)
+        </a>
+        <a id="share-email" href="#"
+          style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; border-radius:8px; background:#ea4335; color:#fff; font-weight:600; font-size:14px; text-decoration:none; cursor:pointer;">
+          Email
+        </a>
+      </div>
+
+      <button class="btn" id="share-copy-link" style="width:100%; justify-content:center; background:transparent; border:1px solid var(--border); color:var(--text-primary); margin-bottom:8px;">
+        <i data-lucide="link" style="width:16px;height:16px"></i> Copy Image Link
       </button>
 
-      <button class="btn" style="margin-top:16px; width:100%; justify-content:center; background:transparent; border:none; color:var(--text-muted);" onclick="document.getElementById('share-modal').classList.remove('open')">
+      <button class="btn" style="margin-top:8px; width:100%; justify-content:center; background:transparent; border:none; color:var(--text-muted);" onclick="document.getElementById('share-modal').classList.remove('open')">
         Cancel
       </button>
     </div>

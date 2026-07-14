@@ -877,8 +877,7 @@ function setupActionListeners() {
       showToast('Generate a render first before sharing.', 'error');
       return;
     }
-    // Use already-uploaded share URL if available (set during generateRender)
-    // otherwise upload now from the render canvas
+    // Upload image if not already done
     if (!window._shareImageUrl) {
       showToast('Preparing your design for sharing...', 'info');
       try {
@@ -897,7 +896,22 @@ function setupActionListeners() {
         console.warn('Share prep failed:', e);
       }
     }
-    // Show preview in modal
+
+    const stoneName = selectedStone ? `${selectedStone.brandName} ${selectedStone.name}` : 'a stunning';
+    const shareText = `Check out this beautiful ${stoneName} kitchen design I created on RatedWorktops!`;
+    const shareUrl = window._shareImageUrl || window.location.href;
+
+    // Set href on anchor tags — guaranteed to work, never blocked
+    document.getElementById('share-whatsapp').href =
+      `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + '\n\n' + shareUrl)}`;
+    document.getElementById('share-facebook').href =
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+    document.getElementById('share-x').href =
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+    document.getElementById('share-email').href =
+      `mailto:?subject=${encodeURIComponent('My Kitchen Design - RatedWorktops')}&body=${encodeURIComponent('Hi!\n\n' + shareText + '\n\nView my design: ' + shareUrl + '\n\nCreated with RatedWorktops')}`;
+
+    // Show preview image in modal
     const previewImg = document.getElementById('share-preview-img');
     const previewText = document.getElementById('share-preview-text');
     if (previewImg && window._shareImageUrl) {
@@ -905,6 +919,7 @@ function setupActionListeners() {
       previewImg.style.display = 'block';
       if (previewText) previewText.style.display = 'none';
     }
+
     document.getElementById('share-modal').classList.add('open');
   });
 
@@ -918,42 +933,16 @@ function setupActionListeners() {
     currentProfile.shares = newShares;
   }
 
-  document.getElementById('share-whatsapp').addEventListener('click', () => {
-    trackShare();
-    const stoneName = selectedStone ? `${selectedStone.brandName} ${selectedStone.name}` : 'a stunning';
-    const text = encodeURIComponent(`Check out this beautiful ${stoneName} kitchen design I created on RatedWorktops!`);
-    const imageUrl = window._shareImageUrl ? `%0A%0A${encodeURIComponent(window._shareImageUrl)}` : '';
-    window.open(`https://api.whatsapp.com/send?text=${text}${imageUrl}`, '_blank');
-    document.getElementById('share-modal').classList.remove('open');
-  });
-
-  document.getElementById('share-facebook').addEventListener('click', () => {
-    trackShare();
-    const shareUrl = window._shareImageUrl
-      ? encodeURIComponent(window._shareImageUrl)
-      : encodeURIComponent(window.location.href);
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`, '_blank');
-    document.getElementById('share-modal').classList.remove('open');
-  });
-
-  document.getElementById('share-x').addEventListener('click', () => {
-    trackShare();
-    const stoneName = selectedStone ? `${selectedStone.brandName} ${selectedStone.name}` : 'a stunning';
-    const text = encodeURIComponent(`Check out this beautiful ${stoneName} kitchen design I created on @RatedWorktops!`);
-    const shareUrl = window._shareImageUrl
-      ? encodeURIComponent(window._shareImageUrl)
-      : encodeURIComponent(window.location.href);
-    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${shareUrl}`, '_blank');
-    document.getElementById('share-modal').classList.remove('open');
+  // Share anchor clicks — just track the share, href already set by share-btn handler
+  ['share-whatsapp', 'share-facebook', 'share-x'].forEach(id => {
+    document.getElementById(id).addEventListener('click', () => {
+      trackShare();
+      document.getElementById('share-modal').classList.remove('open');
+    });
   });
 
   document.getElementById('share-email').addEventListener('click', () => {
     trackShare();
-    const stoneName = selectedStone ? `${selectedStone.brandName} ${selectedStone.name}` : 'a stunning';
-    const subject = encodeURIComponent(`My Kitchen Design - RatedWorktops`);
-    const imageLink = window._shareImageUrl ? `\n\nView my design: ${window._shareImageUrl}` : '';
-    const body = encodeURIComponent(`Hi!\n\nCheck out this beautiful ${stoneName} kitchen design I created on RatedWorktops!${imageLink}\n\nCreated with RatedWorktops`);
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
     document.getElementById('share-modal').classList.remove('open');
   });
 
