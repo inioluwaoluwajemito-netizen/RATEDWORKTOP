@@ -65,24 +65,28 @@ async function generateRender() {
   try {
     processingText.textContent = 'Preparing images for AI inpainting...';
 
-    // Create a 1024x1024 image canvas and mask canvas
+    // Create a 512x512 canvas (smaller = faster upload + faster AI processing)
+    // OpenAI gpt-image-1 works best at 512x512 for speed vs quality balance
+    const TARGET_SIZE = 512;
+
     const imageCanvas = document.createElement('canvas');
-    imageCanvas.width = 1024;
-    imageCanvas.height = 1024;
+    imageCanvas.width = TARGET_SIZE;
+    imageCanvas.height = TARGET_SIZE;
     const imgCtx = imageCanvas.getContext('2d');
-    imgCtx.drawImage(previewImage, 0, 0, 1024, 1024);
+    imgCtx.drawImage(previewImage, 0, 0, TARGET_SIZE, TARGET_SIZE);
 
     const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = 1024;
-    maskCanvas.height = 1024;
+    maskCanvas.width = TARGET_SIZE;
+    maskCanvas.height = TARGET_SIZE;
     const maskCtx = maskCanvas.getContext('2d');
 
     // Black background = keep; transparent = regenerate
     maskCtx.fillStyle = 'black';
-    maskCtx.fillRect(0, 0, 1024, 1024);
+    maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
     maskCtx.globalCompositeOperation = 'destination-out';
 
     const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
+    const SCALE = TARGET_SIZE / 100; // scale factor (5.12 for 512)
 
     if (isAutoMode) {
       // Default countertop polygon
@@ -90,9 +94,9 @@ async function generateRender() {
         { x: 10, y: 60 }, { x: 90, y: 60 }, { x: 95, y: 75 }, { x: 5, y: 75 }
       ];
       maskCtx.beginPath();
-      maskCtx.moveTo(countertopPoints[0].x * 10.24, countertopPoints[0].y * 10.24);
+      maskCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
       for (let i = 1; i < countertopPoints.length; i++) {
-        maskCtx.lineTo(countertopPoints[i].x * 10.24, countertopPoints[i].y * 10.24);
+        maskCtx.lineTo(countertopPoints[i].x * SCALE, countertopPoints[i].y * SCALE);
       }
       maskCtx.closePath();
       maskCtx.fill();
@@ -102,25 +106,26 @@ async function generateRender() {
         { x: 60.5, y: 15 }, { x: 86.5, y: 15 }, { x: 86.5, y: 56 }, { x: 60.5, y: 56 }
       ];
       maskCtx.beginPath();
-      maskCtx.moveTo(splashbackPoints[0].x * 10.24, splashbackPoints[0].y * 10.24);
+      maskCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
       for (let i = 1; i < splashbackPoints.length; i++) {
-        maskCtx.lineTo(splashbackPoints[i].x * 10.24, splashbackPoints[i].y * 10.24);
+        maskCtx.lineTo(splashbackPoints[i].x * SCALE, splashbackPoints[i].y * SCALE);
       }
       maskCtx.closePath();
       maskCtx.fill();
 
     } else if (points && points.length >= 3) {
-      // Manual drawing points
+      // Manual drawing points (points are 0-100 scale)
       maskCtx.beginPath();
-      maskCtx.moveTo(points[0].x * 10.24, points[0].y * 10.24);
+      maskCtx.moveTo(points[0].x * SCALE, points[0].y * SCALE);
       for (let i = 1; i < points.length; i++) {
-        maskCtx.lineTo(points[i].x * 10.24, points[i].y * 10.24);
+        maskCtx.lineTo(points[i].x * SCALE, points[i].y * SCALE);
       }
       maskCtx.closePath();
       maskCtx.fill();
     }
 
-    const imageUri = imageCanvas.toDataURL('image/png');
+    // Use JPEG for the source image (much smaller than PNG) — mask must stay PNG for OpenAI
+    const imageUri = imageCanvas.toDataURL('image/jpeg', 0.88);
     const maskUri = maskCanvas.toDataURL('image/png');
 
     const categoryLabel = selectedStone.categoryName || selectedStone.category || 'stone';
