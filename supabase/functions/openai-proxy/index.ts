@@ -1,8 +1,8 @@
 /* =========================================================================
-   RatedWorktops — OpenAI API Proxy (Supabase Edge Function)
+   RatedWorktops — AI Proxy (Supabase Edge Function)
    =========================================================================
-   Uses OpenAI DALL-E 2 images/edits for AI inpainting.
-   Required Supabase secret: OPENAI_API_KEY
+   Uses Stability AI (v2beta inpainting) for photorealistic kitchen edits.
+   Required Supabase secret: STABILITY_API_KEY
    ========================================================================= */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -53,10 +53,10 @@ serve(async (req) => {
       });
     }
 
-    // --- 2. Check for OpenAI API Key ---
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: { message: "Server error: OPENAI_API_KEY secret not set in Supabase Dashboard." } }), {
+    // --- 2. Check for Stability API Key ---
+    const STABILITY_API_KEY = Deno.env.get("STABILITY_API_KEY");
+    if (!STABILITY_API_KEY) {
+      return new Response(JSON.stringify({ error: { message: "Server error: STABILITY_API_KEY secret not set in Supabase Dashboard." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
@@ -73,49 +73,47 @@ serve(async (req) => {
     const { bytes: imageBytes, mimeType: imageMime } = base64ToUint8Array(body.image);
     const { bytes: maskBytes } = base64ToUint8Array(body.mask);
 
-    // --- 5. Build FormData for OpenAI ---
-    // gpt-image-1 is the current model for images/edits (inpainting)
-    // Requires: OpenAI account with image generation tier enabled
+    // --- 5. Build FormData for Stability AI ---
     const formData = new FormData();
-    formData.append("model", "gpt-image-1");
     formData.append("image", new Blob([imageBytes], { type: "image/png" }), "image.png");
     formData.append("mask", new Blob([maskBytes], { type: "image/png" }), "mask.png");
     formData.append("prompt", body.prompt);
-    formData.append("n", "1");
-    formData.append("size", "1024x1024");
+    formData.append("output_format", "png");
 
-    // --- 6. Call OpenAI images/edits ---
-    console.log("Sending request to OpenAI images/edits (dall-e-2 default)...");
-    const openAIResponse = await fetch("https://api.openai.com/v1/images/edits", {
+    // --- 6. Call Stability AI v2beta inpainting ---
+    console.log("Sending request to Stability AI inpainting...");
+    const stabilityResponse = await fetch("https://api.stability.ai/v2beta/stable-image/edit/inpainting", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`
-        // Do NOT set Content-Type — Deno sets multipart boundary automatically
+        "Authorization": `Bearer ${STABILITY_API_KEY}`,
+        "Accept": "application/json"
       },
       body: formData
     });
 
-    const resData = await openAIResponse.json();
-    console.log("OpenAI response status:", openAIResponse.status);
+    const resData = await stabilityResponse.json();
+    console.log("Stability AI response status:", stabilityResponse.status);
 
-    if (!openAIResponse.ok) {
-      const errMsg = resData?.error?.message ?? JSON.stringify(resData);
-      console.error("OpenAI error:", errMsg);
-      return new Response(JSON.stringify({ error: { message: "OpenAI Error: " + errMsg } }), {
-        status: openAIResponse.status,
+    if (!stabilityResponse.ok) {
+      const errMsg = resData?.errors?.[0] ?? resData?.message ?? JSON.stringify(resData);
+      console.error("Stability AI error:", errMsg);
+      return new Response(JSON.stringify({ error: { message: "AI Error: " + errMsg } }), {
+        status: stabilityResponse.status,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    // gpt-image-1 returns b64_json — convert to a data URL so frontend gets { data: [{ url: "..." }] }
-    if (resData.data && resData.data.length > 0) {
-      const item = resData.data[0];
-      if (item.b64_json && !item.url) {
-        resData.data[0] = { url: `data:image/png;base64,${item.b64_json}` };
-      }
-    }
+    // --- 7. Map back to OpenAI format for frontend compatibility ---
+    // Stability AI returns: { "image": "base64..." }
+    // Frontend expects: { data: [{ url: "data:image/png;base64,..." }] }
+    let finalBase64 = resData.image || "";
+    const openAIFormat = {
+      data: [
+        { url: `data:image/png;base64,${finalBase64}` }
+      ]
+    };
 
-    return new Response(JSON.stringify(resData), {
+    return new Response(JSON.stringify(openAIFormat), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });

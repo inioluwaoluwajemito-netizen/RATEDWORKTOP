@@ -133,10 +133,12 @@ async function generateRender() {
     maskCanvas.height = TARGET_SIZE;
     const maskCtx = maskCanvas.getContext('2d');
 
-    // Black background = keep; transparent = regenerate
+    // Black background = keep; white = replace
     maskCtx.fillStyle = 'black';
     maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
-    maskCtx.globalCompositeOperation = 'destination-out';
+    
+    // Switch to white to draw the replacement areas
+    maskCtx.fillStyle = 'white';
 
     const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
     const SCALE = TARGET_SIZE / 100; // scale factor (5.12 for 512)
