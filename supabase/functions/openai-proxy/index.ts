@@ -82,7 +82,7 @@ serve(async (req) => {
     formData.append("prompt", body.prompt);
     formData.append("n", "1");
     formData.append("size", "1024x1024");
-    formData.append("response_format", "url");
+    // Note: dall-e-2 returns URLs by default — no response_format needed
 
     // --- 6. Call OpenAI images/edits ---
     console.log("Sending request to OpenAI images/edits with gpt-image-1...");
