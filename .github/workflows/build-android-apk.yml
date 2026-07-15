@@ -1,0 +1,54 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Setup Java JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build Web Assets (www folder)
+      run: |
+        mkdir -p www/css www/js www/images www/admin/css www/admin/js
+        cp *.html www/ 2>/dev/null || true
+        cp -r css/* www/css/ 2>/dev/null || true
+        cp -r js/* www/js/ 2>/dev/null || true
+        cp -r images/* www/images/ 2>/dev/null || true
+        cp -r admin/*.html www/admin/ 2>/dev/null || true
+        cp -r admin/css/* www/admin/css/ 2>/dev/null || true
+        cp -r admin/js/* www/admin/js/ 2>/dev/null || true
+
+    - name: Sync Capacitor Android
+      run: npx cap sync android
+
+    - name: Build Android APK (Debug)
+      working-directory: ./android
+      run: |
+        chmod +x ./gradlew
+        ./gradlew assembleDebug
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ratedworktops-app
+        path: android/app/build/outputs/apk/debug/app-debug.apk
