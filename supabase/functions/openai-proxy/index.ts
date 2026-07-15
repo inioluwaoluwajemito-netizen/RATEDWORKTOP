@@ -74,9 +74,10 @@ serve(async (req) => {
     const { bytes: maskBytes } = base64ToUint8Array(body.mask);
 
     // --- 5. Build FormData for OpenAI ---
-    // Do NOT specify model — dall-e-2 is the default for images/edits
-    // and some account tiers reject explicit model names
+    // gpt-image-1 is the current model for images/edits (inpainting)
+    // Requires: OpenAI account with image generation tier enabled
     const formData = new FormData();
+    formData.append("model", "gpt-image-1");
     formData.append("image", new Blob([imageBytes], { type: "image/png" }), "image.png");
     formData.append("mask", new Blob([maskBytes], { type: "image/png" }), "mask.png");
     formData.append("prompt", body.prompt);
