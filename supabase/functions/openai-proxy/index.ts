@@ -82,7 +82,7 @@ serve(async (req) => {
 
     // --- 6. Call Stability AI v2beta inpainting ---
     console.log("Sending request to Stability AI inpainting...");
-    const stabilityResponse = await fetch("https://api.stability.ai/v2beta/stable-image/edit/inpainting", {
+    const stabilityResponse = await fetch("https://api.stability.ai/v2beta/stable-image/edit/inpaint", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${STABILITY_API_KEY}`,
@@ -91,8 +91,19 @@ serve(async (req) => {
       body: formData
     });
 
-    const resData = await stabilityResponse.json();
+    const rawText = await stabilityResponse.text();
     console.log("Stability AI response status:", stabilityResponse.status);
+    
+    let resData;
+    try {
+      resData = JSON.parse(rawText);
+    } catch (e) {
+      console.error("Non-JSON response from Stability AI:", rawText.substring(0, 200));
+      return new Response(JSON.stringify({ error: { message: `AI Error (${stabilityResponse.status}): ${rawText.substring(0, 100)}` } }), {
+        status: stabilityResponse.status,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      });
+    }
 
     if (!stabilityResponse.ok) {
       const errMsg = resData?.errors?.[0] ?? resData?.message ?? JSON.stringify(resData);
