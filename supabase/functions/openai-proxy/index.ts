@@ -74,18 +74,17 @@ serve(async (req) => {
     const { bytes: maskBytes } = base64ToUint8Array(body.mask);
 
     // --- 5. Build FormData for OpenAI ---
-    // dall-e-2 requires both image and mask to be PNG
+    // Do NOT specify model — dall-e-2 is the default for images/edits
+    // and some account tiers reject explicit model names
     const formData = new FormData();
-    formData.append("model", "dall-e-2");
     formData.append("image", new Blob([imageBytes], { type: "image/png" }), "image.png");
     formData.append("mask", new Blob([maskBytes], { type: "image/png" }), "mask.png");
     formData.append("prompt", body.prompt);
     formData.append("n", "1");
     formData.append("size", "1024x1024");
-    // Note: dall-e-2 returns URLs by default — no response_format needed
 
     // --- 6. Call OpenAI images/edits ---
-    console.log("Sending request to OpenAI images/edits with gpt-image-1...");
+    console.log("Sending request to OpenAI images/edits (dall-e-2 default)...");
     const openAIResponse = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
       headers: {
