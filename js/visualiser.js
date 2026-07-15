@@ -567,12 +567,30 @@ function updateSelectedMaterialCard(stone) {
 }
 
 function setupUploadListeners() {
-  uploadArea.addEventListener('click', (e) => {
+  uploadArea.addEventListener('click', async (e) => {
     if (e.target.closest('#drawing-canvas') || e.target.closest('#drawing-toolbar') || e.target.closest('.vis-control-panel')) {
       return;
     }
     if (!previewImage.src || previewImage.style.display === 'none') {
-      fileInput.click();
+      if (window.Capacitor && window.Capacitor.isNative) {
+        try {
+          const { Camera, CameraResultType, CameraSource } = capacitorExports;
+          const image = await Camera.getPhoto({
+            quality: 90,
+            allowEditing: false,
+            resultType: CameraResultType.DataUrl,
+            source: CameraSource.Prompt
+          });
+          const res = await fetch(image.dataUrl);
+          const blob = await res.blob();
+          handleFile(new File([blob], "camera_capture.jpg", { type: "image/jpeg" }));
+        } catch (err) {
+          console.error("Camera error:", err);
+          // If user cancels or fails, fallback or do nothing
+        }
+      } else {
+        fileInput.click();
+      }
     }
   });
 
@@ -965,6 +983,24 @@ function setupActionListeners() {
     const stoneName = selectedStone ? `${selectedStone.brandName} ${selectedStone.name}` : 'a stunning';
     const shareText = `Check out this beautiful ${stoneName} kitchen design I created on RatedWorktops!`;
     const shareUrl = window._shareImageUrl || window.location.href;
+
+    // --- Native Share Interception ---
+    if (window.Capacitor && window.Capacitor.isNative) {
+      try {
+        const { Share } = capacitorExports;
+        await Share.share({
+          title: 'My Kitchen Design - RatedWorktops',
+          text: shareText,
+          url: shareUrl,
+          dialogTitle: 'Share your design',
+        });
+        trackShare(); // Track share event on success
+      } catch (err) {
+        console.warn('Native share failed or cancelled:', err);
+      }
+      return; // Skip web modal entirely
+    }
+    // --- End Native Share ---
 
     // Set href on anchor tags — guaranteed to work, never blocked
     document.getElementById('share-whatsapp').href =
