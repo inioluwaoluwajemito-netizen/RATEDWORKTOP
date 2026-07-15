@@ -177,8 +177,8 @@ async function generateRender() {
       maskCtx.fill();
     }
 
-    // Use JPEG for the source image (much smaller than PNG) — mask must stay PNG for OpenAI
-    const imageUri = imageCanvas.toDataURL('image/jpeg', 0.88);
+    // Both image and mask must be PNG for dall-e-2
+    const imageUri = imageCanvas.toDataURL('image/png');
     const maskUri = maskCanvas.toDataURL('image/png');
 
     const categoryLabel = selectedStone.categoryName || selectedStone.category || 'stone';
