@@ -8,6 +8,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// @ts-ignore - Deno is available in Supabase Edge Functions
+declare const Deno: any;
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -26,7 +29,7 @@ function base64ToUint8Array(base64Uri: string): { bytes: Uint8Array; mimeType: s
   return { bytes, mimeType };
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS });
   }
@@ -78,8 +81,10 @@ serve(async (req) => {
     // Requires: OpenAI account with $5+ credit (Tier 1+)
     const formData = new FormData();
     formData.append("model", "dall-e-2");
-    formData.append("image", new Blob([imageBytes], { type: "image/png" }), "image.png");
-    formData.append("mask", new Blob([maskBytes], { type: "image/png" }), "mask.png");
+    // @ts-ignore - TypeScript sometimes complains about Uint8Array in Blob
+    formData.append("image", new Blob([imageBytes as any], { type: "image/png" }), "image.png");
+    // @ts-ignore
+    formData.append("mask", new Blob([maskBytes as any], { type: "image/png" }), "mask.png");
     formData.append("prompt", body.prompt);
     formData.append("n", "1");
     formData.append("size", "1024x1024");
@@ -120,7 +125,7 @@ serve(async (req) => {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
 
-  } catch (err) {
+  } catch (err: any) {
     console.error("Proxy catch error:", err);
     return new Response(JSON.stringify({ error: { message: String(err?.message ?? err) } }), {
       status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
