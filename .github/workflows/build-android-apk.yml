@@ -39,7 +39,9 @@ jobs:
         cp -r admin/js/* www/admin/js/ 2>/dev/null || true
 
     - name: Sync Capacitor Android
-      run: npx cap sync android
+      run: |
+        chmod +x android/gradlew
+        npx cap sync android
 
     - name: Build Android APK (Debug)
       working-directory: ./android
