@@ -10,3 +10,7 @@ deploy-openai.bat
 supabase.exe
 supabase-go.exe
 supabase.zip
+
+# Build folders and dependencies
+node_modules/
+www/
