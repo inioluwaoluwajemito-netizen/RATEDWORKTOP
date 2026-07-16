@@ -82,7 +82,7 @@ serve(async (req: Request) => {
     // dall-e-2 is the ONLY official public model for images/edits
     // Requires: OpenAI account with $5+ credit (Tier 1+)
     const formData = new FormData();
-    // formData.append("model", "dall-e-2"); // Temporarily removed to prevent "model does not exist" error
+    formData.append("model", "dall-e-2");
     // @ts-ignore - TypeScript sometimes complains about Uint8Array in Blob
     formData.append("image", new Blob([imageBytes as any], { type: "image/png" }), "image.png");
     // @ts-ignore
