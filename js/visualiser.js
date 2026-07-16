@@ -133,12 +133,10 @@ async function generateRender() {
     maskCanvas.height = TARGET_SIZE;
     const maskCtx = maskCanvas.getContext('2d');
 
-    // Black background = keep; white = replace
+    // Black background = keep; transparent = regenerate
     maskCtx.fillStyle = 'black';
     maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
-    
-    // Switch to white to draw the replacement areas
-    maskCtx.fillStyle = 'white';
+    maskCtx.globalCompositeOperation = 'destination-out';
 
     const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
     const SCALE = TARGET_SIZE / 100; // scale factor (5.12 for 512)
@@ -185,8 +183,7 @@ async function generateRender() {
 
     const categoryLabel = selectedStone.categoryName || selectedStone.category || 'stone';
     const finishLabel = (selectedStone.texture === 'granite' || selectedStone.texture === 'slate') ? 'honed' : 'polished';
-    // Stability AI prefers descriptive nouns rather than conversational instructions ("Replace...")
-    const enhancedPrompt = `Photorealistic kitchen countertop and splashback made of ${selectedStone.brandName} ${selectedStone.name} ${categoryLabel}, ${finishLabel} finish, highly detailed, perfect lighting, 8k resolution, architectural photography.`;
+    const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${finishLabel} ${categoryLabel} material with distinct surface patterns. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`;
 
     setProgress(2); // Stage 2: Sending to AI
 
