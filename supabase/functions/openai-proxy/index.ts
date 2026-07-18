@@ -58,10 +58,10 @@ serve(async (req: Request) => {
       });
     }
 
-    // --- 2. Check for OpenAI API Key ---
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: { message: "Server error: OPENAI_API_KEY secret not set in Supabase Dashboard." } }), {
+    // --- 2. Check for Fal.ai API Key ---
+    const FAL_KEY = Deno.env.get("FAL_KEY");
+    if (!FAL_KEY) {
+      return new Response(JSON.stringify({ error: { message: "Server error: FAL_KEY secret not set in Supabase Dashboard." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
@@ -74,55 +74,43 @@ serve(async (req: Request) => {
       });
     }
 
-    // --- 4. Decode base64 images to binary ---
-    const { bytes: imageBytes, mimeType: imageMime } = base64ToUint8Array(body.image);
-    const { bytes: maskBytes } = base64ToUint8Array(body.mask);
-
-    // --- 5. Build FormData for OpenAI ---
-    // dall-e-2 is the ONLY official public model for images/edits
-    // Requires: OpenAI account with $5+ credit (Tier 1+)
-    const formData = new FormData();
-    formData.append("model", "dall-e-2");
-    // @ts-ignore - TypeScript sometimes complains about Uint8Array in Blob
-    formData.append("image", new Blob([imageBytes as any], { type: "image/png" }), "image.png");
-    // @ts-ignore
-    formData.append("mask", new Blob([maskBytes as any], { type: "image/png" }), "mask.png");
-    formData.append("prompt", body.prompt);
-    formData.append("n", "1");
-    formData.append("size", "1024x1024");
-
-    // --- 6. Call OpenAI images/edits ---
-    console.log("Sending request to OpenAI images/edits (dall-e-2 default)...");
-    const openAIResponse = await fetch("https://api.openai.com/v1/images/edits", {
+    // --- 4. Call Fal.ai inpainting ---
+    console.log("Sending request to Fal.ai (fast-sdxl/inpainting)...");
+    const falResponse = await fetch("https://fal.run/fal-ai/fast-sdxl/inpainting", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`
-        // Do NOT set Content-Type — Deno sets multipart boundary automatically
+        "Authorization": `Key ${FAL_KEY}`,
+        "Content-Type": "application/json"
       },
-      body: formData
+      body: JSON.stringify({
+        image_url: body.image,
+        mask_url: body.mask,
+        prompt: body.prompt
+      })
     });
 
-    const resData = await openAIResponse.json();
-    console.log("OpenAI response status:", openAIResponse.status);
+    const resData = await falResponse.json();
+    console.log("Fal.ai response status:", falResponse.status);
 
-    if (!openAIResponse.ok) {
-      const errMsg = resData?.error?.message ?? JSON.stringify(resData);
-      console.error("OpenAI error:", errMsg);
-      return new Response(JSON.stringify({ error: { message: "OpenAI Error: " + errMsg } }), {
-        status: openAIResponse.status,
+    if (!falResponse.ok) {
+      const errMsg = resData?.detail ?? JSON.stringify(resData);
+      console.error("Fal.ai error:", errMsg);
+      return new Response(JSON.stringify({ error: { message: "Fal.ai Error: " + errMsg } }), {
+        status: falResponse.status,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    // gpt-image-1 returns b64_json — convert to a data URL so frontend gets { data: [{ url: "..." }] }
-    if (resData.data && resData.data.length > 0) {
-      const item = resData.data[0];
-      if (item.b64_json && !item.url) {
-        resData.data[0] = { url: `data:image/png;base64,${item.b64_json}` };
-      }
-    }
+    // --- 5. Map Fal.ai response back to OpenAI structure for frontend compatibility ---
+    const mappedResponse = {
+      data: [
+        {
+          url: resData.images?.[0]?.url || ""
+        }
+      ]
+    };
 
-    return new Response(JSON.stringify(resData), {
+    return new Response(JSON.stringify(mappedResponse), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
