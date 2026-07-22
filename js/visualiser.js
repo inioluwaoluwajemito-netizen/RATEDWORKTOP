@@ -133,10 +133,12 @@ async function generateRender() {
     maskCanvas.height = TARGET_SIZE;
     const maskCtx = maskCanvas.getContext('2d');
 
-    // Black background = keep; transparent = regenerate
+    // Black background = keep (0)
     maskCtx.fillStyle = 'black';
     maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
-    maskCtx.globalCompositeOperation = 'destination-out';
+
+    // White shapes = regenerate/inpaint (255) for Fal.ai
+    maskCtx.fillStyle = 'white';
 
     const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
     const SCALE = TARGET_SIZE / 100; // scale factor (5.12 for 512)
