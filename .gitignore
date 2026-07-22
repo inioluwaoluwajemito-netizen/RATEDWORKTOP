@@ -5,6 +5,7 @@ PushToGitHub.bat
 # Deployment scripts (may contain API keys - keep local only)
 deploy.bat
 deploy-openai.bat
+set-secret.bat
 
 # Supabase CLI executables (large binaries, not needed in repo)
 supabase.exe
