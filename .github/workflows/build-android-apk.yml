@@ -24,8 +24,11 @@ jobs:
         distribution: 'temurin'
         java-version: '21'
 
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
     - name: Install dependencies
-      run: npm install
+      run: npm install --legacy-peer-deps
 
     - name: Build Web Assets (www folder)
       run: |
@@ -41,7 +44,7 @@ jobs:
     - name: Sync Capacitor Android
       run: |
         chmod +x android/gradlew
-        npx cap sync android --verbose > cap-sync.log 2>&1
+        npx cap sync android --verbose > cap-sync.log 2>&1 || (cat cap-sync.log && exit 1)
 
     - name: Upload Cap Sync Logs
       if: always()
