@@ -41,7 +41,14 @@ jobs:
     - name: Sync Capacitor Android
       run: |
         chmod +x android/gradlew
-        npx cap sync android --verbose
+        npx cap sync android --verbose > cap-sync.log 2>&1
+
+    - name: Upload Cap Sync Logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cap-sync-log
+        path: cap-sync.log
 
     - name: Build Android APK (Debug)
       working-directory: ./android
