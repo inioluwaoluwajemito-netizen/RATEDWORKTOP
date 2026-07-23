@@ -15,3 +15,7 @@ supabase.zip
 # Build folders and dependencies
 node_modules/
 www/
+
+# Local configurations
+android/local.properties
+

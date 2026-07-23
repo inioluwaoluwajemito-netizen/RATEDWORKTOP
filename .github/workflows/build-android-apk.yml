@@ -41,7 +41,7 @@ jobs:
     - name: Sync Capacitor Android
       run: |
         chmod +x android/gradlew
-        npx cap sync android
+        npx cap sync android --verbose
 
     - name: Build Android APK (Debug)
       working-directory: ./android
