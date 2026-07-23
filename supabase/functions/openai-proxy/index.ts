@@ -74,6 +74,8 @@ serve(async (req: Request) => {
       });
     }
 
+    console.log("Request received - image length:", body.image?.length, "mask length:", body.mask?.length, "prompt length:", body.prompt?.length);
+
     // --- 4. Call Fal.ai inpainting ---
     console.log("Sending request to Fal.ai (fast-sdxl/inpainting)...");
     const falResponse = await fetch("https://fal.run/fal-ai/fast-sdxl/inpainting", {
@@ -92,6 +94,11 @@ serve(async (req: Request) => {
 
     const resData = await falResponse.json();
     console.log("Fal.ai response status:", falResponse.status);
+    console.log("Fal.ai response keys:", Object.keys(resData));
+    console.log("Fal.ai images array length:", resData.images?.length);
+    if (resData.images?.[0]) {
+      console.log("First image URL:", resData.images[0].url?.substring(0, 100));
+    }
 
     if (!falResponse.ok) {
       const errMsg = resData?.detail ?? JSON.stringify(resData);

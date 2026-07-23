@@ -157,11 +157,12 @@ async function generateRender() {
   processingOverlay.style.display = 'flex';
   setProgress(1); // Stage 1: Preparing
 
-  try {
-    // (no processingText.textContent needed — setProgress handles it);
+  console.log('[Render] Starting generateRender...');
+  console.log('[Render] Selected stone:', selectedStone?.name, selectedStone?.sku);
+  console.log('[Render] Preview image src exists:', !!previewImage.src);
 
+  try {
     // Create a 512x512 canvas (smaller = faster upload + faster AI processing)
-    // OpenAI gpt-image-1 works best at 512x512 for speed vs quality balance
     const TARGET_SIZE = 512;
 
     const imageCanvas = document.createElement('canvas');
@@ -225,8 +226,13 @@ async function generateRender() {
     const imageUri = imageCanvas.toDataURL('image/jpeg', 0.85);
     const maskUri = maskCanvas.toDataURL('image/png');
 
+    console.log('[Render] Image data URI length:', imageUri.length, 'bytes');
+    console.log('[Render] Mask data URI length:', maskUri.length, 'bytes');
+
     const stoneDesc = getStoneVisualDescription(selectedStone);
     const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${stoneDesc} material. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting, highlights, shadows, and perspective of the kitchen scene. Keep all cabinets, walls, appliances, and kitchen items exactly as they are.`;
+
+    console.log('[Render] Prompt:', enhancedPrompt);
 
     setProgress(2); // Stage 2: Sending to AI
 
@@ -238,6 +244,7 @@ async function generateRender() {
     const token = session?.access_token;
     if (!token) throw new Error("Authentication session expired. Please log in again.");
 
+    console.log('[Render] Auth token obtained, calling Supabase proxy...');
     startProgressTicker(); // slowly animate bar during AI wait
 
     const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
@@ -257,9 +264,15 @@ async function generateRender() {
     }
 
     const resData = await response.json();
-    const imageUrl = resData.data?.[0]?.url;
-    if (!imageUrl) throw new Error(resData?.error?.message || 'No image URL returned from AI.');
+    console.log('[Render] Fal.ai response data:', JSON.stringify(resData).substring(0, 500));
 
+    const imageUrl = resData.data?.[0]?.url;
+    if (!imageUrl) {
+      console.error('[Render] No image URL in response:', resData);
+      throw new Error(resData?.error?.message || 'No image URL returned from AI.');
+    }
+
+    console.log('[Render] AI returned image URL:', imageUrl);
     stopProgressTicker();
     setProgress(3); // Stage 3: Rendering to canvas
 
@@ -268,19 +281,34 @@ async function generateRender() {
       const renderedImage = new Image();
       renderedImage.crossOrigin = 'Anonymous';
       renderedImage.onload = () => {
+        console.log('[Render] AI image loaded successfully, dimensions:', renderedImage.width, 'x', renderedImage.height);
+
+        // PRIMARY: Replace the preview image directly with the AI result
+        // This is the most reliable way to show the rendered stone
+        previewImage.src = imageUrl;
+        console.log('[Render] Preview image src updated to AI result');
+
+        // SECONDARY: Also draw onto the render-canvas overlay (for share/download)
         const renderCanvas = document.getElementById('render-canvas');
         if (renderCanvas) {
-          renderCanvas.width = previewImage.naturalWidth || previewImage.width;
-          renderCanvas.height = previewImage.naturalHeight || previewImage.height;
+          renderCanvas.width = renderedImage.width;
+          renderCanvas.height = renderedImage.height;
           const rCtx = renderCanvas.getContext('2d');
           rCtx.drawImage(renderedImage, 0, 0, renderCanvas.width, renderCanvas.height);
-          simulatedHighlight.style.display = 'none';
           renderCanvas.style.display = 'block';
-          window._isAIRendered = true;
+          console.log('[Render] Canvas overlay updated');
+        } else {
+          console.warn('[Render] render-canvas element not found in DOM');
         }
+
+        simulatedHighlight.style.display = 'none';
+        window._isAIRendered = true;
         resolve();
       };
-      renderedImage.onerror = () => reject(new Error('Failed to load AI-generated image.'));
+      renderedImage.onerror = () => {
+        console.error('[Render] Failed to load AI image from URL:', imageUrl);
+        reject(new Error('Failed to load AI-generated image.'));
+      };
       renderedImage.src = imageUrl;
     });
 
