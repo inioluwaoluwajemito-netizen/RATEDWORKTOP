@@ -246,7 +246,7 @@ async function generateRender() {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ image: imageUri, mask: maskUri, prompt: enhancedPrompt, strength: 0.95 })
+      body: JSON.stringify({ image: imageUri, mask: maskUri, prompt: enhancedPrompt })
     });
 
     if (!response.ok) {
