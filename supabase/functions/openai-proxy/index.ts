@@ -85,7 +85,8 @@ serve(async (req: Request) => {
       body: JSON.stringify({
         image_url: body.image,
         mask_url: body.mask,
-        prompt: body.prompt
+        prompt: body.prompt,
+        strength: body.strength ?? 0.95
       })
     });
 

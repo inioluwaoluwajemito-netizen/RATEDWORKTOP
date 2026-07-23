@@ -90,6 +90,48 @@ function stopProgressTicker() {
 }
 // ──────────────────────────────────────────────────────────────
 
+function getStoneVisualDescription(stone) {
+  if (!stone) return 'polished stone';
+  const descMap = {
+    'SIL-ECG': 'polished white quartz surface with elegant grey and gold veining',
+    'SIL-NP': 'polished soft light grey quartz with a subtle pearlescent texture',
+    'SIL-IB': 'deep solid polished glossy black quartz surface',
+    'SIL-MW': 'pure polished clean solid white quartz surface',
+    'DEK-KR': 'honed matte grey concrete look sintered stone surface',
+    'DEK-OP': 'polished white sintered stone with light grey marble-like veining',
+    'DEK-LR': 'dramatic polished black sintered stone with bold gold and brown veining',
+    'DEK-CG': 'dark charcoal grey granite textured sintered stone surface',
+    'CAE-SN': 'classic polished white marble-look surface with broad grey veins',
+    'CAE-VN': 'polished rich black quartz with white veins and speckles',
+    'CAE-CC': 'honed soft textured light grey concrete look surface',
+    'CAL-GD': 'polished white marble surface with thick gold and grey veining',
+    'CAL-CW': 'polished white Carrara marble surface with fine grey veining',
+    'CAL-NM': 'polished deep black marble surface with striking white veining',
+    'CAL-AV': 'polished white marble surface with heavy dark grey patterns and veins',
+    'CAL-VI': 'polished white marble surface with dramatic deep purple and burgundy veining'
+  };
+  const sku = stone.sku ? stone.sku.toUpperCase() : '';
+  if (descMap[sku]) return descMap[sku];
+
+  // Dynamic fallback based on color/texture keywords
+  const texture = stone.texture ? stone.texture.toLowerCase() : '';
+  const name = stone.name ? stone.name.toLowerCase() : '';
+  let colorDesc = 'stone';
+  if (texture === 'black' || name.includes('black') || name.includes('noir') || name.includes('nero')) {
+    colorDesc = 'dark black stone with detailed veining';
+  } else if (texture === 'marble' || name.includes('marble') || name.includes('calacatta') || name.includes('carrara') || name.includes('statuario') || name.includes('vagli') || name.includes('viola')) {
+    colorDesc = 'premium white marble with elegant grey and gold veining';
+  } else if (texture === 'granite' || name.includes('granite') || name.includes('charcoal')) {
+    colorDesc = 'dark grey textured granite';
+  } else if (texture === 'slate' || name.includes('concrete') || name.includes('kreta')) {
+    colorDesc = 'textured matte grey slate and concrete-look material';
+  } else if (texture === 'quartz' || name.includes('white') || name.includes('miami')) {
+    colorDesc = 'polished pure white quartz';
+  }
+  
+  return `polished ${colorDesc} surface`;
+}
+
 async function generateRender() {
   if (isRendering) return;
   if (!selectedStone) {
@@ -183,9 +225,8 @@ async function generateRender() {
     const imageUri = imageCanvas.toDataURL('image/png');
     const maskUri = maskCanvas.toDataURL('image/png');
 
-    const categoryLabel = selectedStone.categoryName || selectedStone.category || 'stone';
-    const finishLabel = (selectedStone.texture === 'granite' || selectedStone.texture === 'slate') ? 'honed' : 'polished';
-    const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${finishLabel} ${categoryLabel} material with distinct surface patterns. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`;
+    const stoneDesc = getStoneVisualDescription(selectedStone);
+    const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${stoneDesc} material. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting, highlights, shadows, and perspective of the kitchen scene. Keep all cabinets, walls, appliances, and kitchen items exactly as they are.`;
 
     setProgress(2); // Stage 2: Sending to AI
 
@@ -205,7 +246,7 @@ async function generateRender() {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ image: imageUri, mask: maskUri, prompt: enhancedPrompt })
+      body: JSON.stringify({ image: imageUri, mask: maskUri, prompt: enhancedPrompt, strength: 0.95 })
     });
 
     if (!response.ok) {
