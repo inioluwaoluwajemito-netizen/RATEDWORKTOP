@@ -75,17 +75,18 @@ serve(async (req: Request) => {
     }
 
     // --- 4. Call Fal.ai inpainting ---
-    console.log("Sending request to Fal.ai (openai/gpt-image-2/edit)...");
-    const falResponse = await fetch("https://fal.run/openai/gpt-image-2/edit", {
+    console.log("Sending request to Fal.ai (fast-sdxl/inpainting)...");
+    const falResponse = await fetch("https://fal.run/fal-ai/fast-sdxl/inpainting", {
       method: "POST",
       headers: {
         "Authorization": `Key ${FAL_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        image_urls: [body.image],
-        mask_image_url: body.mask,
-        prompt: body.prompt
+        image_url: body.image,
+        mask_url: body.mask,
+        prompt: body.prompt,
+        strength: 0.95
       })
     });
 

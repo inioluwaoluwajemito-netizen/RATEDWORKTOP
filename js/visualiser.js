@@ -221,8 +221,8 @@ async function generateRender() {
       maskCtx.fill();
     }
 
-    // Both image and mask must be PNG for dall-e-2
-    const imageUri = imageCanvas.toDataURL('image/png');
+    // Optimize: JPEG for the kitchen photo (smaller size), PNG for the mask (crisp edges)
+    const imageUri = imageCanvas.toDataURL('image/jpeg', 0.85);
     const maskUri = maskCanvas.toDataURL('image/png');
 
     const stoneDesc = getStoneVisualDescription(selectedStone);
