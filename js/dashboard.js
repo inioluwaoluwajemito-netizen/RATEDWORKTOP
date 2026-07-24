@@ -105,122 +105,119 @@ async function generateRender() {
     return;
   }
 
-  const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
-
   isRendering = true;
-  simulatedHighlight.style.display = 'none';
+  if (simulatedHighlight) simulatedHighlight.style.display = 'none';
   processingOverlay.style.display = 'flex';
-  
-  console.log('[Render] Starting image-to-image render in dashboard.js...');
-  console.log('[Render] Selected stone:', selectedStone?.name, selectedStone?.sku);
+
+  console.log('[Render] Starting AI image-to-image render...');
+  console.log('[Render] Stone selected:', selectedStone?.name, selectedStone?.sku);
 
   try {
-    processingText.textContent = 'Loading selected stone texture image...';
+    // ── 1. Get the original kitchen photo as a base64 data URL ──────────────
+    processingText.textContent = 'Preparing your kitchen image...';
 
-    // 1. Load the actual stone texture image from the catalog
-    const stoneImgSrc = getStoneImage(selectedStone.sku);
-    const stoneImg = await new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = 'Anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = () => {
-        console.warn('[Render] Failed to load stone image from:', stoneImgSrc, '- creating fallback texture');
-        const fallbackCanvas = document.createElement('canvas');
-        fallbackCanvas.width = 256;
-        fallbackCanvas.height = 256;
-        const fCtx = fallbackCanvas.getContext('2d');
-        fCtx.fillStyle = (selectedStone.texture === 'black' || selectedStone.name.toLowerCase().includes('black')) ? '#1a1a1a' : '#f0f0f0';
-        fCtx.fillRect(0, 0, 256, 256);
-        const fallbackImg = new Image();
-        fallbackImg.onload = () => resolve(fallbackImg);
-        fallbackImg.src = fallbackCanvas.toDataURL();
-      };
-      img.src = stoneImgSrc;
-    });
-
-    processingText.textContent = 'Applying picked stone image to kitchen surfaces...';
-
-    // 2. Render the actual picked stone image texture onto a PROPERLY-SIZED offscreen canvas
-    // IMPORTANT: We must NOT use the DOM render-canvas directly for compositing because its
-    // CSS dimensions (100%×100%) don't match its pixel dimensions, so toDataURL() produces
-    // a blank or tiny image. We create a separate offscreen canvas at the real pixel size.
-    const offscreenCanvas = document.createElement('canvas');
-    const naturalW = previewImage.naturalWidth || previewImage.width || 800;
-    const naturalH = previewImage.naturalHeight || previewImage.height || 600;
-    offscreenCanvas.width = naturalW;
-    offscreenCanvas.height = naturalH;
-
-    console.log('[Render] Compositing onto offscreen canvas:', naturalW, 'x', naturalH);
-
-    renderDesignToCanvas(
-      offscreenCanvas,
-      selectedStone,
-      isAutoMode,
-      previewImage,
-      points,
-      stoneImg,
-      autoCountertopPoints,
-      autoSplashbackPoints
-    );
-
-    // 3. Immediately update the preview image with the composite showing the picked stone!
-    const compositeDataUrl = offscreenCanvas.toDataURL('image/jpeg', 0.92);
-    console.log('[Render] Composite data URL length:', compositeDataUrl.length);
-    previewImage.src = compositeDataUrl;
-
-    // Also update the render-canvas overlay so Download/Share work
-    const renderCanvas = document.getElementById('render-canvas');
-    if (renderCanvas) {
-      renderCanvas.width = naturalW;
-      renderCanvas.height = naturalH;
-      const rCtx = renderCanvas.getContext('2d');
-      rCtx.drawImage(offscreenCanvas, 0, 0);
-      renderCanvas.style.display = 'block';
+    // We always send the original uploaded photo (not any previously rendered result)
+    // originalFileUrl holds the Supabase storage URL of the upload
+    let kitchenImageDataUrl;
+    if (originalFileUrl) {
+      // Fetch the stored image and convert to base64 so Fal.ai can accept it
+      try {
+        const resp = await fetch(originalFileUrl);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          kitchenImageDataUrl = await new Promise((res) => {
+            const r = new FileReader();
+            r.onload = (e) => res(e.target.result);
+            r.readAsDataURL(blob);
+          });
+        }
+      } catch(e) {
+        console.warn('[Render] Could not fetch originalFileUrl, using previewImage src instead:', e);
+      }
+    }
+    // Fallback: use whatever is currently in the preview image src
+    if (!kitchenImageDataUrl) {
+      kitchenImageDataUrl = previewImage.src;
     }
 
-    console.log('[Render] Applied picked stone texture image to kitchen photo successfully!');
+    // Scale to max 1024px to keep data URI small
+    const resizedUri = await resizeImageDataUrl(kitchenImageDataUrl, 1024);
 
-    // 4. Also call AI backend proxy for refinement if connected
-    processingText.textContent = 'Refining image with AI...';
-
-    const { imageCanvas, maskCanvas } = createInpaintingMask(previewImage, isAutoMode, points);
-    const imageUri = imageCanvas.toDataURL('image/jpeg', 0.85);
-    const maskUri = maskCanvas.toDataURL('image/png');
-
+    // ── 2. Build the AI prompt ───────────────────────────────────────────────
     const stoneDesc = getStoneVisualDescription(selectedStone);
     const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
-    const refinementPrompt = refinementText ? ` Extra instructions: ${refinementText}.` : '';
-    const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${stoneDesc} material. Make it photorealistic, matching the color and veining texture of ${selectedStone.name}, maintaining lighting and perspective.${refinementPrompt}`;
+    const refinementExtra = refinementText ? ` ${refinementText}.` : '';
+    const prompt = `Photorealistic kitchen interior. Replace ONLY the countertop worktop and splashback wall surfaces with ${selectedStone.brandName || ''} ${selectedStone.name} ${stoneDesc} stone material. The stone texture should look exactly like ${selectedStone.name}: realistic veining, correct color, polished finish. Keep all cabinets, appliances, flooring and walls completely unchanged. Professional interior photography, high detail, natural lighting.${refinementExtra}`;
+
+    console.log('[Render] Prompt:', prompt);
+
+    // ── 3. Call the Supabase proxy → Fal.ai image-to-image ─────────────────
+    processingText.textContent = 'Generating new image with AI...';
+
+    let aiImageUrl = null;
 
     if (supabaseClient && useRealSupabase) {
       const { data: { session } } = await supabaseClient.auth.getSession();
       const token = session?.access_token;
-      if (token) {
-        try {
-          const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ image: imageUri, mask: maskUri, prompt: enhancedPrompt })
-          });
 
-          if (response.ok) {
-            const resData = await response.json();
-            const aiImageUrl = resData.data?.[0]?.url;
-            if (aiImageUrl) {
-              console.log('[Render] AI refined image returned:', aiImageUrl);
-              previewImage.src = aiImageUrl;
-            }
-          }
-        } catch (aiErr) {
-          console.warn('[Render] AI refinement proxy call skipped or non-critical error:', aiErr);
+      if (token) {
+        const proxyResponse = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            image: resizedUri,
+            prompt: prompt,
+            mode: 'image-to-image'
+          })
+        });
+
+        if (proxyResponse.ok) {
+          const resData = await proxyResponse.json();
+          aiImageUrl = resData.data?.[0]?.url || null;
+          console.log('[Render] AI returned image URL:', aiImageUrl?.substring(0, 80));
+        } else {
+          const errData = await proxyResponse.json().catch(() => ({}));
+          console.error('[Render] Proxy error:', errData);
+          throw new Error(errData?.error?.message || 'AI generation failed. Please try again.');
         }
+      } else {
+        throw new Error('Not authenticated. Please log in again.');
       }
+    } else {
+      throw new Error('Not connected to the server. Please check your connection.');
     }
 
-    // Deduct credits and update UI
+    // ── 4. Display the brand-new AI-generated image ──────────────────────────
+    if (aiImageUrl) {
+      processingText.textContent = 'Loading your new render...';
+      await new Promise((resolve, reject) => {
+        const tempImg = new Image();
+        tempImg.crossOrigin = 'Anonymous';
+        tempImg.onload = () => {
+          previewImage.src = aiImageUrl;
+          previewImage.style.display = 'block';
+
+          // Also copy to the render-canvas for Download/Share
+          const renderCanvas = document.getElementById('render-canvas');
+          if (renderCanvas) {
+            renderCanvas.width = tempImg.naturalWidth;
+            renderCanvas.height = tempImg.naturalHeight;
+            const rCtx = renderCanvas.getContext('2d');
+            rCtx.drawImage(tempImg, 0, 0);
+            renderCanvas.style.display = 'block';
+          }
+          resolve();
+        };
+        tempImg.onerror = () => reject(new Error('Failed to load the generated image.'));
+        tempImg.src = aiImageUrl;
+      });
+      console.log('[Render] New AI-generated image displayed successfully!');
+    }
+
+    // ── 5. Deduct credits & update UI ────────────────────────────────────────
     const newCredits = isFreeMode ? currentProfile.credits : Math.max(0, currentProfile.credits - 1);
     const newVisualisations = (currentProfile.visualisations || 0) + 1;
     if (supabaseClient && currentUser) {
@@ -229,10 +226,9 @@ async function generateRender() {
         .update({ credits: newCredits, visualisations: newVisualisations })
         .eq('id', currentUser.id);
     }
-
     currentProfile.credits = newCredits;
     currentProfile.visualisations = newVisualisations;
-    
+
     const navCredits = document.getElementById('credits-count');
     if (navCredits) navCredits.textContent = newCredits;
     const sidebarCredits = document.getElementById('credits-count-sidebar');
@@ -240,7 +236,7 @@ async function generateRender() {
     const headerCredits = document.getElementById('credits-count-header');
     if (headerCredits) headerCredits.textContent = newCredits;
 
-    showToast('Visualisation complete!', 'success');
+    showToast('New render generated successfully!', 'success');
 
     const preRenderControls = document.getElementById('pre-render-controls');
     if (preRenderControls) preRenderControls.style.display = 'none';
@@ -248,12 +244,33 @@ async function generateRender() {
     if (postRenderActions) postRenderActions.style.display = 'flex';
 
   } catch (err) {
-    console.error('[Render] Error during render:', err);
-    showToast('Render failed: ' + (err.message || 'Error processing image'), 'error');
+    console.error('[Render] Error:', err);
+    showToast('Render failed: ' + (err.message || 'Unknown error. Please try again.'), 'error');
   } finally {
     processingOverlay.style.display = 'none';
     isRendering = false;
   }
+}
+
+// Helper: resize an image data URL to maxSize px on the longest edge
+async function resizeImageDataUrl(dataUrl, maxSize) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+      if (w <= maxSize && h <= maxSize) { resolve(dataUrl); return; }
+      if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+      else { w = Math.round(w * maxSize / h); h = maxSize; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.88));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
 }
 
 function createInpaintingMask(previewImg, isAutoMode, manualPoints) {

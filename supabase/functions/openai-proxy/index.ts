@@ -1,8 +1,9 @@
 /* =========================================================================
-   RatedWorktops — OpenAI API Proxy (Supabase Edge Function)
+   RatedWorktops — Fal.ai Image-to-Image Proxy (Supabase Edge Function)
    =========================================================================
-   Uses OpenAI DALL-E 2 images/edits for AI inpainting.
-   Required Supabase secret: OPENAI_API_KEY
+   Accepts the original kitchen photo + a stone description prompt and
+   calls Fal.ai flux/dev/image-to-image to generate a brand-new render.
+   Required Supabase secret: FAL_KEY
    ========================================================================= */
 
 // @ts-ignore
@@ -19,25 +20,13 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-// Helper: convert a base64 data URI string to a Uint8Array
-function base64ToUint8Array(base64Uri: string): { bytes: Uint8Array; mimeType: string } {
-  const [meta, data] = base64Uri.split(';base64,');
-  const mimeType = meta.split(':')[1] || 'image/png';
-  const binaryString = atob(data);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return { bytes, mimeType };
-}
-
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS });
   }
 
   try {
-    // --- 1. Authenticate the user ---
+    // ── 1. Authenticate the user ─────────────────────────────────────────────
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: { message: "Missing Authorization header" } }), {
@@ -58,64 +47,76 @@ serve(async (req: Request) => {
       });
     }
 
-    // --- 2. Check for Fal.ai API Key ---
+    // ── 2. Check for Fal.ai API Key ──────────────────────────────────────────
     const FAL_KEY = Deno.env.get("FAL_KEY");
     if (!FAL_KEY) {
-      return new Response(JSON.stringify({ error: { message: "Server error: FAL_KEY secret not set in Supabase Dashboard." } }), {
+      return new Response(JSON.stringify({ error: { message: "Server error: FAL_KEY secret not configured in Supabase Dashboard." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    // --- 3. Parse the request body ---
+    // ── 3. Parse the request body ────────────────────────────────────────────
     const body = await req.json();
-    if (!body.image || !body.mask || !body.prompt) {
-      return new Response(JSON.stringify({ error: { message: "Missing required fields: image, mask, or prompt." } }), {
+    if (!body.image || !body.prompt) {
+      return new Response(JSON.stringify({ error: { message: "Missing required fields: image and prompt." } }), {
         status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log("Request received - image length:", body.image?.length, "mask length:", body.mask?.length, "prompt length:", body.prompt?.length);
+    const mode = body.mode || 'image-to-image';
+    console.log(`[Proxy] mode=${mode}, prompt length=${body.prompt?.length}, image length=${body.image?.length}`);
 
-    // --- 4. Call Fal.ai inpainting ---
-    console.log("Sending request to Fal.ai (fast-sdxl/inpainting)...");
-    const falResponse = await fetch("https://fal.run/fal-ai/fast-sdxl/inpainting", {
+    // ── 4. Call Fal.ai flux/dev/image-to-image ───────────────────────────────
+    // This model takes the kitchen photo as reference and generates a completely
+    // new photorealistic image with the selected stone material applied.
+    console.log("[Proxy] Calling fal-ai/flux/dev/image-to-image ...");
+
+    const falPayload: any = {
+      image_url: body.image,
+      prompt: body.prompt,
+      strength: 0.80,          // 0.80 = good balance: keeps room structure, changes materials
+      num_inference_steps: 28,
+      guidance_scale: 3.5,
+      num_images: 1,
+      enable_safety_checker: false
+    };
+
+    const falResponse = await fetch("https://fal.run/fal-ai/flux/dev/image-to-image", {
       method: "POST",
       headers: {
         "Authorization": `Key ${FAL_KEY}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        image_url: body.image,
-        mask_url: body.mask,
-        prompt: body.prompt,
-        strength: 0.95
-      })
+      body: JSON.stringify(falPayload)
     });
 
     const resData = await falResponse.json();
-    console.log("Fal.ai response status:", falResponse.status);
-    console.log("Fal.ai response keys:", Object.keys(resData));
-    console.log("Fal.ai images array length:", resData.images?.length);
-    if (resData.images?.[0]) {
-      console.log("First image URL:", resData.images[0].url?.substring(0, 100));
-    }
+    console.log("[Proxy] Fal.ai response status:", falResponse.status);
+    console.log("[Proxy] Fal.ai response keys:", Object.keys(resData));
 
     if (!falResponse.ok) {
-      const errMsg = resData?.detail ?? JSON.stringify(resData);
-      console.error("Fal.ai error:", errMsg);
+      const errMsg = resData?.detail ?? resData?.message ?? JSON.stringify(resData);
+      console.error("[Proxy] Fal.ai error:", errMsg);
       return new Response(JSON.stringify({ error: { message: "Fal.ai Error: " + errMsg } }), {
         status: falResponse.status,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    // --- 5. Map Fal.ai response back to OpenAI structure for frontend compatibility ---
+    // Fal.ai flux returns: { images: [{ url, content_type }], timings, seed }
+    const imageUrl = resData.images?.[0]?.url || "";
+    console.log("[Proxy] Generated image URL:", imageUrl.substring(0, 100));
+
+    if (!imageUrl) {
+      console.error("[Proxy] No image URL in Fal.ai response:", JSON.stringify(resData));
+      return new Response(JSON.stringify({ error: { message: "Fal.ai returned no image. Please try again." } }), {
+        status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ── 5. Return image URL in OpenAI-compatible format ──────────────────────
     const mappedResponse = {
-      data: [
-        {
-          url: resData.images?.[0]?.url || ""
-        }
-      ]
+      data: [{ url: imageUrl }]
     };
 
     return new Response(JSON.stringify(mappedResponse), {
@@ -124,7 +125,7 @@ serve(async (req: Request) => {
     });
 
   } catch (err: any) {
-    console.error("Proxy catch error:", err);
+    console.error("[Proxy] Unhandled error:", err);
     return new Response(JSON.stringify({ error: { message: String(err?.message ?? err) } }), {
       status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
