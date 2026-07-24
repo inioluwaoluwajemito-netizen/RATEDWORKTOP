@@ -157,160 +157,127 @@ async function generateRender() {
   processingOverlay.style.display = 'flex';
   setProgress(1); // Stage 1: Preparing
 
-  console.log('[Render] Starting generateRender...');
+  console.log('[Render] Starting image-to-image generateRender in visualiser.js...');
   console.log('[Render] Selected stone:', selectedStone?.name, selectedStone?.sku);
-  console.log('[Render] Preview image src exists:', !!previewImage.src);
 
   try {
-    // Create a 512x512 canvas (smaller = faster upload + faster AI processing)
-    const TARGET_SIZE = 512;
+    // 1. Load actual stone texture image
+    const stoneImgSrc = getStoneImage(selectedStone.sku);
+    const stoneImg = await new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => {
+        const fallbackCanvas = document.createElement('canvas');
+        fallbackCanvas.width = 256;
+        fallbackCanvas.height = 256;
+        const fCtx = fallbackCanvas.getContext('2d');
+        fCtx.fillStyle = (selectedStone.texture === 'black' || selectedStone.name.toLowerCase().includes('black')) ? '#1a1a1a' : '#f0f0f0';
+        fCtx.fillRect(0, 0, 256, 256);
+        const fallbackImg = new Image();
+        fallbackImg.onload = () => resolve(fallbackImg);
+        fallbackImg.src = fallbackCanvas.toDataURL();
+      };
+      img.src = stoneImgSrc;
+    });
 
-    const imageCanvas = document.createElement('canvas');
-    imageCanvas.width = TARGET_SIZE;
-    imageCanvas.height = TARGET_SIZE;
-    const imgCtx = imageCanvas.getContext('2d');
-    imgCtx.drawImage(previewImage, 0, 0, TARGET_SIZE, TARGET_SIZE);
-
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = TARGET_SIZE;
-    maskCanvas.height = TARGET_SIZE;
-    const maskCtx = maskCanvas.getContext('2d');
-
-    // Black background = keep (0)
-    maskCtx.fillStyle = 'black';
-    maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
-
-    // White shapes = regenerate/inpaint (255) for Fal.ai
-    maskCtx.fillStyle = 'white';
-
+    // 2. Render actual stone texture onto canvas
     const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
-    const SCALE = TARGET_SIZE / 100; // scale factor (5.12 for 512)
-
-    if (isAutoMode) {
-      // Default countertop polygon
-      const countertopPoints = [
-        { x: 10, y: 60 }, { x: 90, y: 60 }, { x: 95, y: 75 }, { x: 5, y: 75 }
-      ];
-      maskCtx.beginPath();
-      maskCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
-      for (let i = 1; i < countertopPoints.length; i++) {
-        maskCtx.lineTo(countertopPoints[i].x * SCALE, countertopPoints[i].y * SCALE);
-      }
-      maskCtx.closePath();
-      maskCtx.fill();
-
-      // Default splashback polygon
-      const splashbackPoints = [
-        { x: 60.5, y: 15 }, { x: 86.5, y: 15 }, { x: 86.5, y: 56 }, { x: 60.5, y: 56 }
-      ];
-      maskCtx.beginPath();
-      maskCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
-      for (let i = 1; i < splashbackPoints.length; i++) {
-        maskCtx.lineTo(splashbackPoints[i].x * SCALE, splashbackPoints[i].y * SCALE);
-      }
-      maskCtx.closePath();
-      maskCtx.fill();
-
-    } else if (points && points.length >= 3) {
-      // Manual drawing points (points are 0-100 scale)
-      maskCtx.beginPath();
-      maskCtx.moveTo(points[0].x * SCALE, points[0].y * SCALE);
-      for (let i = 1; i < points.length; i++) {
-        maskCtx.lineTo(points[i].x * SCALE, points[i].y * SCALE);
-      }
-      maskCtx.closePath();
-      maskCtx.fill();
+    const renderCanvas = document.getElementById('render-canvas') || document.createElement('canvas');
+    if (typeof renderDesignToCanvas === 'function') {
+      renderDesignToCanvas(
+        renderCanvas,
+        selectedStone,
+        isAutoMode,
+        previewImage,
+        points,
+        stoneImg
+      );
+      const compositeDataUrl = renderCanvas.toDataURL('image/jpeg', 0.92);
+      previewImage.src = compositeDataUrl;
+      renderCanvas.style.display = 'block';
     }
 
-    // Optimize: JPEG for the kitchen photo (smaller size), PNG for the mask (crisp edges)
+    setProgress(2); // Stage 2: Sending to AI
+
+    const { imageCanvas, maskCanvas } = createInpaintingMask(previewImage, isAutoMode, points);
     const imageUri = imageCanvas.toDataURL('image/jpeg', 0.85);
     const maskUri = maskCanvas.toDataURL('image/png');
-
-    console.log('[Render] Image data URI length:', imageUri.length, 'bytes');
-    console.log('[Render] Mask data URI length:', maskUri.length, 'bytes');
 
     const stoneDesc = getStoneVisualDescription(selectedStone);
     const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${stoneDesc} material. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting, highlights, shadows, and perspective of the kitchen scene. Keep all cabinets, walls, appliances, and kitchen items exactly as they are.`;
 
-    console.log('[Render] Prompt:', enhancedPrompt);
+    if (supabaseClient && useRealSupabase) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const token = session?.access_token;
+      if (token) {
+        startProgressTicker();
+        try {
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ image: imageUri, mask: maskUri, prompt: enhancedPrompt })
+          });
 
-    setProgress(2); // Stage 2: Sending to AI
-
-    if (!supabaseClient || !useRealSupabase) {
-      throw new Error("Database is disconnected. AI render requires a live database connection.");
-    }
-
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const token = session?.access_token;
-    if (!token) throw new Error("Authentication session expired. Please log in again.");
-
-    console.log('[Render] Auth token obtained, calling Supabase proxy...');
-    startProgressTicker(); // slowly animate bar during AI wait
-
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ image: imageUri, mask: maskUri, prompt: enhancedPrompt })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let parsedError;
-      try { parsedError = JSON.parse(errorText); } catch (e) {}
-      throw new Error(parsedError?.error?.message || errorText || 'AI request failed');
-    }
-
-    const resData = await response.json();
-    console.log('[Render] Fal.ai response data:', JSON.stringify(resData).substring(0, 500));
-
-    const imageUrl = resData.data?.[0]?.url;
-    if (!imageUrl) {
-      console.error('[Render] No image URL in response:', resData);
-      throw new Error(resData?.error?.message || 'No image URL returned from AI.');
-    }
-
-    console.log('[Render] AI returned image URL:', imageUrl);
-    stopProgressTicker();
-    setProgress(3); // Stage 3: Rendering to canvas
-
-    // Draw the AI result onto the preview
-    await new Promise((resolve, reject) => {
-      const renderedImage = new Image();
-      renderedImage.crossOrigin = 'Anonymous';
-      renderedImage.onload = () => {
-        console.log('[Render] AI image loaded successfully, dimensions:', renderedImage.width, 'x', renderedImage.height);
-
-        // PRIMARY: Replace the preview image directly with the AI result
-        // This is the most reliable way to show the rendered stone
-        previewImage.src = imageUrl;
-        console.log('[Render] Preview image src updated to AI result');
-
-        // SECONDARY: Also draw onto the render-canvas overlay (for share/download)
-        const renderCanvas = document.getElementById('render-canvas');
-        if (renderCanvas) {
-          renderCanvas.width = renderedImage.width;
-          renderCanvas.height = renderedImage.height;
-          const rCtx = renderCanvas.getContext('2d');
-          rCtx.drawImage(renderedImage, 0, 0, renderCanvas.width, renderCanvas.height);
-          renderCanvas.style.display = 'block';
-          console.log('[Render] Canvas overlay updated');
-        } else {
-          console.warn('[Render] render-canvas element not found in DOM');
+          if (response.ok) {
+            const resData = await response.json();
+            const imageUrl = resData.data?.[0]?.url;
+            if (imageUrl) {
+              previewImage.src = imageUrl;
+              if (renderCanvas) {
+                renderCanvas.style.display = 'block';
+              }
+            }
+          }
+        } catch (aiErr) {
+          console.warn('[Render] AI refinement proxy call skipped or non-critical error:', aiErr);
+        } finally {
+          stopProgressTicker();
         }
+      }
+    }
 
-        simulatedHighlight.style.display = 'none';
-        window._isAIRendered = true;
-        resolve();
-      };
-      renderedImage.onerror = () => {
-        console.error('[Render] Failed to load AI image from URL:', imageUrl);
-        reject(new Error('Failed to load AI-generated image.'));
-      };
-      renderedImage.src = imageUrl;
-    });
+    setProgress(3);
+    setProgress(4);
+
+    const newCredits = isFreeMode ? currentProfile.credits : Math.max(0, currentProfile.credits - 1);
+    const newVisualisations = (currentProfile.visualisations || 0) + 1;
+    if (supabaseClient && currentUser) {
+      await supabaseClient
+        .from('profiles')
+        .update({ credits: newCredits, visualisations: newVisualisations })
+        .eq('id', currentUser.id);
+    }
+
+    currentProfile.credits = newCredits;
+    currentProfile.visualisations = newVisualisations;
+    
+    const navCredits = document.getElementById('credits-count');
+    if (navCredits) navCredits.textContent = newCredits;
+    const sidebarCredits = document.getElementById('credits-count-sidebar');
+    if (sidebarCredits) sidebarCredits.textContent = newCredits;
+
+    showToast('Visualisation complete!', 'success');
+
+    const preRenderControls = document.getElementById('pre-render-controls');
+    if (preRenderControls) preRenderControls.style.display = 'none';
+    const postRenderActions = document.getElementById('post-render-actions');
+    if (postRenderActions) postRenderActions.style.display = 'flex';
+
+  } catch (error) {
+    stopProgressTicker();
+    console.error('AI Render failed:', error);
+    showToast('AI Render failed: ' + error.message, 'error');
+  } finally {
+    processingOverlay.style.display = 'none';
+    isRendering = false;
+    stopProgressTicker();
+    setTimeout(() => setProgress(1), 100);
+  }
+}
 
     // Upload AI result to Supabase Storage so share buttons get a real public URL
     setProgress(4); // Stage 4: Saving
