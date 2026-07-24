@@ -1,9 +1,9 @@
 /* =========================================================================
-   RatedWorktops — Fal.ai Image-to-Image Proxy (Supabase Edge Function)
+   RatedWorktops — Fal.ai Inpainting Proxy with Mask (Supabase Edge Function)
    =========================================================================
-   Accepts the original kitchen photo + stone description prompt.
-   Calls Fal.ai flux/dev/image-to-image, fetches the resulting image bytes,
-   and returns the image AS BASE64 or CDN URL safely without stack overflows.
+   Accepts kitchen image + inpainting mask + stone prompt.
+   Calls Fal.ai fast-sdxl/inpainting to replace ONLY the white mask area
+   (countertop and splashback) with the selected stone material.
    Required Supabase secret: FAL_KEY
    ========================================================================= */
 
@@ -39,7 +39,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    // ── 1. Authenticate the user ─────────────────────────────────────────────
+    // ── 1. Authenticate user ──────────────────────────────────────────────────
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: { message: "Missing Authorization header" } }), {
@@ -60,15 +60,15 @@ serve(async (req: Request) => {
       });
     }
 
-    // ── 2. Check for Fal.ai API Key ──────────────────────────────────────────
+    // ── 2. Check for FAL_KEY secret ──────────────────────────────────────────
     const FAL_KEY = Deno.env.get("FAL_KEY");
     if (!FAL_KEY) {
-      return new Response(JSON.stringify({ error: { message: "Server error: FAL_KEY secret not configured in Supabase Dashboard." } }), {
+      return new Response(JSON.stringify({ error: { message: "Server error: FAL_KEY secret not set in Supabase Dashboard." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    // ── 3. Parse the request body ────────────────────────────────────────────
+    // ── 3. Parse request body (image, mask, prompt) ───────────────────────────
     const body = await req.json();
     if (!body.image || !body.prompt) {
       return new Response(JSON.stringify({ error: { message: "Missing required fields: image and prompt." } }), {
@@ -76,23 +76,24 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log(`[Proxy] User: ${user.id} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length}`);
+    console.log(`[Inpaint Proxy] User: ${user.id} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length} | mask len: ${body.mask?.length || 0}`);
 
-    // ── 4. Call Fal.ai flux/dev/image-to-image ───────────────────────────────
-    console.log("[Proxy] Calling fal-ai/flux/dev/image-to-image...");
-
-    const falPayload = {
+    // ── 4. Build payload for Fal.ai fast-sdxl/inpainting ─────────────────────
+    const falPayload: any = {
       image_url: body.image,
       prompt: body.prompt,
-      strength: 0.80,           // 0.80 = keeps room layout, replaces materials
-      num_inference_steps: 28,
-      guidance_scale: 3.5,
-      num_images: 1,
-      enable_safety_checker: false,
-      output_format: "jpeg"
+      strength: 0.95,
+      num_inference_steps: 30,
+      guidance_scale: 7.5
     };
 
-    const falResponse = await fetch("https://fal.run/fal-ai/flux/dev/image-to-image", {
+    if (body.mask) {
+      falPayload.mask_url = body.mask;
+    }
+
+    console.log("[Inpaint Proxy] Sending request to fal-ai/fast-sdxl/inpainting ...");
+
+    const falResponse = await fetch("https://fal.run/fal-ai/fast-sdxl/inpainting", {
       method: "POST",
       headers: {
         "Authorization": `Key ${FAL_KEY}`,
@@ -102,31 +103,30 @@ serve(async (req: Request) => {
     });
 
     const resData = await falResponse.json();
-    console.log("[Proxy] Fal.ai status:", falResponse.status);
+    console.log("[Inpaint Proxy] Fal.ai status:", falResponse.status);
 
     if (!falResponse.ok) {
       const errMsg = resData?.detail ?? resData?.message ?? JSON.stringify(resData);
-      console.error("[Proxy] Fal.ai error:", errMsg);
+      console.error("[Inpaint Proxy] Fal.ai error:", errMsg);
       return new Response(JSON.stringify({ error: { message: "Fal.ai error: " + errMsg } }), {
         status: falResponse.status,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    // Fal.ai returns: { images: [{ url, content_type, width, height }], ... }
     const falImageUrl = resData.images?.[0]?.url;
     const falContentType = resData.images?.[0]?.content_type || "image/jpeg";
 
     if (!falImageUrl) {
-      console.error("[Proxy] No image URL in Fal.ai response:", JSON.stringify(resData));
-      return new Response(JSON.stringify({ error: { message: "Fal.ai returned no image. Please try again." } }), {
+      console.error("[Inpaint Proxy] No image URL in Fal.ai response:", JSON.stringify(resData));
+      return new Response(JSON.stringify({ error: { message: "Fal.ai inpainting returned no image." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log("[Proxy] Fal.ai image URL:", falImageUrl.substring(0, 100));
+    console.log("[Inpaint Proxy] Generated Image URL:", falImageUrl.substring(0, 90));
 
-    // ── 5. Attempt to convert to base64 using safe chunking ──────────────────
+    // ── 5. Convert generated image to Base64 ──────────────────────────────────
     let finalUrl = falImageUrl;
     try {
       const imgResponse = await fetch(falImageUrl);
@@ -134,20 +134,20 @@ serve(async (req: Request) => {
         const imgBytes = new Uint8Array(await imgResponse.arrayBuffer());
         const imgBase64 = uint8ArrayToBase64(imgBytes);
         finalUrl = `data:${falContentType};base64,${imgBase64}`;
-        console.log("[Proxy] Converted to base64 successfully, len:", finalUrl.length);
+        console.log("[Inpaint Proxy] Converted to base64 successfully, len:", finalUrl.length);
       }
     } catch (b64Err) {
-      console.warn("[Proxy] Base64 conversion skipped, using CDN URL:", b64Err);
+      console.warn("[Inpaint Proxy] Base64 conversion skipped, using CDN URL:", b64Err);
     }
 
-    // ── 6. Return in OpenAI-compatible format ────────────────────────────────
+    // ── 6. Return response to client ──────────────────────────────────────────
     return new Response(JSON.stringify({ data: [{ url: finalUrl }] }), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
 
   } catch (err: any) {
-    console.error("[Proxy] Unhandled error:", err);
+    console.error("[Inpaint Proxy] Unhandled error:", err);
     return new Response(JSON.stringify({ error: { message: String(err?.message ?? err) } }), {
       status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });

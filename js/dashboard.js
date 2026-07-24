@@ -113,23 +113,25 @@ async function generateRender() {
   console.log('[Render] Stone selected:', selectedStone?.name, selectedStone?.sku);
 
   try {
-    // ── 1. Get the kitchen photo as a base64 data URL ──────────────
-    processingText.textContent = 'Preparing your kitchen image...';
+    // ── 1. Create Inpainting Mask and image data URIs ───────────────────────
+    processingText.textContent = 'Generating inpainting mask...';
 
-    // Scale to max 1024px to keep data URI small and fast
-    const kitchenImageDataUrl = previewImage.src;
-    const resizedUri = await resizeImageDataUrl(kitchenImageDataUrl, 1024);
+    const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
+    const { imageCanvas, maskCanvas } = createInpaintingMask(previewImage, isAutoMode, points);
+
+    const imageUri = imageCanvas.toDataURL('image/jpeg', 0.88);
+    const maskUri = maskCanvas.toDataURL('image/png');
 
     // ── 2. Build the AI prompt ───────────────────────────────────────────────
     const stoneDesc = getStoneVisualDescription(selectedStone);
     const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
     const refinementExtra = refinementText ? ` ${refinementText}.` : '';
-    const prompt = `Photorealistic kitchen interior. Replace ONLY the countertop worktop and splashback wall surfaces with ${selectedStone.brandName || ''} ${selectedStone.name} ${stoneDesc} stone material. The stone texture should look exactly like ${selectedStone.name}: realistic veining, correct color, polished finish. Keep all cabinets, appliances, flooring and walls completely unchanged. Professional interior photography, high detail, natural lighting.${refinementExtra}`;
+    const prompt = `Replace the countertop worktop and splashback surfaces with ${selectedStone.brandName || ''} ${selectedStone.name}. This is a highly detailed ${stoneDesc} stone material with realistic veining, correct color tone, and polished finish. Match lighting and perspective of the kitchen.${refinementExtra}`;
 
-    console.log('[Render] Prompt:', prompt);
+    console.log('[Render] Inpainting Prompt:', prompt);
 
-    // ── 3. Call the Supabase proxy → Fal.ai image-to-image ─────────────────
-    processingText.textContent = 'Generating new image with AI...';
+    // ── 3. Call the Supabase proxy → Fal.ai inpainting ─────────────────────
+    processingText.textContent = 'Inpainting selected stone onto worktop...';
 
     let aiImageUrl = null;
 
@@ -138,14 +140,14 @@ async function generateRender() {
         if (typeof supabaseClient.functions?.invoke === 'function') {
           const { data, error } = await supabaseClient.functions.invoke('openai-proxy', {
             body: {
-              image: resizedUri,
-              prompt: prompt,
-              mode: 'image-to-image'
+              image: imageUri,
+              mask: maskUri,
+              prompt: prompt
             }
           });
           if (error) {
             console.error('[Render] Functions invoke error:', error);
-            throw new Error(error.message || 'AI generation failed via Supabase Function.');
+            throw new Error(error.message || 'AI inpainting failed via Supabase Function.');
           }
           aiImageUrl = data?.data?.[0]?.url || null;
         } else {
@@ -159,9 +161,9 @@ async function generateRender() {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              image: resizedUri,
-              prompt: prompt,
-              mode: 'image-to-image'
+              image: imageUri,
+              mask: maskUri,
+              prompt: prompt
             })
           });
 
