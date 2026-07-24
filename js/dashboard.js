@@ -113,34 +113,11 @@ async function generateRender() {
   console.log('[Render] Stone selected:', selectedStone?.name, selectedStone?.sku);
 
   try {
-    // ── 1. Get the original kitchen photo as a base64 data URL ──────────────
+    // ── 1. Get the kitchen photo as a base64 data URL ──────────────
     processingText.textContent = 'Preparing your kitchen image...';
 
-    // We always send the original uploaded photo (not any previously rendered result)
-    // originalFileUrl holds the Supabase storage URL of the upload
-    let kitchenImageDataUrl;
-    if (originalFileUrl) {
-      // Fetch the stored image and convert to base64 so Fal.ai can accept it
-      try {
-        const resp = await fetch(originalFileUrl);
-        if (resp.ok) {
-          const blob = await resp.blob();
-          kitchenImageDataUrl = await new Promise((res) => {
-            const r = new FileReader();
-            r.onload = (e) => res(e.target.result);
-            r.readAsDataURL(blob);
-          });
-        }
-      } catch(e) {
-        console.warn('[Render] Could not fetch originalFileUrl, using previewImage src instead:', e);
-      }
-    }
-    // Fallback: use whatever is currently in the preview image src
-    if (!kitchenImageDataUrl) {
-      kitchenImageDataUrl = previewImage.src;
-    }
-
-    // Scale to max 1024px to keep data URI small
+    // Scale to max 1024px to keep data URI small and fast
+    const kitchenImageDataUrl = previewImage.src;
     const resizedUri = await resizeImageDataUrl(kitchenImageDataUrl, 1024);
 
     // ── 2. Build the AI prompt ───────────────────────────────────────────────
@@ -157,34 +134,48 @@ async function generateRender() {
     let aiImageUrl = null;
 
     if (supabaseClient && useRealSupabase) {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const token = session?.access_token;
-
-      if (token) {
-        const proxyResponse = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            image: resizedUri,
-            prompt: prompt,
-            mode: 'image-to-image'
-          })
-        });
-
-        if (proxyResponse.ok) {
-          const resData = await proxyResponse.json();
-          aiImageUrl = resData.data?.[0]?.url || null;
-          console.log('[Render] AI returned image URL:', aiImageUrl?.substring(0, 80));
+      try {
+        if (typeof supabaseClient.functions?.invoke === 'function') {
+          const { data, error } = await supabaseClient.functions.invoke('openai-proxy', {
+            body: {
+              image: resizedUri,
+              prompt: prompt,
+              mode: 'image-to-image'
+            }
+          });
+          if (error) {
+            console.error('[Render] Functions invoke error:', error);
+            throw new Error(error.message || 'AI generation failed via Supabase Function.');
+          }
+          aiImageUrl = data?.data?.[0]?.url || null;
         } else {
-          const errData = await proxyResponse.json().catch(() => ({}));
-          console.error('[Render] Proxy error:', errData);
-          throw new Error(errData?.error?.message || 'AI generation failed. Please try again.');
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          const token = session?.access_token;
+          const proxyResponse = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token || ''}`,
+              'apikey': SUPABASE_ANON_KEY || '',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              image: resizedUri,
+              prompt: prompt,
+              mode: 'image-to-image'
+            })
+          });
+
+          if (proxyResponse.ok) {
+            const resData = await proxyResponse.json();
+            aiImageUrl = resData.data?.[0]?.url || null;
+          } else {
+            const errData = await proxyResponse.json().catch(() => ({}));
+            throw new Error(errData?.error?.message || `Server error (status ${proxyResponse.status})`);
+          }
         }
-      } else {
-        throw new Error('Not authenticated. Please log in again.');
+      } catch (proxyErr) {
+        console.error('[Render] Supabase proxy call failed:', proxyErr);
+        throw new Error(proxyErr.message || 'Failed to connect to AI server');
       }
     } else {
       throw new Error('Not connected to the server. Please check your connection.');

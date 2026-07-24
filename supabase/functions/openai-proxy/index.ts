@@ -3,7 +3,7 @@
    =========================================================================
    Accepts the original kitchen photo + stone description prompt.
    Calls Fal.ai flux/dev/image-to-image, fetches the resulting image bytes,
-   and returns the image AS BASE64 so the frontend has zero CORS issues.
+   and returns the image AS BASE64 or CDN URL safely without stack overflows.
    Required Supabase secret: FAL_KEY
    ========================================================================= */
 
@@ -20,6 +20,18 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
+
+// Safe Uint8Array to Base64 conversion avoiding RangeError / stack overflow
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const len = bytes.byteLength;
+  const chunkSize = 8192;
+  for (let i = 0; i < len; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, len));
+    binary += String.fromCharCode.apply(null, chunk as any);
+  }
+  return btoa(binary);
+}
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -64,7 +76,7 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log(`[Proxy] User: ${user.id} | prompt length: ${body.prompt?.length} | image length: ${body.image?.length}`);
+    console.log(`[Proxy] User: ${user.id} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length}`);
 
     // ── 4. Call Fal.ai flux/dev/image-to-image ───────────────────────────────
     console.log("[Proxy] Calling fal-ai/flux/dev/image-to-image...");
@@ -90,7 +102,7 @@ serve(async (req: Request) => {
     });
 
     const resData = await falResponse.json();
-    console.log("[Proxy] Fal.ai status:", falResponse.status, "| keys:", Object.keys(resData).join(','));
+    console.log("[Proxy] Fal.ai status:", falResponse.status);
 
     if (!falResponse.ok) {
       const errMsg = resData?.detail ?? resData?.message ?? JSON.stringify(resData);
@@ -114,28 +126,22 @@ serve(async (req: Request) => {
 
     console.log("[Proxy] Fal.ai image URL:", falImageUrl.substring(0, 100));
 
-    // ── 5. Fetch the image bytes and return as base64 ────────────────────────
-    // This avoids ALL CORS issues on the frontend — we return the raw image
-    // data, not just a URL to a third-party CDN that blocks cross-origin requests.
-    console.log("[Proxy] Fetching image bytes to convert to base64...");
-    const imgResponse = await fetch(falImageUrl);
-    if (!imgResponse.ok) {
-      console.error("[Proxy] Failed to fetch generated image:", imgResponse.status);
-      // Fallback: return the URL anyway and let frontend try directly
-      return new Response(JSON.stringify({ data: [{ url: falImageUrl }] }), {
-        status: 200,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-      });
+    // ── 5. Attempt to convert to base64 using safe chunking ──────────────────
+    let finalUrl = falImageUrl;
+    try {
+      const imgResponse = await fetch(falImageUrl);
+      if (imgResponse.ok) {
+        const imgBytes = new Uint8Array(await imgResponse.arrayBuffer());
+        const imgBase64 = uint8ArrayToBase64(imgBytes);
+        finalUrl = `data:${falContentType};base64,${imgBase64}`;
+        console.log("[Proxy] Converted to base64 successfully, len:", finalUrl.length);
+      }
+    } catch (b64Err) {
+      console.warn("[Proxy] Base64 conversion skipped, using CDN URL:", b64Err);
     }
 
-    const imgBytes = await imgResponse.arrayBuffer();
-    const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBytes)));
-    const dataUri = `data:${falContentType};base64,${imgBase64}`;
-
-    console.log("[Proxy] Base64 data URI length:", dataUri.length, "| Returning to client.");
-
-    // ── 6. Return in OpenAI-compatible format with base64 data URI ───────────
-    return new Response(JSON.stringify({ data: [{ url: dataUri }] }), {
+    // ── 6. Return in OpenAI-compatible format ────────────────────────────────
+    return new Response(JSON.stringify({ data: [{ url: finalUrl }] }), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });

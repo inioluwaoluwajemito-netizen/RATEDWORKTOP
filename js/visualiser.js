@@ -208,18 +208,26 @@ async function generateRender() {
     const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${stoneDesc} material. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting, highlights, shadows, and perspective of the kitchen scene. Keep all cabinets, walls, appliances, and kitchen items exactly as they are.`;
 
     if (supabaseClient && useRealSupabase) {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const token = session?.access_token;
-      if (token) {
-        startProgressTicker();
-        try {
+      startProgressTicker();
+      try {
+        if (typeof supabaseClient.functions?.invoke === 'function') {
+          const { data, error } = await supabaseClient.functions.invoke('openai-proxy', {
+            body: { image: imageUri, prompt: enhancedPrompt, mode: 'image-to-image' }
+          });
+          if (!error && data?.data?.[0]?.url) {
+            previewImage.src = data.data[0].url;
+          }
+        } else {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          const token = session?.access_token;
           const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${token}`,
+              'Authorization': `Bearer ${token || ''}`,
+              'apikey': SUPABASE_ANON_KEY || '',
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ image: imageUri, mask: maskUri, prompt: enhancedPrompt })
+            body: JSON.stringify({ image: imageUri, prompt: enhancedPrompt, mode: 'image-to-image' })
           });
 
           if (response.ok) {
@@ -232,11 +240,11 @@ async function generateRender() {
               }
             }
           }
-        } catch (aiErr) {
-          console.warn('[Render] AI refinement proxy call skipped or non-critical error:', aiErr);
-        } finally {
-          stopProgressTicker();
         }
+      } catch (aiErr) {
+        console.warn('[Render] AI proxy error:', aiErr);
+      } finally {
+        stopProgressTicker();
       }
     }
 
