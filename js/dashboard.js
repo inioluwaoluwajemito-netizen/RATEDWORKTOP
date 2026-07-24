@@ -92,7 +92,7 @@ async function generateRender() {
     return;
   }
 
-  if (!previewImage.src || previewImage.style.display === 'none') {
+  if (!previewImage.src) {
     showToast('Please upload a kitchen image first.', 'error');
     return;
   }
@@ -140,10 +140,20 @@ async function generateRender() {
 
     processingText.textContent = 'Applying picked stone image to kitchen surfaces...';
 
-    // 2. Render the actual picked stone image texture onto the kitchen image canvas
-    const renderCanvas = document.getElementById('render-canvas') || document.createElement('canvas');
+    // 2. Render the actual picked stone image texture onto a PROPERLY-SIZED offscreen canvas
+    // IMPORTANT: We must NOT use the DOM render-canvas directly for compositing because its
+    // CSS dimensions (100%×100%) don't match its pixel dimensions, so toDataURL() produces
+    // a blank or tiny image. We create a separate offscreen canvas at the real pixel size.
+    const offscreenCanvas = document.createElement('canvas');
+    const naturalW = previewImage.naturalWidth || previewImage.width || 800;
+    const naturalH = previewImage.naturalHeight || previewImage.height || 600;
+    offscreenCanvas.width = naturalW;
+    offscreenCanvas.height = naturalH;
+
+    console.log('[Render] Compositing onto offscreen canvas:', naturalW, 'x', naturalH);
+
     renderDesignToCanvas(
-      renderCanvas,
+      offscreenCanvas,
       selectedStone,
       isAutoMode,
       previewImage,
@@ -153,10 +163,21 @@ async function generateRender() {
       autoSplashbackPoints
     );
 
-    // 3. Immediately update the preview image with the composite image showing the picked stone!
-    const compositeDataUrl = renderCanvas.toDataURL('image/jpeg', 0.92);
+    // 3. Immediately update the preview image with the composite showing the picked stone!
+    const compositeDataUrl = offscreenCanvas.toDataURL('image/jpeg', 0.92);
+    console.log('[Render] Composite data URL length:', compositeDataUrl.length);
     previewImage.src = compositeDataUrl;
-    renderCanvas.style.display = 'block';
+
+    // Also update the render-canvas overlay so Download/Share work
+    const renderCanvas = document.getElementById('render-canvas');
+    if (renderCanvas) {
+      renderCanvas.width = naturalW;
+      renderCanvas.height = naturalH;
+      const rCtx = renderCanvas.getContext('2d');
+      rCtx.drawImage(offscreenCanvas, 0, 0);
+      renderCanvas.style.display = 'block';
+    }
+
     console.log('[Render] Applied picked stone texture image to kitchen photo successfully!');
 
     // 4. Also call AI backend proxy for refinement if connected
