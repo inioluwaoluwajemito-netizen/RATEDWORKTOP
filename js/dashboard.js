@@ -43,6 +43,48 @@ let autoCountertopPoints = null; // array of {x,y} from Gemini
 let autoSplashbackPoints = null; // array of {x,y} from Gemini
 let cacheImageSrc = ''; // tracks which image is cached
 
+function getStoneVisualDescription(stone) {
+  if (!stone) return 'polished stone';
+  const descMap = {
+    'SIL-ECG': 'polished white quartz surface with elegant grey and gold veining',
+    'SIL-NP': 'polished soft light grey quartz with a subtle pearlescent texture',
+    'SIL-IB': 'deep solid polished glossy black quartz surface',
+    'SIL-MW': 'pure polished clean solid white quartz surface',
+    'DEK-KR': 'honed matte grey concrete look sintered stone surface',
+    'DEK-OP': 'polished white sintered stone with light grey marble-like veining',
+    'DEK-LR': 'dramatic polished black sintered stone with bold gold and brown veining',
+    'DEK-CG': 'dark charcoal grey granite textured sintered stone surface',
+    'CAE-SN': 'classic polished white marble-look surface with broad grey veins',
+    'CAE-VN': 'polished rich black quartz with white veins and speckles',
+    'CAE-CC': 'honed soft textured light grey concrete look surface',
+    'CAL-GD': 'polished white marble surface with thick gold and grey veining',
+    'CAL-CW': 'polished white Carrara marble surface with fine grey veining',
+    'CAL-NM': 'polished deep black marble surface with striking white veining',
+    'CAL-AV': 'polished white marble surface with heavy dark grey patterns and veins',
+    'CAL-VI': 'polished white marble surface with dramatic deep purple and burgundy veining'
+  };
+  const sku = stone.sku ? stone.sku.toUpperCase() : '';
+  if (descMap[sku]) return descMap[sku];
+
+  // Dynamic fallback based on color/texture keywords
+  const texture = stone.texture ? stone.texture.toLowerCase() : '';
+  const name = stone.name ? stone.name.toLowerCase() : '';
+  let colorDesc = 'stone';
+  if (texture === 'black' || name.includes('black') || name.includes('noir') || name.includes('nero')) {
+    colorDesc = 'dark black stone with detailed veining';
+  } else if (texture === 'marble' || name.includes('marble') || name.includes('calacatta') || name.includes('carrara') || name.includes('statuario') || name.includes('vagli') || name.includes('viola')) {
+    colorDesc = 'premium white marble with elegant grey and gold veining';
+  } else if (texture === 'granite' || name.includes('granite') || name.includes('charcoal')) {
+    colorDesc = 'dark grey textured granite';
+  } else if (texture === 'slate' || name.includes('concrete') || name.includes('kreta')) {
+    colorDesc = 'textured matte grey slate and concrete-look material';
+  } else if (texture === 'quartz' || name.includes('white') || name.includes('miami')) {
+    colorDesc = 'polished pure white quartz';
+  }
+  
+  return `polished ${colorDesc} surface`;
+}
+
 async function generateRender() {
   if (isRendering) return;
   if (!selectedStone) {
@@ -58,30 +100,40 @@ async function generateRender() {
     return;
   }
 
+  if (!previewImage.src || previewImage.style.display === 'none') {
+    showToast('Please upload a kitchen image first.', 'error');
+    return;
+  }
+
   const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
 
   isRendering = true;
-
-  // Show transition overlay
+  simulatedHighlight.style.display = 'none';
   processingOverlay.style.display = 'flex';
   
+  console.log('[Render] Starting generateRender in dashboard.js...');
+  console.log('[Render] Selected stone:', selectedStone?.name, selectedStone?.sku);
+
   try {
     processingText.textContent = 'Preparing images for AI inpainting...';
     
-    // Create the square 1024x1024 image and mask
+    // Create the square 512x512 image and mask
     const { imageCanvas, maskCanvas } = createInpaintingMask(previewImage, isAutoMode, points);
-    
-    const imageBlob = await new Promise(resolve => imageCanvas.toBlob(resolve, 'image/png'));
-    const maskBlob = await new Promise(resolve => maskCanvas.toBlob(resolve, 'image/png'));
 
-    processingText.textContent = 'Generating photorealistic stone surface with AI...';
-
-    const categoryLabel = selectedStone.categoryName || selectedStone.category || 'stone';
-    const finishLabel = (selectedStone.texture === 'granite' || selectedStone.texture === 'slate') ? 'honed' : 'polished';
-    const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${finishLabel} ${categoryLabel} material with distinct surface patterns. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting and perspective. Keep all cabinets, appliances, and objects exactly as they are.`;
-
-    const imageUri = imageCanvas.toDataURL('image/png');
+    // Optimize: JPEG for the kitchen photo (smaller size), PNG for the mask (crisp black/white edges)
+    const imageUri = imageCanvas.toDataURL('image/jpeg', 0.85);
     const maskUri = maskCanvas.toDataURL('image/png');
+
+    console.log('[Render] Image data URI length:', imageUri.length, 'bytes');
+    console.log('[Render] Mask data URI length:', maskUri.length, 'bytes');
+
+    const stoneDesc = getStoneVisualDescription(selectedStone);
+    const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
+    const refinementPrompt = refinementText ? ` Extra user instructions: ${refinementText}.` : '';
+
+    const enhancedPrompt = `Replace the kitchen countertop and splashback surfaces with ${selectedStone.brandName} ${selectedStone.name}. This is a highly detailed ${stoneDesc} material. Make it photorealistic, precisely matching the color and veining texture of ${selectedStone.name}, while maintaining perfect lighting, highlights, shadows, and perspective of the kitchen scene. Keep all cabinets, walls, appliances, and kitchen items exactly as they are.${refinementPrompt}`;
+
+    console.log('[Render] Enhanced Prompt:', enhancedPrompt);
 
     const payload = {
       image: imageUri,
@@ -99,6 +151,8 @@ async function generateRender() {
       throw new Error("Authentication session expired. Please log in again.");
     }
 
+    processingText.textContent = 'Generating photorealistic stone surface with AI...';
+
     const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
       method: 'POST',
       headers: {
@@ -114,40 +168,51 @@ async function generateRender() {
       try {
         parsedError = JSON.parse(errorText);
       } catch (e) {}
-      throw new Error(parsedError?.error?.message || errorText || 'OpenAI API request failed');
+      throw new Error(parsedError?.error?.message || errorText || 'AI request failed');
     }
 
     const resData = await response.json();
+    console.log('[Render] AI response:', resData);
+
     const imageUrl = resData.data?.[0]?.url;
     if (!imageUrl) {
-      throw new Error('No image URL returned from OpenAI.');
+      throw new Error('No image URL returned from AI.');
     }
 
+    console.log('[Render] Image URL returned:', imageUrl);
     processingText.textContent = 'Applying final adjustments...';
 
-    // Draw the returned image onto render-canvas
+    // Draw the returned image directly onto previewImage and render-canvas
     await new Promise((resolve, reject) => {
       const renderedImage = new Image();
       renderedImage.crossOrigin = 'Anonymous';
       renderedImage.onload = () => {
+        console.log('[Render] AI image loaded, size:', renderedImage.width, 'x', renderedImage.height);
+        
+        // PRIMARY: Replace the preview image directly
+        previewImage.src = imageUrl;
+        console.log('[Render] previewImage.src updated directly with AI result!');
+
+        // SECONDARY: Draw onto render-canvas if available
         const renderCanvas = document.getElementById('render-canvas');
         if (renderCanvas) {
-          renderCanvas.width = previewImage.naturalWidth || previewImage.width;
-          renderCanvas.height = previewImage.naturalHeight || previewImage.height;
+          renderCanvas.width = renderedImage.width;
+          renderCanvas.height = renderedImage.height;
           const rCtx = renderCanvas.getContext('2d');
           rCtx.drawImage(renderedImage, 0, 0, renderCanvas.width, renderCanvas.height);
-          simulatedHighlight.style.display = 'none';
           renderCanvas.style.display = 'block';
-          window._isAIRendered = true;
+          console.log('[Render] render-canvas updated.');
         }
+
+        simulatedHighlight.style.display = 'none';
+        window._isAIRendered = true;
         resolve();
       };
-      renderedImage.onerror = (e) => reject(new Error('Failed to load AI image: ' + e.message));
+      renderedImage.onerror = (e) => reject(new Error('Failed to load AI-generated image.'));
       renderedImage.src = imageUrl;
     });
 
     // Upload AI result to Supabase Storage so share buttons get a real public URL
-    // (gpt-image-1 returns a data URL which social platforms cannot accept directly)
     processingText.textContent = 'Saving your design...';
     try {
       const renderCanvas = document.getElementById('render-canvas');
@@ -199,7 +264,7 @@ async function generateRender() {
     }
 
   } catch (err) {
-    console.error(err);
+    console.error('[Render] AI Render failed:', err);
     showToast('AI Render failed: ' + (err.message || 'Check network connection.'), 'error');
   } finally {
     processingOverlay.style.display = 'none';
@@ -208,25 +273,29 @@ async function generateRender() {
 }
 
 function createInpaintingMask(previewImg, isAutoMode, manualPoints) {
-  // Create a 1024x1024 square image canvas
-  const imageCanvas = document.createElement('canvas');
-  imageCanvas.width = 1024;
-  imageCanvas.height = 1024;
-  const imgCtx = imageCanvas.getContext('2d');
-  imgCtx.drawImage(previewImg, 0, 0, 1024, 1024);
+  const TARGET_SIZE = 512;
 
-  // Create a 1024x1024 square mask canvas
+  // Create 512x512 image canvas
+  const imageCanvas = document.createElement('canvas');
+  imageCanvas.width = TARGET_SIZE;
+  imageCanvas.height = TARGET_SIZE;
+  const imgCtx = imageCanvas.getContext('2d');
+  imgCtx.drawImage(previewImg, 0, 0, TARGET_SIZE, TARGET_SIZE);
+
+  // Create 512x512 mask canvas
   const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = 1024;
-  maskCanvas.height = 1024;
+  maskCanvas.width = TARGET_SIZE;
+  maskCanvas.height = TARGET_SIZE;
   const maskCtx = maskCanvas.getContext('2d');
 
-  // Fill everything with opaque black
+  // Fill background with solid BLACK (0) = Keep area
   maskCtx.fillStyle = 'black';
-  maskCtx.fillRect(0, 0, 1024, 1024);
+  maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
 
-  // Switch to destination-out to clear the drawn areas (make them transparent / white in OpenAI's logic)
-  maskCtx.globalCompositeOperation = 'destination-out';
+  // Fill foreground with solid WHITE (255) = Inpaint / Replace area for Fal.ai
+  maskCtx.fillStyle = 'white';
+
+  const SCALE = TARGET_SIZE / 100; // 5.12 scale factor
 
   if (isAutoMode) {
     // 1. Draw Default Countertop Polygon
@@ -237,9 +306,9 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints) {
       { x: 5, y: 75 }
     ];
     maskCtx.beginPath();
-    maskCtx.moveTo(countertopPoints[0].x * 10.24, countertopPoints[0].y * 10.24);
+    maskCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
     for (let i = 1; i < countertopPoints.length; i++) {
-      maskCtx.lineTo(countertopPoints[i].x * 10.24, countertopPoints[i].y * 10.24);
+      maskCtx.lineTo(countertopPoints[i].x * SCALE, countertopPoints[i].y * SCALE);
     }
     maskCtx.closePath();
     maskCtx.fill();
@@ -252,9 +321,9 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints) {
       { x: 60.5, y: 56 }
     ];
     maskCtx.beginPath();
-    maskCtx.moveTo(splashbackPoints[0].x * 10.24, splashbackPoints[0].y * 10.24);
+    maskCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
     for (let i = 1; i < splashbackPoints.length; i++) {
-      maskCtx.lineTo(splashbackPoints[i].x * 10.24, splashbackPoints[i].y * 10.24);
+      maskCtx.lineTo(splashbackPoints[i].x * SCALE, splashbackPoints[i].y * SCALE);
     }
     maskCtx.closePath();
     maskCtx.fill();
@@ -262,9 +331,9 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints) {
   } else if (manualPoints && manualPoints.length >= 3) {
     // Draw Manual Points Polygon
     maskCtx.beginPath();
-    maskCtx.moveTo(manualPoints[0].x * 10.24, manualPoints[0].y * 10.24);
+    maskCtx.moveTo(manualPoints[0].x * SCALE, manualPoints[0].y * SCALE);
     for (let i = 1; i < manualPoints.length; i++) {
-      maskCtx.lineTo(manualPoints[i].x * 10.24, manualPoints[i].y * 10.24);
+      maskCtx.lineTo(manualPoints[i].x * SCALE, manualPoints[i].y * SCALE);
     }
     maskCtx.closePath();
     maskCtx.fill();
