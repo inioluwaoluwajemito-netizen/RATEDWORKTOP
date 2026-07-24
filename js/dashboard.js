@@ -191,30 +191,38 @@ async function generateRender() {
     }
 
     // ── 4. Display the brand-new AI-generated image ──────────────────────────
+    // The proxy returns base64 data URI, so no CORS issues at all.
     if (aiImageUrl) {
-      processingText.textContent = 'Loading your new render...';
-      await new Promise((resolve, reject) => {
-        const tempImg = new Image();
-        tempImg.crossOrigin = 'Anonymous';
-        tempImg.onload = () => {
-          previewImage.src = aiImageUrl;
-          previewImage.style.display = 'block';
+      processingText.textContent = 'Applying your new render...';
+      console.log('[Render] Setting previewImage.src to AI result (length:', aiImageUrl.length, ')');
 
-          // Also copy to the render-canvas for Download/Share
+      // Directly set src — works for both URLs and base64 data URIs
+      previewImage.src = aiImageUrl;
+      previewImage.style.display = 'block';
+
+      // For Download/Share: draw onto canvas (works since src is base64 / same-origin)
+      await new Promise((resolve) => {
+        const tempImg = new Image();
+        tempImg.onload = () => {
           const renderCanvas = document.getElementById('render-canvas');
           if (renderCanvas) {
             renderCanvas.width = tempImg.naturalWidth;
             renderCanvas.height = tempImg.naturalHeight;
-            const rCtx = renderCanvas.getContext('2d');
-            rCtx.drawImage(tempImg, 0, 0);
+            renderCanvas.getContext('2d').drawImage(tempImg, 0, 0);
             renderCanvas.style.display = 'block';
           }
           resolve();
         };
-        tempImg.onerror = () => reject(new Error('Failed to load the generated image.'));
+        tempImg.onerror = () => {
+          console.warn('[Render] Canvas draw failed (non-critical), image still displayed in <img> tag');
+          resolve(); // non-fatal — the <img> tag still shows the result
+        };
         tempImg.src = aiImageUrl;
       });
-      console.log('[Render] New AI-generated image displayed successfully!');
+
+      console.log('[Render] ✅ New AI-generated image displayed successfully!');
+    } else {
+      throw new Error('AI returned no image. Please try again.');
     }
 
     // ── 5. Deduct credits & update UI ────────────────────────────────────────

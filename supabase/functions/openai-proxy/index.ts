@@ -1,8 +1,9 @@
 /* =========================================================================
    RatedWorktops — Fal.ai Image-to-Image Proxy (Supabase Edge Function)
    =========================================================================
-   Accepts the original kitchen photo + a stone description prompt and
-   calls Fal.ai flux/dev/image-to-image to generate a brand-new render.
+   Accepts the original kitchen photo + stone description prompt.
+   Calls Fal.ai flux/dev/image-to-image, fetches the resulting image bytes,
+   and returns the image AS BASE64 so the frontend has zero CORS issues.
    Required Supabase secret: FAL_KEY
    ========================================================================= */
 
@@ -63,22 +64,20 @@ serve(async (req: Request) => {
       });
     }
 
-    const mode = body.mode || 'image-to-image';
-    console.log(`[Proxy] mode=${mode}, prompt length=${body.prompt?.length}, image length=${body.image?.length}`);
+    console.log(`[Proxy] User: ${user.id} | prompt length: ${body.prompt?.length} | image length: ${body.image?.length}`);
 
     // ── 4. Call Fal.ai flux/dev/image-to-image ───────────────────────────────
-    // This model takes the kitchen photo as reference and generates a completely
-    // new photorealistic image with the selected stone material applied.
-    console.log("[Proxy] Calling fal-ai/flux/dev/image-to-image ...");
+    console.log("[Proxy] Calling fal-ai/flux/dev/image-to-image...");
 
-    const falPayload: any = {
+    const falPayload = {
       image_url: body.image,
       prompt: body.prompt,
-      strength: 0.80,          // 0.80 = good balance: keeps room structure, changes materials
+      strength: 0.80,           // 0.80 = keeps room layout, replaces materials
       num_inference_steps: 28,
       guidance_scale: 3.5,
       num_images: 1,
-      enable_safety_checker: false
+      enable_safety_checker: false,
+      output_format: "jpeg"
     };
 
     const falResponse = await fetch("https://fal.run/fal-ai/flux/dev/image-to-image", {
@@ -91,35 +90,52 @@ serve(async (req: Request) => {
     });
 
     const resData = await falResponse.json();
-    console.log("[Proxy] Fal.ai response status:", falResponse.status);
-    console.log("[Proxy] Fal.ai response keys:", Object.keys(resData));
+    console.log("[Proxy] Fal.ai status:", falResponse.status, "| keys:", Object.keys(resData).join(','));
 
     if (!falResponse.ok) {
       const errMsg = resData?.detail ?? resData?.message ?? JSON.stringify(resData);
       console.error("[Proxy] Fal.ai error:", errMsg);
-      return new Response(JSON.stringify({ error: { message: "Fal.ai Error: " + errMsg } }), {
+      return new Response(JSON.stringify({ error: { message: "Fal.ai error: " + errMsg } }), {
         status: falResponse.status,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    // Fal.ai flux returns: { images: [{ url, content_type }], timings, seed }
-    const imageUrl = resData.images?.[0]?.url || "";
-    console.log("[Proxy] Generated image URL:", imageUrl.substring(0, 100));
+    // Fal.ai returns: { images: [{ url, content_type, width, height }], ... }
+    const falImageUrl = resData.images?.[0]?.url;
+    const falContentType = resData.images?.[0]?.content_type || "image/jpeg";
 
-    if (!imageUrl) {
+    if (!falImageUrl) {
       console.error("[Proxy] No image URL in Fal.ai response:", JSON.stringify(resData));
       return new Response(JSON.stringify({ error: { message: "Fal.ai returned no image. Please try again." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    // ── 5. Return image URL in OpenAI-compatible format ──────────────────────
-    const mappedResponse = {
-      data: [{ url: imageUrl }]
-    };
+    console.log("[Proxy] Fal.ai image URL:", falImageUrl.substring(0, 100));
 
-    return new Response(JSON.stringify(mappedResponse), {
+    // ── 5. Fetch the image bytes and return as base64 ────────────────────────
+    // This avoids ALL CORS issues on the frontend — we return the raw image
+    // data, not just a URL to a third-party CDN that blocks cross-origin requests.
+    console.log("[Proxy] Fetching image bytes to convert to base64...");
+    const imgResponse = await fetch(falImageUrl);
+    if (!imgResponse.ok) {
+      console.error("[Proxy] Failed to fetch generated image:", imgResponse.status);
+      // Fallback: return the URL anyway and let frontend try directly
+      return new Response(JSON.stringify({ data: [{ url: falImageUrl }] }), {
+        status: 200,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const imgBytes = await imgResponse.arrayBuffer();
+    const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBytes)));
+    const dataUri = `data:${falContentType};base64,${imgBase64}`;
+
+    console.log("[Proxy] Base64 data URI length:", dataUri.length, "| Returning to client.");
+
+    // ── 6. Return in OpenAI-compatible format with base64 data URI ───────────
+    return new Response(JSON.stringify({ data: [{ url: dataUri }] }), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
