@@ -1013,79 +1013,116 @@ function setupActionListeners() {
   });
 
   document.getElementById('share-btn').addEventListener('click', async () => {
-    if (!selectedStone || !previewImage.src) {
-      showToast('Generate a render first before sharing.', 'error');
+    if (!previewImage.src) {
+      showToast('Please generate or upload a design first before sharing.', 'error');
       return;
     }
 
-    // Prepare the share image before showing the modal
     showToast('Preparing your design for sharing...', 'info');
+
+    // 1. Capture design blob
     const blob = await getRenderedCanvasBlob();
     if (!blob) {
-      showToast('Failed to capture render. Please try again.', 'error');
+      showToast('Failed to capture design image. Please try again.', 'error');
       return;
     }
 
-    // Upload to Supabase storage to get a public URL
-    const uuid = Math.random().toString(36).substring(2, 15);
-    const path = `shares/${currentUser.id}/${uuid}.jpg`;
-    const uploadRes = await uploadFileToStorage('ratedworktops', path, blob);
-    
-    let shareImageUrl = '';
-    if (uploadRes.ok) {
-      shareImageUrl = uploadRes.url;
+    const stoneName = selectedStone?.name || 'Kitchen Design';
+    const shareText = `Check out my kitchen design with ${selectedStone?.brandName || ''} ${stoneName} created on RatedWorktops!`;
+
+    // 2. NATIVE MOBILE SHARE (Capacitor App on Android / iOS)
+    if (window.Capacitor && window.Capacitor.Plugins?.Share) {
+      try {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          if (window.Capacitor.Plugins?.Share) {
+            await window.Capacitor.Plugins.Share.share({
+              title: 'My Kitchen Design - RatedWorktops',
+              text: shareText,
+              url: reader.result,
+              dialogTitle: 'Share Kitchen Design'
+            });
+            trackShare();
+            showToast('Design shared successfully!', 'success');
+          }
+        };
+        reader.readAsDataURL(blob);
+        return;
+      } catch (capErr) {
+        console.warn('[Share] Native Capacitor share cancelled or failed:', capErr);
+      }
     }
 
-    // Store for use by share buttons
-    window._shareImageUrl = shareImageUrl;
-    window._shareImageBlob = blob;
+    // 3. NATIVE BROWSER SHARE (Mobile Web Chrome/Safari/Edge)
+    if (navigator.share) {
+      try {
+        const file = new File([blob], `ratedworktops-${stoneName.replace(/\s+/g, '-').toLowerCase()}.jpg`, { type: 'image/jpeg' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          trackShare();
+          await navigator.share({
+            title: 'My Kitchen Design - RatedWorktops',
+            text: shareText,
+            files: [file]
+          });
+          showToast('Shared successfully!', 'success');
+          return;
+        }
+      } catch (navErr) {
+        if (navErr.name !== 'AbortError') {
+          console.warn('[Share] navigator.share failed, using modal fallback:', navErr);
+        } else {
+          return; // User cancelled share
+        }
+      }
+    }
 
-    // Show image preview in modal
+    // 4. WEB MODAL FALLBACK (Desktop Browser)
     const previewImg = document.getElementById('share-preview-img');
     const previewText = document.getElementById('share-preview-text');
-    if (previewImg && shareImageUrl) {
-      previewImg.src = shareImageUrl;
-      previewImg.style.display = 'block';
-      if (previewText) previewText.style.display = 'none';
-    } else if (previewImg && blob) {
+    if (previewImg) {
       previewImg.src = URL.createObjectURL(blob);
       previewImg.style.display = 'block';
       if (previewText) previewText.style.display = 'none';
     }
 
-    // Show native share button if supported (mobile devices)
+    window._shareImageBlob = blob;
+    window._shareImageUrl = '';
+
     const nativeBtn = document.getElementById('share-native');
-    if (nativeBtn && navigator.share && navigator.canShare) {
-      nativeBtn.style.display = 'flex';
-      nativeBtn.onclick = async () => {
-        try {
-          const file = new File([blob], `ratedworktops-${selectedStone.name.replace(/\s+/g, '-').toLowerCase()}.jpg`, { type: 'image/jpeg' });
-          const shareData = {
-            title: 'My Kitchen Design - RatedWorktops',
-            text: getShareText(),
-            files: [file]
-          };
-          if (navigator.canShare(shareData)) {
+    if (nativeBtn) {
+      if (navigator.share) {
+        nativeBtn.style.display = 'flex';
+        nativeBtn.onclick = async () => {
+          try {
             trackShare();
-            await navigator.share(shareData);
+            await navigator.share({
+              title: 'My Kitchen Design - RatedWorktops',
+              text: shareText,
+              url: window._shareImageUrl || window.location.href
+            });
             document.getElementById('share-modal').classList.remove('open');
-            showToast('Shared successfully!', 'success');
-          } else {
-            // Fallback: share without file
-            trackShare();
-            await navigator.share({ title: 'My Kitchen Design', text: getShareText(), url: shareImageUrl || window.location.href });
-            document.getElementById('share-modal').classList.remove('open');
-          }
-        } catch (err) {
-          if (err.name !== 'AbortError') {
-            showToast('Share cancelled.', 'error');
-          }
-        }
-      };
+          } catch (e) {}
+        };
+      } else {
+        nativeBtn.style.display = 'none';
+      }
     }
 
-    document.getElementById('share-modal').classList.add('open');
-    lucide.createIcons();
+    const modal = document.getElementById('share-modal');
+    if (modal) modal.classList.add('open');
+    if (window.lucide) lucide.createIcons();
+
+    // Background upload for shareable URL
+    if (supabaseClient && currentUser) {
+      const uuid = Math.random().toString(36).substring(2, 15);
+      const path = `shares/${currentUser.id}/${uuid}.jpg`;
+      uploadFileToStorage('ratedworktops', path, blob).then((uploadRes) => {
+        if (uploadRes.ok && uploadRes.url) {
+          window._shareImageUrl = uploadRes.url;
+          if (previewImg) previewImg.src = uploadRes.url;
+        }
+      }).catch(err => console.warn('[Share] Background storage upload error:', err));
+    }
   });
 
   async function trackShare() {
