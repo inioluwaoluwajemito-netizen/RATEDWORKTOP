@@ -113,20 +113,20 @@ async function generateRender() {
   console.log('[Render] Stone selected:', selectedStone?.name, selectedStone?.sku);
 
   try {
-    // ── 1. Create Inpainting Mask and image data URIs ───────────────────────
-    processingText.textContent = 'Generating inpainting mask...';
+    // ── 1. Create Inpainting Mask and pre-tinted image data URIs ───────────────────────
+    processingText.textContent = 'Preparing stone color and inpainting mask...';
 
     const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
-    const { imageCanvas, maskCanvas } = createInpaintingMask(previewImage, isAutoMode, points);
+    const { imageCanvas, maskCanvas, colorDetails } = createInpaintingMask(previewImage, isAutoMode, points, selectedStone);
 
-    const imageUri = imageCanvas.toDataURL('image/jpeg', 0.88);
+    const imageUri = imageCanvas.toDataURL('image/jpeg', 0.90);
     const maskUri = maskCanvas.toDataURL('image/png');
 
     // ── 2. Build the AI prompt ───────────────────────────────────────────────
     const stoneDesc = getStoneVisualDescription(selectedStone);
     const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
     const refinementExtra = refinementText ? ` ${refinementText}.` : '';
-    const prompt = `Replace the countertop worktop and splashback surfaces with ${selectedStone.brandName || ''} ${selectedStone.name}. This is a highly detailed ${stoneDesc} stone material with realistic veining, correct color tone, and polished finish. Match lighting and perspective of the kitchen.${refinementExtra}`;
+    const prompt = `${colorDetails.promptPrefix} Replace the countertop worktop and splashback surfaces with ${selectedStone.brandName || ''} ${selectedStone.name}. Detailed ${stoneDesc} material with realistic veining, correct color tone, and polished finish. Match lighting and perspective of the kitchen.${refinementExtra}`;
 
     console.log('[Render] Inpainting Prompt:', prompt);
 
@@ -253,6 +253,46 @@ async function generateRender() {
   }
 }
 
+// Helper: Determine exact base color and prompt prefix for the selected stone
+function getStoneColorDetails(stone) {
+  if (!stone) return { baseColor: 'white', hex: '#FAFAFA', promptPrefix: 'PURE BRIGHT WHITE COLOR SURFACES: Solid polished bright white background color with delicate marble veining' };
+
+  const sku = stone.sku ? stone.sku.toUpperCase() : '';
+  const name = stone.name ? stone.name.toLowerCase() : '';
+  const texture = stone.texture ? stone.texture.toLowerCase() : '';
+
+  const isBlack = (
+    sku === 'SIL-IB' || sku === 'DEK-LR' || sku === 'DEK-CG' || sku === 'CAE-VN' || sku === 'CAL-NM' ||
+    texture === 'black' || name.includes('black') || name.includes('laurent') || name.includes('noir') || name.includes('nero') || name.includes('charcoal')
+  );
+
+  const isGrey = (
+    sku === 'DEK-KR' || sku === 'DEK-VR' || sku === 'CAE-CC' || sku === 'SIL-LS' ||
+    texture === 'slate' || name.includes('kreta') || name.includes('concrete') || name.includes('slate')
+  );
+
+  if (isBlack) {
+    return {
+      baseColor: 'black',
+      hex: '#1A1A1A',
+      promptPrefix: `DEEP POLISHED BLACK COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid deep black background color with gold and white veining. Absolutely NO white or light background.`
+    };
+  } else if (isGrey) {
+    return {
+      baseColor: 'grey',
+      hex: '#7A8288',
+      promptPrefix: `MATTE GREY CONCRETE COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid mid-grey concrete texture background color.`
+    };
+  } else {
+    // Default: White / Light Marble (e.g. Eternal Calacatta Gold)
+    return {
+      baseColor: 'white',
+      hex: '#FAFAFA',
+      promptPrefix: `PURE BRIGHT WHITE COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid polished bright white background color with delicate veining. Absolutely NO black, dark grey, or dark background.`
+    };
+  }
+}
+
 // Helper: resize an image data URL to maxSize px on the longest edge
 async function resizeImageDataUrl(dataUrl, maxSize) {
   return new Promise((resolve) => {
@@ -274,8 +314,9 @@ async function resizeImageDataUrl(dataUrl, maxSize) {
   });
 }
 
-function createInpaintingMask(previewImg, isAutoMode, manualPoints) {
+function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
   const TARGET_SIZE = 512;
+  const colorDetails = getStoneColorDetails(stone);
 
   // Create 512x512 image canvas
   const imageCanvas = document.createElement('canvas');
@@ -299,14 +340,19 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints) {
 
   const SCALE = TARGET_SIZE / 100; // 5.12 scale factor
 
+  // Tint the worktop and splashback areas on imageCanvas with the target stone's base color (white, black, or grey)
+  imgCtx.fillStyle = colorDetails.hex;
+
   if (isAutoMode) {
-    // 1. Draw Default Countertop Polygon
+    // 1. Countertop Polygon
     const countertopPoints = [
       { x: 10, y: 60 },
       { x: 90, y: 60 },
       { x: 95, y: 75 },
       { x: 5, y: 75 }
     ];
+    
+    // Fill mask canvas (white)
     maskCtx.beginPath();
     maskCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
     for (let i = 1; i < countertopPoints.length; i++) {
@@ -315,13 +361,24 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints) {
     maskCtx.closePath();
     maskCtx.fill();
 
-    // 2. Draw Default Splashback Polygon
+    // Pre-tint image canvas with target stone base color
+    imgCtx.beginPath();
+    imgCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
+    for (let i = 1; i < countertopPoints.length; i++) {
+      imgCtx.lineTo(countertopPoints[i].x * SCALE, countertopPoints[i].y * SCALE);
+    }
+    imgCtx.closePath();
+    imgCtx.fill();
+
+    // 2. Splashback Polygon
     const splashbackPoints = [
       { x: 60.5, y: 15 },
       { x: 86.5, y: 15 },
       { x: 86.5, y: 56 },
       { x: 60.5, y: 56 }
     ];
+
+    // Fill mask canvas (white)
     maskCtx.beginPath();
     maskCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
     for (let i = 1; i < splashbackPoints.length; i++) {
@@ -330,8 +387,17 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints) {
     maskCtx.closePath();
     maskCtx.fill();
 
+    // Pre-tint image canvas with target stone base color
+    imgCtx.beginPath();
+    imgCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
+    for (let i = 1; i < splashbackPoints.length; i++) {
+      imgCtx.lineTo(splashbackPoints[i].x * SCALE, splashbackPoints[i].y * SCALE);
+    }
+    imgCtx.closePath();
+    imgCtx.fill();
+
   } else if (manualPoints && manualPoints.length >= 3) {
-    // Draw Manual Points Polygon
+    // Manual Points Polygon
     maskCtx.beginPath();
     maskCtx.moveTo(manualPoints[0].x * SCALE, manualPoints[0].y * SCALE);
     for (let i = 1; i < manualPoints.length; i++) {
