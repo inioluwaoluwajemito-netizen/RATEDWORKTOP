@@ -1105,11 +1105,14 @@ function setupActionListeners() {
   });
 
   document.getElementById('download-btn').addEventListener('click', async () => {
-    if (!previewImage.src) return;
-    showToast('Preparing your image...', 'info');
+    if (!previewImage.src) {
+      showToast('Please generate or upload an image first.', 'error');
+      return;
+    }
+    showToast('Preparing your design download...', 'info');
 
     // Increment downloads metric in DB
-    if (currentProfile) {
+    if (currentProfile && supabaseClient) {
       const newDownloads = (currentProfile.downloads || 0) + 1;
       await supabaseClient
         .from('profiles')
@@ -1118,64 +1121,48 @@ function setupActionListeners() {
       currentProfile.downloads = newDownloads;
     }
 
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const blob = await getRenderedCanvasBlob();
+    if (!blob) {
+      showToast('Failed to prepare download file.', 'error');
+      return;
+    }
 
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
+    const stoneName = selectedStone?.name ? selectedStone.name.replace(/\s+/g, '-').toLowerCase() : 'design';
+    const fileName = `ratedworktops-${stoneName}.jpg`;
 
-      if (!window._isAIRendered) {
-        const stoneImg = new Image();
-        stoneImg.crossOrigin = "Anonymous";
-        stoneImg.onload = () => {
-          ctx.drawImage(img, 0, 0);
-
-          const pattern = ctx.createPattern(stoneImg, 'repeat');
-          ctx.fillStyle = pattern;
-
-          ctx.globalCompositeOperation = 'overlay';
-          ctx.beginPath();
-          if (points.length >= 3) {
-            ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
-            for (let i = 1; i < points.length; i++) {
-              ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
-            }
-          } else {
-            ctx.moveTo(img.width * 0.1, img.height * 0.6);
-            ctx.lineTo(img.width * 0.9, img.height * 0.6);
-            ctx.lineTo(img.width * 0.95, img.height * 0.75);
-            ctx.lineTo(img.width * 0.05, img.height * 0.75);
+    // Capacitor Native Mobile Download / Share
+    if (window.Capacitor && window.Capacitor.Plugins?.Share) {
+      try {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          if (window.Capacitor.Plugins?.Share) {
+            await window.Capacitor.Plugins.Share.share({
+              title: 'RatedWorktops Design',
+              text: `My kitchen design with ${selectedStone?.name || 'stone'}`,
+              url: reader.result,
+              dialogTitle: 'Save or Share Image'
+            });
+            showToast('Image shared / saved successfully!', 'success');
           }
-          ctx.closePath();
-          ctx.fill();
-
-          drawWatermarkAndTriggerDownload();
         };
-        stoneImg.src = getStoneImage(selectedStone.sku);
-      } else {
-        ctx.drawImage(img, 0, 0);
-        drawWatermarkAndTriggerDownload();
+        reader.readAsDataURL(blob);
+        return;
+      } catch (err) {
+        console.warn('Native share/save failed, using browser download:', err);
       }
+    }
 
-      function drawWatermarkAndTriggerDownload() {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.font = `bold ${Math.floor(img.width * 0.03)}px 'Playfair Display'`;
-        ctx.textAlign = 'right';
-        ctx.fillText('🪨 Created with RatedWorktops', img.width - 20, img.height - 20);
+    // Web Browser Download Fallback
+    const link = document.createElement('a');
+    link.download = fileName;
+    const objectUrl = URL.createObjectURL(blob);
+    link.href = objectUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
 
-        const link = document.createElement('a');
-        link.download = `ratedworktops-${selectedStone.name.replace(/\s+/g, '-').toLowerCase()}.jpg`;
-        link.href = canvas.toDataURL('image/jpeg', 0.9);
-        link.click();
-
-        showToast('Image downloaded successfully!', 'success');
-      }
-    };
-    img.src = previewImage.src;
+    showToast('Image downloaded successfully!', 'success');
   });
 
   document.getElementById('save-btn').addEventListener('click', async () => {
@@ -1249,7 +1236,7 @@ function setupActionListeners() {
 
 function getRenderedCanvasBlob() {
   return new Promise((resolve) => {
-    if (!previewImage.src || !selectedStone) {
+    if (!previewImage.src) {
       resolve(null);
       return;
     }
@@ -1257,8 +1244,24 @@ function getRenderedCanvasBlob() {
     const ctx = canvas.getContext('2d');
 
     const img = new Image();
-    img.crossOrigin = "Anonymous";
     img.onload = () => {
+      canvas.width = img.naturalWidth || img.width || 800;
+      canvas.height = img.naturalHeight || img.height || 600;
+      ctx.drawImage(img, 0, 0);
+      drawWatermarkAndResolve();
+    };
+    img.onerror = () => {
+      const renderCanvas = document.getElementById('render-canvas');
+      if (renderCanvas && renderCanvas.width > 0) {
+        canvas.width = renderCanvas.width;
+        canvas.height = renderCanvas.height;
+        ctx.drawImage(renderCanvas, 0, 0);
+        drawWatermarkAndResolve();
+      } else {
+        resolve(null);
+      }
+    };
+    img.src = previewImage.src;
       canvas.width = img.width;
       canvas.height = img.height;
 
