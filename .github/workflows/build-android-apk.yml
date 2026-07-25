@@ -35,19 +35,21 @@ jobs:
         rm -rf www
         mkdir -p www
         cp *.html www/ 2>/dev/null || true
-        cp -r css www/css 2>/dev/null || true
-        cp -r js www/js 2>/dev/null || true
-        cp -r images www/images 2>/dev/null || true
-        mkdir -p www/admin
-        cp -r admin/*.html www/admin/ 2>/dev/null || true
-        cp -r admin/css www/admin/css 2>/dev/null || true
-        cp -r admin/js www/admin/js 2>/dev/null || true
+        cp -r css www/ 2>/dev/null || true
+        cp -r js www/ 2>/dev/null || true
+        cp -r images www/ 2>/dev/null || true
+        if [ -d "admin" ]; then
+          mkdir -p www/admin
+          cp admin/*.html www/admin/ 2>/dev/null || true
+          cp -r admin/css www/admin/ 2>/dev/null || true
+          cp -r admin/js www/admin/ 2>/dev/null || true
+        fi
 
     - name: Make Gradle Wrapper Executable
       run: chmod +x android/gradlew
 
-    - name: Sync Web Assets to Capacitor Android
-      run: npx cap copy android || npx cap sync android
+    - name: Copy Web Assets to Capacitor Android
+      run: npx cap copy android
 
     - name: Build Android APK (Debug)
       working-directory: ./android
