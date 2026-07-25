@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   build:
@@ -32,32 +32,26 @@ jobs:
 
     - name: Build Web Assets (www folder)
       run: |
-        mkdir -p www/css www/js www/images www/admin/css www/admin/js
+        rm -rf www
+        mkdir -p www
         cp *.html www/ 2>/dev/null || true
-        cp -r css/* www/css/ 2>/dev/null || true
-        cp -r js/* www/js/ 2>/dev/null || true
-        cp -r images/* www/images/ 2>/dev/null || true
+        cp -r css www/css 2>/dev/null || true
+        cp -r js www/js 2>/dev/null || true
+        cp -r images www/images 2>/dev/null || true
+        mkdir -p www/admin
         cp -r admin/*.html www/admin/ 2>/dev/null || true
-        cp -r admin/css/* www/admin/css/ 2>/dev/null || true
-        cp -r admin/js/* www/admin/js/ 2>/dev/null || true
+        cp -r admin/css www/admin/css 2>/dev/null || true
+        cp -r admin/js www/admin/js 2>/dev/null || true
+
+    - name: Make Gradle Wrapper Executable
+      run: chmod +x android/gradlew
 
     - name: Sync Capacitor Android
-      run: |
-        chmod +x android/gradlew
-        npx cap sync android --verbose > cap-sync.log 2>&1 || (cat cap-sync.log && exit 1)
-
-    - name: Upload Cap Sync Logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: cap-sync-log
-        path: cap-sync.log
+      run: npx cap sync android
 
     - name: Build Android APK (Debug)
       working-directory: ./android
-      run: |
-        chmod +x ./gradlew
-        ./gradlew assembleDebug
+      run: ./gradlew assembleDebug
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
