@@ -117,7 +117,8 @@ async function generateRender() {
     processingText.textContent = 'Preparing stone color and inpainting mask...';
 
     const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
-    const { imageCanvas, maskCanvas, colorDetails } = createInpaintingMask(previewImage, isAutoMode, points, selectedStone);
+    const colorDetails = getStoneColorDetails(selectedStone);
+    const { imageCanvas, maskCanvas } = createInpaintingMask(previewImage, isAutoMode, points, selectedStone);
 
     const imageUri = imageCanvas.toDataURL('image/jpeg', 0.90);
     const maskUri = maskCanvas.toDataURL('image/png');
@@ -407,7 +408,7 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     maskCtx.fill();
   }
 
-  return { imageCanvas, maskCanvas };
+  return { imageCanvas, maskCanvas, colorDetails };
 }
 
 
