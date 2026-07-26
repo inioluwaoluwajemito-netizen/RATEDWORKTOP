@@ -1,9 +1,10 @@
 /* =========================================================================
-   RatedWorktops — Fal.ai Inpainting Proxy (Supabase Edge Function)
+   RatedWorktops — Nano Banana (Gemini Flash) Fal.ai Image Edit Proxy
+   (Supabase Edge Function)
    =========================================================================
-   Accepts clean kitchen image + binary inpainting mask + stone prompt.
-   Calls Fal.ai fast-sdxl/inpainting to replace ONLY the masked worktop area
-   with the selected stone material in 8k photorealistic quality.
+   Uses fal-ai/nano-banana/edit (Gemini Flash Image Editor) via Fal.ai API key
+   to perform high-precision photorealistic image-to-image kitchen worktop
+   replacement.
    Required Supabase secret: FAL_KEY
    ========================================================================= */
 
@@ -68,7 +69,7 @@ serve(async (req: Request) => {
       });
     }
 
-    // ── 3. Parse request body (image, mask, prompt) ───────────────────────────
+    // ── 3. Parse request body ─────────────────────────────────────────────────
     const body = await req.json();
     if (!body.image || !body.prompt) {
       return new Response(JSON.stringify({ error: { message: "Missing required fields: image and prompt." } }), {
@@ -76,24 +77,21 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log(`[Inpaint Proxy] User: ${user.id} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length} | mask len: ${body.mask?.length || 0}`);
+    console.log(`[Nano Banana Proxy] User: ${user.id} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length}`);
 
-    // ── 4. Build payload for Fal.ai fast-sdxl/inpainting ─────────────────────
+    // ── 4. Call fal-ai/nano-banana/edit Endpoint ──────────────────────────────
     const falPayload: any = {
-      image_url: body.image,
       prompt: body.prompt,
-      strength: 0.90,
-      num_inference_steps: 35,
-      guidance_scale: 7.5
+      image_urls: [body.image],
+      num_images: 1,
+      aspect_ratio: "auto",
+      output_format: "png",
+      safety_tolerance: "4"
     };
 
-    if (body.mask) {
-      falPayload.mask_url = body.mask;
-    }
+    console.log("[Nano Banana Proxy] Sending request to fal-ai/nano-banana/edit ...");
 
-    console.log("[Inpaint Proxy] Sending request to fal-ai/fast-sdxl/inpainting ...");
-
-    const falResponse = await fetch("https://fal.run/fal-ai/fast-sdxl/inpainting", {
+    let falResponse = await fetch("https://fal.run/fal-ai/nano-banana/edit", {
       method: "POST",
       headers: {
         "Authorization": `Key ${FAL_KEY}`,
@@ -102,29 +100,53 @@ serve(async (req: Request) => {
       body: JSON.stringify(falPayload)
     });
 
-    const resData = await falResponse.json();
-    console.log("[Inpaint Proxy] Fal.ai status:", falResponse.status);
+    let resData = await falResponse.json();
+    console.log("[Nano Banana Proxy] Nano Banana status:", falResponse.status);
+
+    // Fallback to fast-sdxl/inpainting if nano-banana returns error
+    if (!falResponse.ok) {
+      console.warn("[Nano Banana Proxy] Nano Banana failed, falling back to fast-sdxl/inpainting:", JSON.stringify(resData));
+      const fallbackPayload: any = {
+        image_url: body.image,
+        prompt: body.prompt,
+        strength: 0.90,
+        num_inference_steps: 35,
+        guidance_scale: 7.5
+      };
+      if (body.mask) fallbackPayload.mask_url = body.mask;
+
+      falResponse = await fetch("https://fal.run/fal-ai/fast-sdxl/inpainting", {
+        method: "POST",
+        headers: {
+          "Authorization": `Key ${FAL_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(fallbackPayload)
+      });
+      resData = await falResponse.json();
+      console.log("[Nano Banana Proxy] Fallback status:", falResponse.status);
+    }
 
     if (!falResponse.ok) {
       const errMsg = resData?.detail ?? resData?.message ?? JSON.stringify(resData);
-      console.error("[Inpaint Proxy] Fal.ai error:", errMsg);
+      console.error("[Nano Banana Proxy] Fal.ai error:", errMsg);
       return new Response(JSON.stringify({ error: { message: "Fal.ai error: " + errMsg } }), {
         status: falResponse.status,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    const falImageUrl = resData.images?.[0]?.url;
-    const falContentType = resData.images?.[0]?.content_type || "image/jpeg";
+    const falImageUrl = resData.images?.[0]?.url || resData.image?.url;
+    const falContentType = resData.images?.[0]?.content_type || "image/png";
 
     if (!falImageUrl) {
-      console.error("[Inpaint Proxy] No image URL in Fal.ai response:", JSON.stringify(resData));
-      return new Response(JSON.stringify({ error: { message: "Fal.ai inpainting returned no image." } }), {
+      console.error("[Nano Banana Proxy] No image URL in response:", JSON.stringify(resData));
+      return new Response(JSON.stringify({ error: { message: "Fal.ai returned no image." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log("[Inpaint Proxy] Generated Image URL:", falImageUrl.substring(0, 90));
+    console.log("[Nano Banana Proxy] Generated Image URL:", falImageUrl.substring(0, 90));
 
     // ── 5. Convert generated image to Base64 ──────────────────────────────────
     let finalUrl = falImageUrl;
@@ -134,10 +156,10 @@ serve(async (req: Request) => {
         const imgBytes = new Uint8Array(await imgResponse.arrayBuffer());
         const imgBase64 = uint8ArrayToBase64(imgBytes);
         finalUrl = `data:${falContentType};base64,${imgBase64}`;
-        console.log("[Inpaint Proxy] Converted to base64 successfully, len:", finalUrl.length);
+        console.log("[Nano Banana Proxy] Converted to base64 successfully, len:", finalUrl.length);
       }
     } catch (b64Err) {
-      console.warn("[Inpaint Proxy] Base64 conversion skipped, using CDN URL:", b64Err);
+      console.warn("[Nano Banana Proxy] Base64 conversion skipped, using CDN URL:", b64Err);
     }
 
     // ── 6. Return response to client ──────────────────────────────────────────
@@ -147,7 +169,7 @@ serve(async (req: Request) => {
     });
 
   } catch (err: any) {
-    console.error("[Inpaint Proxy] Unhandled error:", err);
+    console.error("[Nano Banana Proxy] Unhandled error:", err);
     return new Response(JSON.stringify({ error: { message: String(err?.message ?? err) } }), {
       status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
