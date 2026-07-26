@@ -126,7 +126,7 @@ async function generateRender() {
     // ── 2. Build the AI prompt ───────────────────────────────────────────────
     const stoneDesc = getStoneVisualDescription(selectedStone);
     const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
-    const refinementExtra = refinementText ? ` ${refinementText}.` : '';
+    const refinementExtra = refinementText ? ` ADDITIONAL USER REFINEMENT INSTRUCTIONS: ${refinementText}.` : '';
     const prompt = `${colorDetails.promptPrefix} Replace the countertop worktop and splashback surfaces with ${selectedStone.brandName || ''} ${selectedStone.name}. Detailed ${stoneDesc} material with realistic veining, correct color tone, and polished finish. Match lighting and perspective of the kitchen.${refinementExtra}`;
 
     console.log('[Render] Inpainting Prompt:', prompt);
@@ -150,7 +150,11 @@ async function generateRender() {
             console.error('[Render] Functions invoke error:', error);
             throw new Error(error.message || 'AI inpainting failed via Supabase Function.');
           }
-          aiImageUrl = data?.data?.[0]?.url || null;
+          if (data && data.error) {
+            console.error('[Render] Proxy returned error payload:', data.error);
+            throw new Error(data.error.message || (typeof data.error === 'string' ? data.error : 'AI proxy returned error.'));
+          }
+          aiImageUrl = data?.data?.[0]?.url || data?.url || null;
         } else {
           const { data: { session } } = await supabaseClient.auth.getSession();
           const token = session?.access_token;
@@ -168,12 +172,14 @@ async function generateRender() {
             })
           });
 
+          const resData = await proxyResponse.json().catch(() => ({}));
           if (proxyResponse.ok) {
-            const resData = await proxyResponse.json();
-            aiImageUrl = resData.data?.[0]?.url || null;
+            if (resData.error) {
+              throw new Error(resData.error.message || 'AI proxy returned error.');
+            }
+            aiImageUrl = resData.data?.[0]?.url || resData.url || null;
           } else {
-            const errData = await proxyResponse.json().catch(() => ({}));
-            throw new Error(errData?.error?.message || `Server error (status ${proxyResponse.status})`);
+            throw new Error(resData?.error?.message || `Server error (status ${proxyResponse.status})`);
           }
         }
       } catch (proxyErr) {
@@ -220,16 +226,20 @@ async function generateRender() {
     }
 
     // ── 5. Deduct credits & update UI ────────────────────────────────────────
-    const newCredits = isFreeMode ? currentProfile.credits : Math.max(0, currentProfile.credits - 1);
-    const newVisualisations = (currentProfile.visualisations || 0) + 1;
+    const currentCreds = currentProfile?.credits ?? 999;
+    const currentVis = currentProfile?.visualisations ?? 0;
+    const newCredits = isFreeMode ? currentCreds : Math.max(0, currentCreds - 1);
+    const newVisualisations = currentVis + 1;
     if (supabaseClient && currentUser) {
       await supabaseClient
         .from('profiles')
         .update({ credits: newCredits, visualisations: newVisualisations })
         .eq('id', currentUser.id);
     }
-    currentProfile.credits = newCredits;
-    currentProfile.visualisations = newVisualisations;
+    if (currentProfile) {
+      currentProfile.credits = newCredits;
+      currentProfile.visualisations = newVisualisations;
+    }
 
     const navCredits = document.getElementById('credits-count');
     if (navCredits) navCredits.textContent = newCredits;
