@@ -294,12 +294,55 @@ async function generateRender() {
     const headerCredits = document.getElementById('credits-count-header');
     if (headerCredits) headerCredits.textContent = newCredits;
 
-    showToast('AI visualisation complete!', 'success');
+    // ── 6. Automatically Save to Storage & Generate Public Share URL ─────────
+    processingText.textContent = 'Saving project & generating public share link...';
+    try {
+      const renderCanvas = document.getElementById('render-canvas');
+      const srcCanvas = (renderCanvas && renderCanvas.style.display !== 'none') ? renderCanvas : null;
+      let blob = null;
+      if (srcCanvas) {
+        blob = await new Promise(res => srcCanvas.toBlob(res, 'image/jpeg', 0.90));
+      }
+      if (blob) {
+        const uuid = Math.random().toString(36).substring(2, 15);
+        const userId = currentUser?.id || 'public';
+        const storagePath = `outputs/${userId}/${uuid}.jpg`;
+        const uploadRes = await uploadFileToStorage('ratedworktops', storagePath, blob);
+
+        if (uploadRes.ok && uploadRes.url) {
+          window._currentRenderPublicUrl = uploadRes.url;
+          window._shareImageUrl = uploadRes.url;
+          console.log('[Render] Public share URL generated:', uploadRes.url);
+
+          if (supabaseClient && currentUser && selectedStone) {
+            await supabaseClient
+              .from('projects')
+              .insert([{
+                user_id: currentUser.id,
+                stone_name: selectedStone.name,
+                brand_name: selectedStone.brandName,
+                image_url: uploadRes.url
+              }]).catch(e => console.warn('Auto project DB save notice:', e));
+          }
+
+          const shareUrlInput = document.getElementById('share-public-url-input');
+          if (shareUrlInput) shareUrlInput.value = uploadRes.url;
+        }
+      }
+    } catch (saveErr) {
+      console.warn('[Render] Auto cloud save notice:', saveErr);
+    }
+
+    showToast('AI render complete! Saved & public link created.', 'success');
 
     const preRenderControls = document.getElementById('pre-render-controls');
     if (preRenderControls) preRenderControls.style.display = 'none';
     const postRenderActions = document.getElementById('post-render-actions');
     if (postRenderActions) postRenderActions.style.display = 'flex';
+
+    setTimeout(() => {
+      openShareModalWithPublicUrl();
+    }, 600);
 
   } catch (error) {
     stopProgressTicker();
@@ -1063,9 +1106,25 @@ function setupActionListeners() {
     document.getElementById('share-modal').classList.remove('open');
   });
 
+  const copyPublicBtn = document.getElementById('share-copy-public-url-btn');
+  if (copyPublicBtn) {
+    copyPublicBtn.addEventListener('click', () => {
+      const url = window._currentRenderPublicUrl || window._shareImageUrl || document.getElementById('share-public-url-input')?.value;
+      if (!url) {
+        showToast('No public link generated yet.', 'error');
+        return;
+      }
+      navigator.clipboard.writeText(url).then(() => {
+        showToast('Public viewable link copied to clipboard! Anyone anywhere can view your kitchen render.', 'success');
+      }).catch(() => {
+        showToast('Failed to copy public link.', 'error');
+      });
+    });
+  }
+
   document.getElementById('share-copy-link').addEventListener('click', () => {
     trackShare();
-    const shareLink = window._shareImageUrl || window.location.href;
+    const shareLink = window._currentRenderPublicUrl || window._shareImageUrl || window.location.href;
     navigator.clipboard.writeText(shareLink).then(() => {
       showToast('Image link copied to clipboard!', 'success');
     }).catch(() => {
@@ -1202,6 +1261,26 @@ function setupActionListeners() {
       if (e.target === overlay) overlay.classList.remove('open');
     });
   });
+}
+
+function openShareModalWithPublicUrl() {
+  const modal = document.getElementById('share-modal');
+  const previewImg = document.getElementById('share-preview-img');
+  const previewText = document.getElementById('share-preview-text');
+  const shareUrlInput = document.getElementById('share-public-url-input');
+
+  const url = window._currentRenderPublicUrl || window._shareImageUrl || '';
+  if (url) {
+    if (shareUrlInput) shareUrlInput.value = url;
+    if (previewImg) {
+      previewImg.src = url;
+      previewImg.style.display = 'block';
+    }
+    if (previewText) previewText.style.display = 'none';
+  }
+
+  if (modal) modal.classList.add('open');
+  if (window.lucide) lucide.createIcons();
 }
 
 function getRenderedCanvasBlob() {

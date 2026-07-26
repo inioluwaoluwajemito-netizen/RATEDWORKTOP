@@ -868,15 +868,24 @@
   <div class="modal-overlay" id="share-modal">
     <div class="modal" style="width: 420px; text-align: center;">
       <h2 style="margin-top:0; font-family:'Playfair Display',serif; font-size:24px;">Share your design</h2>
-      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">Show off your new kitchen worktop!</p>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">Your design is saved! Share the public URL so anyone anywhere can view your kitchen render.</p>
 
       <!-- Image preview -->
-      <div style="margin-bottom:20px; border-radius:8px; overflow:hidden; background:var(--surface); min-height:80px; display:flex; align-items:center; justify-content:center;">
+      <div style="margin-bottom:16px; border-radius:8px; overflow:hidden; background:var(--surface); min-height:80px; display:flex; align-items:center; justify-content:center;">
         <img id="share-preview-img" src="" alt="Your design" style="display:none; width:100%; border-radius:8px; max-height:200px; object-fit:cover;">
         <span id="share-preview-text" style="color:var(--text-muted); font-size:13px;">Generate an image to preview it here</span>
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+      <!-- Public Share Link Input -->
+      <div style="margin-bottom:16px; text-align:left;">
+        <label style="font-size:11px; color:var(--gold); display:block; margin-bottom:6px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">Public Viewable Link</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="share-public-url-input" readonly placeholder="Generating public link..." style="flex:1; background:var(--bg-dark); border:1px solid var(--border); border-radius:6px; padding:8px 12px; font-size:12px; color:var(--gold); text-overflow:ellipsis;" />
+          <button class="btn" id="share-copy-public-url-btn" style="background:var(--gold); color:#000; font-weight:600; border:none; padding:8px 14px; font-size:12px; white-space:nowrap; cursor:pointer;">Copy Link</button>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
         <a id="share-whatsapp" href="#" target="_blank" rel="noopener"
           style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; border-radius:8px; background:#25D366; color:#fff; font-weight:600; font-size:14px; text-decoration:none; cursor:pointer;">
           WhatsApp
@@ -896,11 +905,11 @@
       </div>
 
       <button class="btn" id="share-copy-link" style="width:100%; justify-content:center; background:transparent; border:1px solid var(--border); color:var(--text-primary); margin-bottom:8px;">
-        <i data-lucide="link" style="width:16px;height:16px"></i> Copy Image Link
+        <i data-lucide="link" style="width:16px;height:16px"></i> Copy Social Post Text
       </button>
 
       <button class="btn" style="margin-top:8px; width:100%; justify-content:center; background:transparent; border:none; color:var(--text-muted);" onclick="document.getElementById('share-modal').classList.remove('open')">
-        Cancel
+        Close
       </button>
     </div>
   </div>
