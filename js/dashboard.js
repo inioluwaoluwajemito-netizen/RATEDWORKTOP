@@ -329,20 +329,20 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
   const TARGET_SIZE = 512;
   const colorDetails = getStoneColorDetails(stone);
 
-  // Create 512x512 image canvas
+  // 1. Create 512x512 clean image canvas (UNTOUCHED original photo context)
   const imageCanvas = document.createElement('canvas');
   imageCanvas.width = TARGET_SIZE;
   imageCanvas.height = TARGET_SIZE;
   const imgCtx = imageCanvas.getContext('2d');
   imgCtx.drawImage(previewImg, 0, 0, TARGET_SIZE, TARGET_SIZE);
 
-  // Create 512x512 mask canvas
+  // 2. Create 512x512 binary mask canvas (Black background = keep, White area = inpaint)
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = TARGET_SIZE;
   maskCanvas.height = TARGET_SIZE;
   const maskCtx = maskCanvas.getContext('2d');
 
-  // Fill background with solid BLACK (0) = Keep area
+  // Fill background with solid BLACK (0) = Keep original photo context
   maskCtx.fillStyle = 'black';
   maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
 
@@ -351,19 +351,24 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
 
   const SCALE = TARGET_SIZE / 100; // 5.12 scale factor
 
-  // Tint the worktop and splashback areas on imageCanvas with the target stone's base color (white, black, or grey)
-  imgCtx.fillStyle = colorDetails.hex;
-
-  if (isAutoMode) {
-    // 1. Countertop Polygon
+  if (manualPoints && manualPoints.length >= 3) {
+    // Drawn Polygon (Hybrid / Manual Mode)
+    maskCtx.beginPath();
+    maskCtx.moveTo(manualPoints[0].x * SCALE, manualPoints[0].y * SCALE);
+    for (let i = 1; i < manualPoints.length; i++) {
+      maskCtx.lineTo(manualPoints[i].x * SCALE, manualPoints[i].y * SCALE);
+    }
+    maskCtx.closePath();
+    maskCtx.fill();
+  } else {
+    // Auto Mode Surface Masking
+    // Countertop polygon (lower worktop area)
     const countertopPoints = [
-      { x: 10, y: 60 },
-      { x: 90, y: 60 },
-      { x: 95, y: 75 },
-      { x: 5, y: 75 }
+      { x: 5, y: 55 },
+      { x: 95, y: 55 },
+      { x: 98, y: 80 },
+      { x: 2, y: 80 }
     ];
-    
-    // Fill mask canvas (white)
     maskCtx.beginPath();
     maskCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
     for (let i = 1; i < countertopPoints.length; i++) {
@@ -372,47 +377,17 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     maskCtx.closePath();
     maskCtx.fill();
 
-    // Pre-tint image canvas with target stone base color
-    imgCtx.beginPath();
-    imgCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
-    for (let i = 1; i < countertopPoints.length; i++) {
-      imgCtx.lineTo(countertopPoints[i].x * SCALE, countertopPoints[i].y * SCALE);
-    }
-    imgCtx.closePath();
-    imgCtx.fill();
-
-    // 2. Splashback Polygon
+    // Splashback polygon (center wall backsplash area behind stove/sink)
     const splashbackPoints = [
-      { x: 60.5, y: 15 },
-      { x: 86.5, y: 15 },
-      { x: 86.5, y: 56 },
-      { x: 60.5, y: 56 }
+      { x: 35, y: 40 },
+      { x: 65, y: 40 },
+      { x: 65, y: 55 },
+      { x: 35, y: 55 }
     ];
-
-    // Fill mask canvas (white)
     maskCtx.beginPath();
     maskCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
     for (let i = 1; i < splashbackPoints.length; i++) {
       maskCtx.lineTo(splashbackPoints[i].x * SCALE, splashbackPoints[i].y * SCALE);
-    }
-    maskCtx.closePath();
-    maskCtx.fill();
-
-    // Pre-tint image canvas with target stone base color
-    imgCtx.beginPath();
-    imgCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
-    for (let i = 1; i < splashbackPoints.length; i++) {
-      imgCtx.lineTo(splashbackPoints[i].x * SCALE, splashbackPoints[i].y * SCALE);
-    }
-    imgCtx.closePath();
-    imgCtx.fill();
-
-  } else if (manualPoints && manualPoints.length >= 3) {
-    // Manual Points Polygon
-    maskCtx.beginPath();
-    maskCtx.moveTo(manualPoints[0].x * SCALE, manualPoints[0].y * SCALE);
-    for (let i = 1; i < manualPoints.length; i++) {
-      maskCtx.lineTo(manualPoints[i].x * SCALE, manualPoints[i].y * SCALE);
     }
     maskCtx.closePath();
     maskCtx.fill();

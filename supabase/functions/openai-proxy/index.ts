@@ -1,9 +1,9 @@
 /* =========================================================================
-   RatedWorktops — Fal.ai Inpainting Proxy with Mask & Color Precision (Supabase Edge Function)
+   RatedWorktops — Fal.ai Inpainting Proxy (Supabase Edge Function)
    =========================================================================
-   Accepts kitchen image + inpainting mask + stone prompt.
-   Calls Fal.ai fast-sdxl/inpainting to replace ONLY the white mask area
-   (countertop and splashback) with the exact selected stone color material.
+   Accepts clean kitchen image + binary inpainting mask + stone prompt.
+   Calls Fal.ai fast-sdxl/inpainting to replace ONLY the masked worktop area
+   with the selected stone material in 8k photorealistic quality.
    Required Supabase secret: FAL_KEY
    ========================================================================= */
 
@@ -82,9 +82,9 @@ serve(async (req: Request) => {
     const falPayload: any = {
       image_url: body.image,
       prompt: body.prompt,
-      strength: 0.98,
-      num_inference_steps: 32,
-      guidance_scale: 8.0
+      strength: 0.90,
+      num_inference_steps: 35,
+      guidance_scale: 7.5
     };
 
     if (body.mask) {
