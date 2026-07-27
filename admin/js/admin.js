@@ -1176,27 +1176,34 @@ async function updateSettingsInDB(settings) {
   };
 
   // 1. Try standard Postgres snake_case schema
-  let { error } = await supabaseClient.from('settings').upsert(snakePayload);
+  let res = await supabaseClient.from('settings').upsert(snakePayload);
+  let error = res.error;
 
-  // 2. If snake_case fails due to missing columns, try JSONB `data` column payload
+  // 2. If snake_case fails due to missing columns or schema mismatch, try camelCase payload
   if (error) {
-    console.warn('[Admin Settings] snake_case upsert notice:', error.message, 'Trying JSONB data payload...');
-    const jsonPayload = { id: 1, data: settings, updated_at: new Date().toISOString() };
-    const retryJson = await supabaseClient.from('settings').upsert(jsonPayload);
-    error = retryJson.error;
-  }
-
-  // 3. If JSONB fails, try camelCase payload
-  if (error) {
-    console.warn('[Admin Settings] JSONB upsert notice:', error.message, 'Trying camelCase payload...');
+    console.warn('[Admin Settings] snake_case upsert notice:', error.message, 'Trying camelCase payload...');
     const camelPayload = { id: 1, ...settings, updated_at: new Date().toISOString() };
     const retryCamel = await supabaseClient.from('settings').upsert(camelPayload);
-    error = retryCamel.error;
+    if (!retryCamel.error) error = null;
+    else error = retryCamel.error;
+  }
+
+  // 3. If camelCase fails, try JSONB `data` column payload
+  if (error) {
+    console.warn('[Admin Settings] camelCase upsert notice:', error.message, 'Trying JSONB data payload...');
+    const jsonPayload = { id: 1, data: settings, updated_at: new Date().toISOString() };
+    const retryJson = await supabaseClient.from('settings').upsert(jsonPayload);
+    if (!retryJson.error) error = null;
+    else error = retryJson.error;
   }
 
   if (error) {
-    console.warn('[Admin Settings] Supabase table missing columns. Saved to local storage. Run admin/setup-settings-table.sql in Supabase Editor to enable cloud sync.', error.message);
-    showToast('Settings saved successfully! (Run SQL setup in Supabase to sync cloud database)', 'warning');
+    console.warn('[Admin Settings] Supabase save error:', error.message);
+    if (error.message && error.message.includes('column')) {
+      showToast('Settings saved locally! (Please run the updated SQL in Supabase Editor to reload schema cache)', 'warning');
+    } else {
+      showToast('Database notice: ' + (error.message || 'Row Level Security policy check failed'), 'error');
+    }
   } else {
     showToast('Settings saved & published to live user platform!', 'success');
   }
