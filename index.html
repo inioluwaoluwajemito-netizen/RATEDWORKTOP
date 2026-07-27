@@ -937,15 +937,7 @@
     async function renderPricingPlans() {
       const grid = document.getElementById('pricing-plans-grid');
       const user = await getCurrentUser();
-      const settings = store.get('settings', {
-        freeCreditsEnabled: true,
-        subscriptionsEnabled: true,
-        freeCreditsCount: 10,
-        monthlyPrice: 9.99,
-        annualPrice: 89.99,
-        monthlyCredits: 100,
-        annualCredits: 1500
-      });
+      const settings = typeof fetchAppSettings === 'function' ? await fetchAppSettings() : store.get('settings', {});
 
       // Case 1: Subscription model is disabled by administrator (Unlimited Free Mode)
       if (!settings.subscriptionsEnabled) {
@@ -1052,6 +1044,10 @@
       `;
       lucide.createIcons();
     }
+
+    window.addEventListener('settingsUpdated', () => {
+      renderPricingPlans();
+    });
   </script>
 </body>
 </html>

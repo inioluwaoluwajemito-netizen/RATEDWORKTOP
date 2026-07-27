@@ -253,7 +253,7 @@
       const emptyView = document.getElementById('empty-projects-view');
       const upgradeBanner = document.getElementById('project-upgrade-banner');
       
-      const settings = store.get('settings', {});
+      const settings = typeof fetchAppSettings === 'function' ? await fetchAppSettings() : store.get('settings', {});
       const maxLimit = settings.maxSavedProjects || 2;
       
       const { data: projects, error } = await supabaseClient

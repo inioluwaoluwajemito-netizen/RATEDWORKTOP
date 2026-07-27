@@ -1130,9 +1130,16 @@ async function deleteProfileFromDB(id) {
 }
 
 async function updateSettingsInDB(settings) {
+  store.set('settings', settings);
   if (!supabaseClient) return;
-  // Upsert settings (assuming id = 1)
-  await supabaseClient.from('settings').upsert({ id: 1, ...settings });
+  const payload = { id: 1, ...settings, updated_at: new Date().toISOString() };
+  const { error } = await supabaseClient.from('settings').upsert(payload);
+  if (error) {
+    console.error('[Admin Settings] Database save error:', error);
+    showToast('Database save notice: ' + error.message, 'error');
+  } else {
+    showToast('Settings saved & published to live user platform!', 'success');
+  }
 }
 
 function drawMiniBarChart(canvas, data, color = '#c9a96e') {

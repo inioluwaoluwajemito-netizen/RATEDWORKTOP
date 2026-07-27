@@ -773,8 +773,62 @@ async function logout() {
   window.location.href = 'index.html';
 }
 
+async function fetchAppSettings() {
+  const defaultSettings = {
+    freeCreditsEnabled: true,
+    subscriptionsEnabled: true,
+    freeCreditsCount: 10,
+    monthlyPrice: 9.99,
+    monthlyCredits: 100,
+    annualPrice: 89.99,
+    annualCredits: 1500,
+    tempStorageHours: 48,
+    maxSavedProjects: 2
+  };
+
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
+      if (data && !error) {
+        const merged = { ...defaultSettings, ...data };
+        store.set('settings', merged);
+        return merged;
+      }
+    } catch (err) {
+      console.warn('[Settings] Failed to fetch live settings from Supabase:', err);
+    }
+  }
+
+  const cached = store.get('settings');
+  return cached ? { ...defaultSettings, ...cached } : defaultSettings;
+}
+
+function subscribeToSettingsChanges() {
+  if (!supabaseClient) return;
+  try {
+    supabaseClient
+      .channel('public-settings-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async (payload) => {
+        console.log('[Settings] Live admin settings change detected:', payload.new);
+        if (payload.new) {
+          const current = store.get('settings', {});
+          const updated = { ...current, ...payload.new };
+          store.set('settings', updated);
+          window.dispatchEvent(new CustomEvent('settingsUpdated', { detail: updated }));
+        }
+      })
+      .subscribe();
+  } catch (e) {
+    console.warn('[Settings] Realtime subscription notice:', e);
+  }
+}
+
 async function registerUser({ name, email, password }) {
   if (!supabaseClient) return { ok: false, error: 'Database disconnected' };
+
+  const settings = await fetchAppSettings();
+  const starterCredits = (settings.freeCreditsEnabled !== false) ? (settings.freeCreditsCount ?? 10) : 0;
+
   const { data, error } = await supabaseClient.auth.signUp({
     email,
     password,
@@ -783,13 +837,13 @@ async function registerUser({ name, email, password }) {
   if (error) return { ok: false, error: error.message };
   
   if (data.user) {
-    // Attempt to create a profile (might fail if trigger already does it, but we don't have a trigger here)
+    // Attempt to create a profile with exact starter credits configured by Admin
     const { error: profileError } = await supabaseClient.from('profiles').insert([{
       id: data.user.id,
       name,
       email,
       plan: 'Free',
-      credits: 10
+      credits: starterCredits
     }]);
     if (profileError) console.error('Profile creation error:', profileError);
   }
@@ -1360,4 +1414,5 @@ function spendCredit() {
 // ── DOM ready ─────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   seedAppData();
+  fetchAppSettings().then(subscribeToSettingsChanges);
 });

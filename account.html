@@ -366,8 +366,8 @@
     }
 
     // SUBSCRIPTION TAB
-    function populateSubscriptionTab() {
-      const settings = store.get('settings', {});
+    async function populateSubscriptionTab() {
+      const settings = typeof fetchAppSettings === 'function' ? await fetchAppSettings() : store.get('settings', {});
       const planLbl = document.getElementById('subs-plan-lbl');
       const creditsLbl = document.getElementById('subs-credits-lbl');
       const renewalRow = document.getElementById('subs-renewal-row');
@@ -492,8 +492,8 @@
     }
 
     async function simulateUpgrade(plan, period) {
-      const settings = store.get('settings', {});
-      const creditsToAdd = period === 'annual' ? settings.annualCredits : settings.monthlyCredits;
+      const settings = typeof fetchAppSettings === 'function' ? await fetchAppSettings() : store.get('settings', {});
+      const creditsToAdd = period === 'annual' ? (settings.annualCredits || 1500) : (settings.monthlyCredits || 100);
       
       const updatedProfile = await updateCurrentUser({
         plan: plan,
@@ -588,6 +588,10 @@
 
       await logout();
     }
+
+    window.addEventListener('settingsUpdated', () => {
+      populateSubscriptionTab();
+    });
   </script>
 </body>
 </html>
