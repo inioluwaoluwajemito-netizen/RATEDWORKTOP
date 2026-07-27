@@ -2,8 +2,8 @@
 -- RatedWorktops — Settings Table Setup Script (Supabase SQL)
 -- =========================================================================
 -- Run this script in Supabase Dashboard -> SQL Editor to ensure the
--- settings table exists with all standard snake_case and camelCase columns
--- and open access permissions.
+-- settings table exists with all standard snake_case and camelCase columns,
+-- RLS policies, and instant PostgREST schema cache reload.
 -- =========================================================================
 
 CREATE TABLE IF NOT EXISTS public.settings (
@@ -56,17 +56,20 @@ ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS "tempStorageHours" INT DEFA
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS "maxSavedProjects" INT DEFAULT 2;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS data JSONB DEFAULT '{}'::jsonb;
 
--- Ensure row 1 exists
+-- Ensure default row 1 exists
 INSERT INTO public.settings (id)
 VALUES (1)
 ON CONFLICT (id) DO NOTHING;
 
--- Disable RLS & Grant full permissions so upserts never fail
-ALTER TABLE public.settings DISABLE ROW LEVEL SECURITY;
+-- Enable Row Level Security with full access policy
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 
-GRANT ALL ON TABLE public.settings TO anon;
-GRANT ALL ON TABLE public.settings TO authenticated;
-GRANT ALL ON TABLE public.settings TO service_role;
+DROP POLICY IF EXISTS "Allow all access to settings" ON public.settings;
+CREATE POLICY "Allow all access to settings" ON public.settings
+    FOR ALL
+    TO public
+    USING (true)
+    WITH CHECK (true);
 
 -- Force PostgREST schema cache reload immediately
 NOTIFY pgrst, 'reload schema';
