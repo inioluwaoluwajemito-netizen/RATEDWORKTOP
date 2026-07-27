@@ -773,6 +773,22 @@ async function logout() {
   window.location.href = 'index.html';
 }
 
+function normalizeSettingsData(data) {
+  if (!data) return null;
+  const source = data.data || data;
+  return {
+    freeCreditsEnabled: source.free_credits_enabled ?? source.freeCreditsEnabled ?? true,
+    subscriptionsEnabled: source.subscriptions_enabled ?? source.subscriptionsEnabled ?? true,
+    freeCreditsCount: source.free_credits_count ?? source.freeCreditsCount ?? 10,
+    monthlyPrice: source.monthly_price ?? source.monthlyPrice ?? 9.99,
+    monthlyCredits: source.monthly_credits ?? source.monthlyCredits ?? 100,
+    annualPrice: source.annual_price ?? source.annualPrice ?? 89.99,
+    annualCredits: source.annual_credits ?? source.annualCredits ?? 1500,
+    tempStorageHours: source.temp_storage_hours ?? source.tempStorageHours ?? 48,
+    maxSavedProjects: source.max_saved_projects ?? source.maxSavedProjects ?? 2
+  };
+}
+
 async function fetchAppSettings() {
   const defaultSettings = {
     freeCreditsEnabled: true,
@@ -790,7 +806,8 @@ async function fetchAppSettings() {
     try {
       const { data, error } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
       if (data && !error) {
-        const merged = { ...defaultSettings, ...data };
+        const normalized = normalizeSettingsData(data);
+        const merged = { ...defaultSettings, ...normalized };
         store.set('settings', merged);
         return merged;
       }
@@ -812,7 +829,8 @@ function subscribeToSettingsChanges() {
         console.log('[Settings] Live admin settings change detected:', payload.new);
         if (payload.new) {
           const current = store.get('settings', {});
-          const updated = { ...current, ...payload.new };
+          const normalized = normalizeSettingsData(payload.new);
+          const updated = { ...current, ...normalized };
           store.set('settings', updated);
           window.dispatchEvent(new CustomEvent('settingsUpdated', { detail: updated }));
         }

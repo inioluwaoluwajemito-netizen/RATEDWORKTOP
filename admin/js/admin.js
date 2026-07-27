@@ -1027,10 +1027,35 @@ async function fetchUsers() {
   })) : store.get('users', []);
 }
 
+function normalizeSettingsData(data) {
+  if (!data) return null;
+  const source = data.data || data;
+  return {
+    freeCreditsEnabled: source.free_credits_enabled ?? source.freeCreditsEnabled ?? true,
+    subscriptionsEnabled: source.subscriptions_enabled ?? source.subscriptionsEnabled ?? true,
+    freeCreditsCount: source.free_credits_count ?? source.freeCreditsCount ?? 10,
+    monthlyPrice: source.monthly_price ?? source.monthlyPrice ?? 9.99,
+    monthlyCredits: source.monthly_credits ?? source.monthlyCredits ?? 100,
+    annualPrice: source.annual_price ?? source.annualPrice ?? 89.99,
+    annualCredits: source.annual_credits ?? source.annualCredits ?? 1500,
+    tempStorageHours: source.temp_storage_hours ?? source.tempStorageHours ?? 48,
+    maxSavedProjects: source.max_saved_projects ?? source.maxSavedProjects ?? 2
+  };
+}
+
 async function fetchSettings() {
   if (!supabaseClient) return store.get('settings', {});
-  const { data } = await supabaseClient.from('settings').select('*').single();
-  return data || store.get('settings', {});
+  try {
+    const { data } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
+    const normalized = normalizeSettingsData(data);
+    if (normalized) {
+      store.set('settings', normalized);
+      return normalized;
+    }
+  } catch (err) {
+    console.warn('[Admin Settings] Fetch notice:', err);
+  }
+  return store.get('settings', {});
 }
 
 // ── Async Admin Write Helpers ─────────────────
@@ -1132,11 +1157,43 @@ async function deleteProfileFromDB(id) {
 async function updateSettingsInDB(settings) {
   store.set('settings', settings);
   if (!supabaseClient) return;
-  const payload = { id: 1, ...settings, updated_at: new Date().toISOString() };
-  const { error } = await supabaseClient.from('settings').upsert(payload);
+
+  const snakePayload = {
+    id: 1,
+    free_credits_enabled: settings.freeCreditsEnabled,
+    subscriptions_enabled: settings.subscriptionsEnabled,
+    free_credits_count: settings.freeCreditsCount,
+    monthly_price: settings.monthlyPrice,
+    monthly_credits: settings.monthlyCredits,
+    annual_price: settings.annualPrice,
+    annual_credits: settings.annualCredits,
+    temp_storage_hours: settings.tempStorageHours,
+    max_saved_projects: settings.maxSavedProjects,
+    updated_at: new Date().toISOString()
+  };
+
+  // 1. Try standard Postgres snake_case schema
+  let { error } = await supabaseClient.from('settings').upsert(snakePayload);
+
+  // 2. If snake_case fails due to schema mismatch, try camelCase payload
+  if (error) {
+    console.warn('[Admin Settings] snake_case upsert notice:', error.message, 'Trying camelCase payload...');
+    const camelPayload = { id: 1, ...settings, updated_at: new Date().toISOString() };
+    const retryCamel = await supabaseClient.from('settings').upsert(camelPayload);
+    error = retryCamel.error;
+  }
+
+  // 3. If camelCase also fails, try JSONB `data` column payload
+  if (error) {
+    console.warn('[Admin Settings] camelCase upsert notice:', error.message, 'Trying JSONB data payload...');
+    const jsonPayload = { id: 1, data: settings, updated_at: new Date().toISOString() };
+    const retryJson = await supabaseClient.from('settings').upsert(jsonPayload);
+    error = retryJson.error;
+  }
+
   if (error) {
     console.error('[Admin Settings] Database save error:', error);
-    showToast('Database save notice: ' + error.message, 'error');
+    showToast('Database notice: ' + error.message, 'error');
   } else {
     showToast('Settings saved & published to live user platform!', 'success');
   }
