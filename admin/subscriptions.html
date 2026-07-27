@@ -278,7 +278,6 @@ async function saveSettings() {
     maxSavedProjects: parseInt(document.getElementById('max-projects').value) || 2
   };
   await updateSettingsInDB(settings);
-  showToast('Settings saved successfully');
 }
 
 // Live preview updates
