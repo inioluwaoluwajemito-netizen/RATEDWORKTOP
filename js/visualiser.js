@@ -355,9 +355,75 @@ async function generateRender() {
     stopProgressTicker();
     setTimeout(() => setProgress(1), 100);
   }
+function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
+  const TARGET_SIZE = 512;
+  const colorDetails = getStoneColorDetails(stone);
+
+  const imageCanvas = document.createElement('canvas');
+  imageCanvas.width = TARGET_SIZE;
+  imageCanvas.height = TARGET_SIZE;
+  const imgCtx = imageCanvas.getContext('2d');
+
+  const sourceImage = window._originalImageElement || previewImg;
+  try {
+    imgCtx.drawImage(sourceImage, 0, 0, TARGET_SIZE, TARGET_SIZE);
+  } catch (e) {
+    console.warn('[Render] Canvas drawImage fallback:', e.message);
+    imgCtx.drawImage(previewImg, 0, 0, TARGET_SIZE, TARGET_SIZE);
+  }
+
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = TARGET_SIZE;
+  maskCanvas.height = TARGET_SIZE;
+  const maskCtx = maskCanvas.getContext('2d');
+
+  maskCtx.fillStyle = 'black';
+  maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
+
+  maskCtx.fillStyle = 'white';
+
+  const SCALE = TARGET_SIZE / 100;
+
+  if (manualPoints && manualPoints.length >= 3) {
+    maskCtx.beginPath();
+    maskCtx.moveTo(manualPoints[0].x * SCALE, manualPoints[0].y * SCALE);
+    for (let i = 1; i < manualPoints.length; i++) {
+      maskCtx.lineTo(manualPoints[i].x * SCALE, manualPoints[i].y * SCALE);
+    }
+    maskCtx.closePath();
+    maskCtx.fill();
+  } else {
+    const countertopPoints = [
+      { x: 5, y: 55 },
+      { x: 95, y: 55 },
+      { x: 98, y: 80 },
+      { x: 2, y: 80 }
+    ];
+    maskCtx.beginPath();
+    maskCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
+    for (let i = 1; i < countertopPoints.length; i++) {
+      maskCtx.lineTo(countertopPoints[i].x * SCALE, countertopPoints[i].y * SCALE);
+    }
+    maskCtx.closePath();
+    maskCtx.fill();
+
+    const splashbackPoints = [
+      { x: 35, y: 40 },
+      { x: 65, y: 40 },
+      { x: 65, y: 55 },
+      { x: 35, y: 55 }
+    ];
+    maskCtx.beginPath();
+    maskCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
+    for (let i = 1; i < splashbackPoints.length; i++) {
+      maskCtx.lineTo(splashbackPoints[i].x * SCALE, splashbackPoints[i].y * SCALE);
+    }
+    maskCtx.closePath();
+    maskCtx.fill();
+  }
+
+  return { imageCanvas, maskCanvas, colorDetails };
 }
-
-
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Clear any cached API keys immediately to disconnect
@@ -775,6 +841,12 @@ async function handleFile(file) {
   reader.onload = (e) => {
     previewImage.src = e.target.result;
     previewImage.style.display = 'block';
+
+    const origImg = new Image();
+    origImg.crossOrigin = "Anonymous";
+    origImg.src = e.target.result;
+    window._originalImageElement = origImg;
+    window._isAIRendered = false;
 
     const previewWrapper = document.getElementById('preview-wrapper');
     if (previewWrapper) previewWrapper.style.display = 'inline-flex';

@@ -375,7 +375,15 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
   imageCanvas.width = TARGET_SIZE;
   imageCanvas.height = TARGET_SIZE;
   const imgCtx = imageCanvas.getContext('2d');
-  imgCtx.drawImage(previewImg, 0, 0, TARGET_SIZE, TARGET_SIZE);
+
+  // Use un-tainted original image element if available to prevent canvas-taint errors on remote render URLs
+  const sourceImage = window._originalImageElement || previewImg;
+  try {
+    imgCtx.drawImage(sourceImage, 0, 0, TARGET_SIZE, TARGET_SIZE);
+  } catch (e) {
+    console.warn('[Render] Canvas drawImage fallback:', e.message);
+    imgCtx.drawImage(previewImg, 0, 0, TARGET_SIZE, TARGET_SIZE);
+  }
 
   // 2. Create 512x512 binary mask canvas (Black background = keep, White area = inpaint)
   const maskCanvas = document.createElement('canvas');
@@ -831,6 +839,12 @@ async function handleFile(file) {
   reader.onload = (e) => {
     previewImage.src = e.target.result;
     previewImage.style.display = 'block';
+
+    const origImg = new Image();
+    origImg.crossOrigin = "Anonymous";
+    origImg.src = e.target.result;
+    window._originalImageElement = origImg;
+    window._isAIRendered = false;
     
     const previewWrapper = document.getElementById('preview-wrapper');
     if (previewWrapper) previewWrapper.style.display = 'inline-flex';
