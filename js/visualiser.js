@@ -983,106 +983,13 @@ function redrawCanvas() {
 
 function setupActionListeners() {
   resetBtn.addEventListener('click', () => {
-    window._isAIRendered = false; // Reset AI rendering flag
-    previewImage.src = '';
-    previewImage.style.display = 'none';
-    const previewWrapper = document.getElementById('preview-wrapper');
-    if (previewWrapper) previewWrapper.style.display = 'none';
-    fileInput.value = '';
-
-    const uploadWrapper = uploadArea.querySelector('.upload-content-wrapper') || document.getElementById('upload-content');
-    if (uploadWrapper) {
-      uploadWrapper.style.display = 'flex';
-    } else {
-      const upIcon = uploadArea.querySelector('.upload-icon') || uploadArea.querySelector('[data-lucide="upload"]') || uploadArea.querySelector('[data-lucide="upload-cloud"]');
-      if (upIcon) upIcon.style.display = 'block';
-      const upTitle = uploadArea.querySelector('.upload-title');
-      if (upTitle) upTitle.style.display = 'block';
-      const upDesc = uploadArea.querySelector('.upload-desc');
-      if (upDesc) upDesc.style.display = 'block';
-    }
-
-    drawingToolbar.style.display = 'none';
-
-    clearPointsBtn.style.display = 'none';
-    drawingTip.textContent = 'Click on photo to trace countertop';
-
-    points = [];
-    isDrawMode = false;
-    originalFileUrl = null;
-
-    if (actionBar) actionBar.classList.remove('visible');
-    simulatedHighlight.style.display = 'none';
-
-    // Hide drawing components if active
-
-
-    // Show pre-render controls
-    const preRenderControls = document.getElementById('pre-render-controls');
-    if (preRenderControls) preRenderControls.style.display = 'flex';
-
-    generateBtn.disabled = false;
-    generateBtn.innerHTML = `<i data-lucide="sparkles" style="width:16px;height:16px"></i> Generate AI Render`;
-
-    document.getElementById('post-render-actions').style.display = 'none';
-
-    // Reset selected stone display and selection state
-    selectedStone = null;
-    document.querySelectorAll('.stone-item').forEach(i => i.classList.remove('selected'));
-    updateSelectedMaterialCard(null);
-
-    lucide.createIcons();
+    window.location.reload();
   });
 
   const clearWorkspaceBtn = document.getElementById('clear-workspace-btn');
   if (clearWorkspaceBtn) {
     clearWorkspaceBtn.addEventListener('click', () => {
-      // Clear image from preview and file input
-      previewImage.src = '';
-      previewImage.style.display = 'none';
-      const previewWrapper = document.getElementById('preview-wrapper');
-      if (previewWrapper) previewWrapper.style.display = 'none';
-      fileInput.value = '';
-
-      // Show upload content wrapper
-      const uploadWrapper = uploadArea.querySelector('.upload-content-wrapper') || document.getElementById('upload-content');
-      if (uploadWrapper) {
-        uploadWrapper.style.display = 'flex';
-      } else {
-        const upIcon = uploadArea.querySelector('.upload-icon') || uploadArea.querySelector('[data-lucide="upload"]') || uploadArea.querySelector('[data-lucide="upload-cloud"]');
-        if (upIcon) upIcon.style.display = 'block';
-        const upTitle = uploadArea.querySelector('.upload-title');
-        if (upTitle) upTitle.style.display = 'block';
-        const upDesc = uploadArea.querySelector('.upload-desc');
-        if (upDesc) upDesc.style.display = 'block';
-      }
-
-      // Clear points and redraw canvas
-      points = [];
-
-      clearPointsBtn.style.display = 'none';
-      drawingTip.textContent = 'Click on photo to trace countertop';
-
-      // Hide tools and canvas
-      if (actionBar) actionBar.classList.remove('visible');
-      drawingToolbar.style.display = 'none';
-
-
-      // Hide highlights
-      simulatedHighlight.style.display = 'none';
-
-      // Reset selected stone
-      selectedStone = null;
-      document.querySelectorAll('.stone-item').forEach(i => i.classList.remove('selected'));
-      updateSelectedMaterialCard(null);
-
-      // Revert to pre-render controls
-      const postActions = document.getElementById('post-render-actions');
-      const preControls = document.getElementById('pre-render-controls');
-      if (postActions) postActions.style.display = 'none';
-      if (preControls) preControls.style.display = 'flex';
-
-      showToast('Workspace cleared!', 'info');
+      window.location.reload();
     });
   }
 
