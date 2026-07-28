@@ -199,6 +199,7 @@ async function generateRender() {
       // Directly set src — works for both URLs and base64 data URIs
       previewImage.src = aiImageUrl;
       previewImage.style.display = 'block';
+      window._isAIRendered = true;
 
       // For Download/Share: draw onto canvas (works since src is base64 / same-origin)
       await new Promise((resolve) => {
@@ -661,8 +662,8 @@ function renderStones() {
       const renderCanvas = document.getElementById('render-canvas');
       if (renderCanvas) renderCanvas.style.display = 'none';
 
-      // Automatically re-generate AI render when user selects a new stone
-      if (previewImage && previewImage.src && previewImage.style.display === 'block' && !isRendering) {
+      // ONLY auto-generate after the user has clicked "Generate AI Render" at least once!
+      if (window._isAIRendered && !isRendering) {
         generateRender();
       }
     });

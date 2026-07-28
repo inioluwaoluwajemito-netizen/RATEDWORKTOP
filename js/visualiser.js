@@ -251,6 +251,7 @@ async function generateRender() {
 
       previewImage.src = aiImageUrl;
       previewImage.style.display = 'block';
+      window._isAIRendered = true;
 
       const renderCanvas = document.getElementById('render-canvas');
       if (renderCanvas) {
@@ -586,8 +587,8 @@ function renderStones() {
         simulatedHighlight.innerHTML = '';
       }
 
-      // Automatically re-generate AI render when user selects a new stone
-      if (previewImage && previewImage.src && previewImage.style.display === 'block' && !isRendering) {
+      // ONLY auto-generate after the user has clicked "Generate AI Render" at least once!
+      if (window._isAIRendered && !isRendering) {
         generateRender();
       }
     });
