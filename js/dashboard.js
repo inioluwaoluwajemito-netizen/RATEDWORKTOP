@@ -653,12 +653,17 @@ function renderStones() {
       selectedStone = stone;
       updateSelectedMaterialCard(stone);
 
-      // If the render has already been generated once, update it instantly to show the new stone
-      if (previewImage.src && previewImage.style.display === 'block' && !isDrawMode) {
-        const postActions = document.getElementById('post-render-actions');
-        if (postActions && postActions.style.display === 'flex') {
-          updateRenderInstantly();
-        }
+      // Hide 2D canvas & SVG overlays
+      if (simulatedHighlight) {
+        simulatedHighlight.style.display = 'none';
+        simulatedHighlight.innerHTML = '';
+      }
+      const renderCanvas = document.getElementById('render-canvas');
+      if (renderCanvas) renderCanvas.style.display = 'none';
+
+      // Automatically re-generate AI render when user selects a new stone
+      if (previewImage && previewImage.src && previewImage.style.display === 'block' && !isRendering) {
+        generateRender();
       }
     });
 
@@ -1595,7 +1600,18 @@ function setupMobileNavListeners() {
 
 
 function updateRenderInstantly() {
-  if (!selectedStone || !previewImage.src) return;
+  if (!selectedStone || !previewImage || !previewImage.src) return;
+
+  // Never show 2D canvas/SVG overlays on AI rendered images
+  if (window._isAIRendered || (previewImage && previewImage.src && previewImage.style.display === 'block')) {
+    if (simulatedHighlight) {
+      simulatedHighlight.style.display = 'none';
+      simulatedHighlight.innerHTML = '';
+    }
+    const renderCanvas = document.getElementById('render-canvas');
+    if (renderCanvas) renderCanvas.style.display = 'none';
+    return;
+  }
 
   const renderCanvas = document.getElementById('render-canvas');
   if (!renderCanvas) return;
