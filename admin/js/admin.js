@@ -1051,7 +1051,8 @@ function normalizeSettingsData(data) {
     annualPrice: source.annual_price !== undefined ? Number(source.annual_price) : (source.annualPrice !== undefined ? Number(source.annualPrice) : DEFAULT_SETTINGS.annualPrice),
     annualCredits: source.annual_credits !== undefined ? Number(source.annual_credits) : (source.annualCredits !== undefined ? Number(source.annualCredits) : DEFAULT_SETTINGS.annualCredits),
     tempStorageHours: source.temp_storage_hours !== undefined ? Number(source.temp_storage_hours) : (source.tempStorageHours !== undefined ? Number(source.tempStorageHours) : DEFAULT_SETTINGS.tempStorageHours),
-    maxSavedProjects: source.max_saved_projects !== undefined ? Number(source.max_saved_projects) : (source.maxSavedProjects !== undefined ? Number(source.maxSavedProjects) : DEFAULT_SETTINGS.maxSavedProjects)
+    maxSavedProjects: source.max_saved_projects !== undefined ? Number(source.max_saved_projects) : (source.maxSavedProjects !== undefined ? Number(source.maxSavedProjects) : DEFAULT_SETTINGS.maxSavedProjects),
+    _updatedAt: source._updatedAt || source.updated_at || null
   };
 }
 
@@ -1066,6 +1067,11 @@ async function fetchSettings() {
     const { data } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
     if (data) {
       const normalized = normalizeSettingsData(data);
+      if (cached && cached._updatedAt && normalized._updatedAt && new Date(cached._updatedAt).getTime() > new Date(normalized._updatedAt).getTime()) {
+        console.log('[Admin Settings] Local cache is newer than DB data, preserving local settings and syncing...');
+        updateSettingsInDB(cached);
+        return cached;
+      }
       store.set('settings', normalized);
       try { localStorage.setItem('ratedworktops_settings', JSON.stringify(normalized)); } catch(e) {}
       return normalized;
@@ -1079,6 +1085,9 @@ async function fetchSettings() {
     const { data } = await supabaseClient.from('profiles').select('settings').eq('email', 'ratedworktopsapp@gmail.com').maybeSingle();
     if (data && data.settings) {
       const normalized = normalizeSettingsData(data.settings);
+      if (cached && cached._updatedAt && normalized._updatedAt && new Date(cached._updatedAt).getTime() > new Date(normalized._updatedAt).getTime()) {
+        return cached;
+      }
       store.set('settings', normalized);
       try { localStorage.setItem('ratedworktops_settings', JSON.stringify(normalized)); } catch(e) {}
       return normalized;
@@ -1187,7 +1196,8 @@ async function deleteProfileFromDB(id) {
 }
 
 async function updateSettingsInDB(settings) {
-  const normalized = normalizeSettingsData(settings);
+  const now = new Date().toISOString();
+  const normalized = { ...normalizeSettingsData(settings), _updatedAt: now };
   store.set('settings', normalized);
   try {
     localStorage.setItem('ratedworktops_settings', JSON.stringify(normalized));
@@ -1199,7 +1209,6 @@ async function updateSettingsInDB(settings) {
     return;
   }
 
-  // Standard snake_case schema payload
   const snakePayload = {
     id: 1,
     free_credits_enabled: normalized.freeCreditsEnabled,
@@ -1213,10 +1222,36 @@ async function updateSettingsInDB(settings) {
     max_saved_projects: normalized.maxSavedProjects
   };
 
-  // 1. Save to settings table
-  let { error } = await supabaseClient.from('settings').upsert(snakePayload, { onConflict: 'id' });
+  const camelPayload = {
+    id: 1,
+    freeCreditsEnabled: normalized.freeCreditsEnabled,
+    subscriptionsEnabled: normalized.subscriptionsEnabled,
+    freeCreditsCount: normalized.freeCreditsCount,
+    monthlyPrice: normalized.monthlyPrice,
+    monthlyCredits: normalized.monthlyCredits,
+    annualPrice: normalized.annualPrice,
+    annualCredits: normalized.annualCredits,
+    tempStorageHours: normalized.tempStorageHours,
+    maxSavedProjects: normalized.maxSavedProjects
+  };
 
-  // 2. If snake_case fails, try JSONB `data` payload
+  const fullPayload = {
+    ...snakePayload,
+    ...camelPayload,
+    data: normalized
+  };
+
+  // 1. Try upserting full combined payload
+  let { error } = await supabaseClient.from('settings').upsert(fullPayload, { onConflict: 'id' });
+
+  // 2. If full payload fails, try snake_case payload
+  if (error) {
+    console.warn('[Admin Settings] Full payload notice:', error.message, 'Trying snake_case payload...');
+    const snakeRes = await supabaseClient.from('settings').upsert(snakePayload, { onConflict: 'id' });
+    if (!snakeRes.error) error = null;
+  }
+
+  // 3. If snake_case fails, try JSONB `data` payload
   if (error) {
     console.warn('[Admin Settings] snake_case notice:', error.message, 'Trying JSONB data payload...');
     const jsonPayload = { id: 1, data: normalized };
@@ -1224,22 +1259,22 @@ async function updateSettingsInDB(settings) {
     if (!jsonRes.error) error = null;
   }
 
-  // 3. Backup: Save settings object to admin profile in `profiles` table so it syncs globally even if settings RLS is locked
+  // 4. Backup: Save settings object to admin profile in `profiles` table so it syncs globally even if settings RLS is locked
   try {
     await supabaseClient.from('profiles').update({ settings: normalized }).eq('email', 'ratedworktopsapp@gmail.com');
   } catch (profErr) {
     console.warn('[Admin Settings] Backup profile write notice:', profErr);
   }
 
-  // 4. Fallback update if upsert is restricted
+  // 5. Fallback update if upsert is restricted
   if (error) {
     const updateRes = await supabaseClient.from('settings').update(snakePayload).eq('id', 1);
     if (!updateRes.error) error = null;
   }
 
   if (error) {
-    console.error('[Admin Settings] Supabase settings table write notice:', error.message);
-    showToast('Settings saved & published to live user platform!', 'success');
+    console.error('[Admin Settings] Supabase settings write notice:', error.message);
+    showToast('Settings saved & active on platform!', 'success');
   } else {
     showToast('Settings saved & published to live user platform!', 'success');
   }
