@@ -777,15 +777,15 @@ function normalizeSettingsData(data) {
   if (!data) return null;
   const source = data.data || data;
   return {
-    freeCreditsEnabled: source.free_credits_enabled ?? source.freeCreditsEnabled ?? true,
-    subscriptionsEnabled: source.subscriptions_enabled ?? source.subscriptionsEnabled ?? true,
-    freeCreditsCount: source.free_credits_count ?? source.freeCreditsCount ?? 10,
-    monthlyPrice: source.monthly_price ?? source.monthlyPrice ?? 9.99,
-    monthlyCredits: source.monthly_credits ?? source.monthlyCredits ?? 100,
-    annualPrice: source.annual_price ?? source.annualPrice ?? 89.99,
-    annualCredits: source.annual_credits ?? source.annualCredits ?? 1500,
-    tempStorageHours: source.temp_storage_hours ?? source.tempStorageHours ?? 48,
-    maxSavedProjects: source.max_saved_projects ?? source.maxSavedProjects ?? 2
+    freeCreditsEnabled: (typeof source.free_credits_enabled === 'boolean') ? source.free_credits_enabled : ((typeof source.freeCreditsEnabled === 'boolean') ? source.freeCreditsEnabled : true),
+    subscriptionsEnabled: (typeof source.subscriptions_enabled === 'boolean') ? source.subscriptions_enabled : ((typeof source.subscriptionsEnabled === 'boolean') ? source.subscriptionsEnabled : true),
+    freeCreditsCount: source.free_credits_count !== undefined ? Number(source.free_credits_count) : (source.freeCreditsCount !== undefined ? Number(source.freeCreditsCount) : 10),
+    monthlyPrice: source.monthly_price !== undefined ? Number(source.monthly_price) : (source.monthlyPrice !== undefined ? Number(source.monthlyPrice) : 9.99),
+    monthlyCredits: source.monthly_credits !== undefined ? Number(source.monthly_credits) : (source.monthlyCredits !== undefined ? Number(source.monthlyCredits) : 100),
+    annualPrice: source.annual_price !== undefined ? Number(source.annual_price) : (source.annualPrice !== undefined ? Number(source.annualPrice) : 89.99),
+    annualCredits: source.annual_credits !== undefined ? Number(source.annual_credits) : (source.annualCredits !== undefined ? Number(source.annualCredits) : 1500),
+    tempStorageHours: source.temp_storage_hours !== undefined ? Number(source.temp_storage_hours) : (source.tempStorageHours !== undefined ? Number(source.tempStorageHours) : 48),
+    maxSavedProjects: source.max_saved_projects !== undefined ? Number(source.max_saved_projects) : (source.maxSavedProjects !== undefined ? Number(source.maxSavedProjects) : 2)
   };
 }
 

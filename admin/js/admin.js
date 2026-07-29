@@ -1027,35 +1027,57 @@ async function fetchUsers() {
   })) : store.get('users', []);
 }
 
+const DEFAULT_SETTINGS = {
+  freeCreditsEnabled: true,
+  subscriptionsEnabled: true,
+  freeCreditsCount: 10,
+  monthlyPrice: 9.99,
+  monthlyCredits: 100,
+  annualPrice: 89.99,
+  annualCredits: 1500,
+  tempStorageHours: 48,
+  maxSavedProjects: 2
+};
+
 function normalizeSettingsData(data) {
-  if (!data) return null;
+  if (!data) return DEFAULT_SETTINGS;
   const source = data.data || data;
   return {
-    freeCreditsEnabled: source.free_credits_enabled ?? source.freeCreditsEnabled ?? true,
-    subscriptionsEnabled: source.subscriptions_enabled ?? source.subscriptionsEnabled ?? true,
-    freeCreditsCount: source.free_credits_count ?? source.freeCreditsCount ?? 10,
-    monthlyPrice: source.monthly_price ?? source.monthlyPrice ?? 9.99,
-    monthlyCredits: source.monthly_credits ?? source.monthlyCredits ?? 100,
-    annualPrice: source.annual_price ?? source.annualPrice ?? 89.99,
-    annualCredits: source.annual_credits ?? source.annualCredits ?? 1500,
-    tempStorageHours: source.temp_storage_hours ?? source.tempStorageHours ?? 48,
-    maxSavedProjects: source.max_saved_projects ?? source.maxSavedProjects ?? 2
+    freeCreditsEnabled: (typeof source.free_credits_enabled === 'boolean') ? source.free_credits_enabled : ((typeof source.freeCreditsEnabled === 'boolean') ? source.freeCreditsEnabled : DEFAULT_SETTINGS.freeCreditsEnabled),
+    subscriptionsEnabled: (typeof source.subscriptions_enabled === 'boolean') ? source.subscriptions_enabled : ((typeof source.subscriptionsEnabled === 'boolean') ? source.subscriptionsEnabled : DEFAULT_SETTINGS.subscriptionsEnabled),
+    freeCreditsCount: source.free_credits_count !== undefined ? Number(source.free_credits_count) : (source.freeCreditsCount !== undefined ? Number(source.freeCreditsCount) : DEFAULT_SETTINGS.freeCreditsCount),
+    monthlyPrice: source.monthly_price !== undefined ? Number(source.monthly_price) : (source.monthlyPrice !== undefined ? Number(source.monthlyPrice) : DEFAULT_SETTINGS.monthlyPrice),
+    monthlyCredits: source.monthly_credits !== undefined ? Number(source.monthly_credits) : (source.monthlyCredits !== undefined ? Number(source.monthlyCredits) : DEFAULT_SETTINGS.monthlyCredits),
+    annualPrice: source.annual_price !== undefined ? Number(source.annual_price) : (source.annualPrice !== undefined ? Number(source.annualPrice) : DEFAULT_SETTINGS.annualPrice),
+    annualCredits: source.annual_credits !== undefined ? Number(source.annual_credits) : (source.annualCredits !== undefined ? Number(source.annualCredits) : DEFAULT_SETTINGS.annualCredits),
+    tempStorageHours: source.temp_storage_hours !== undefined ? Number(source.temp_storage_hours) : (source.tempStorageHours !== undefined ? Number(source.tempStorageHours) : DEFAULT_SETTINGS.tempStorageHours),
+    maxSavedProjects: source.max_saved_projects !== undefined ? Number(source.max_saved_projects) : (source.maxSavedProjects !== undefined ? Number(source.maxSavedProjects) : DEFAULT_SETTINGS.maxSavedProjects)
   };
 }
 
 async function fetchSettings() {
-  if (!supabaseClient) return store.get('settings', {});
+  let cached = store.get('settings');
+  if (cached && Object.keys(cached).length > 0) {
+    cached = normalizeSettingsData(cached);
+  } else {
+    cached = DEFAULT_SETTINGS;
+  }
+
+  if (!supabaseClient) return cached;
+
   try {
     const { data } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
-    const normalized = normalizeSettingsData(data);
-    if (normalized) {
+    if (data) {
+      const normalized = normalizeSettingsData(data);
       store.set('settings', normalized);
+      try { localStorage.setItem('ratedworktops_settings', JSON.stringify(normalized)); } catch(e) {}
       return normalized;
     }
   } catch (err) {
     console.warn('[Admin Settings] Fetch notice:', err);
   }
-  return store.get('settings', {});
+
+  return cached;
 }
 
 // ── Async Admin Write Helpers ─────────────────
@@ -1155,51 +1177,60 @@ async function deleteProfileFromDB(id) {
 }
 
 async function updateSettingsInDB(settings) {
-  store.set('settings', settings);
+  const normalized = normalizeSettingsData(settings);
+  store.set('settings', normalized);
+  try { localStorage.setItem('ratedworktops_settings', JSON.stringify(normalized)); } catch(e) {}
+
   if (!supabaseClient) {
     showToast('Settings saved locally!', 'success');
     return;
   }
 
-  const snakePayload = {
+  const payload = {
     id: 1,
-    free_credits_enabled: settings.freeCreditsEnabled,
-    subscriptions_enabled: settings.subscriptionsEnabled,
-    free_credits_count: settings.freeCreditsCount,
-    monthly_price: settings.monthlyPrice,
-    monthly_credits: settings.monthlyCredits,
-    annual_price: settings.annualPrice,
-    annual_credits: settings.annualCredits,
-    temp_storage_hours: settings.tempStorageHours,
-    max_saved_projects: settings.maxSavedProjects,
+    free_credits_enabled: normalized.freeCreditsEnabled,
+    subscriptions_enabled: normalized.subscriptionsEnabled,
+    free_credits_count: normalized.freeCreditsCount,
+    monthly_price: normalized.monthlyPrice,
+    monthly_credits: normalized.monthlyCredits,
+    annual_price: normalized.annualPrice,
+    annual_credits: normalized.annualCredits,
+    temp_storage_hours: normalized.tempStorageHours,
+    max_saved_projects: normalized.maxSavedProjects,
+
+    freeCreditsEnabled: normalized.freeCreditsEnabled,
+    subscriptionsEnabled: normalized.subscriptionsEnabled,
+    freeCreditsCount: normalized.freeCreditsCount,
+    monthlyPrice: normalized.monthlyPrice,
+    monthlyCredits: normalized.monthlyCredits,
+    annualPrice: normalized.annualPrice,
+    annualCredits: normalized.annualCredits,
+    tempStorageHours: normalized.tempStorageHours,
+    maxSavedProjects: normalized.maxSavedProjects,
+    data: normalized,
     updated_at: new Date().toISOString()
   };
 
-  // 1. Try standard Postgres snake_case schema
-  let res = await supabaseClient.from('settings').upsert(snakePayload);
-  let error = res.error;
+  // 1. Try upserting complete payload to Supabase DB
+  let { error } = await supabaseClient.from('settings').upsert(payload, { onConflict: 'id' });
 
-  // 2. If snake_case fails due to missing columns or schema mismatch, try camelCase payload
+  // 2. If upsert fails, try update
   if (error) {
-    console.warn('[Admin Settings] snake_case upsert notice:', error.message, 'Trying camelCase payload...');
-    const camelPayload = { id: 1, ...settings, updated_at: new Date().toISOString() };
-    const retryCamel = await supabaseClient.from('settings').upsert(camelPayload);
-    if (!retryCamel.error) error = null;
-    else error = retryCamel.error;
+    console.warn('[Admin Settings] Upsert notice:', error.message, 'Trying update...');
+    const updateRes = await supabaseClient.from('settings').update(payload).eq('id', 1);
+    if (!updateRes.error) error = null;
   }
 
-  // 3. If camelCase fails, try JSONB `data` column payload
+  // 3. If update fails, try insert
   if (error) {
-    console.warn('[Admin Settings] camelCase upsert notice:', error.message, 'Trying JSONB data payload...');
-    const jsonPayload = { id: 1, data: settings, updated_at: new Date().toISOString() };
-    const retryJson = await supabaseClient.from('settings').upsert(jsonPayload);
-    if (!retryJson.error) error = null;
-    else error = retryJson.error;
+    console.warn('[Admin Settings] Update notice:', error.message, 'Trying insert...');
+    const insertRes = await supabaseClient.from('settings').insert([payload]);
+    if (!insertRes.error) error = null;
   }
 
   if (error) {
-    console.warn('[Admin Settings] Supabase notice:', error.message);
-    showToast('Settings saved & published to live platform!', 'success');
+    console.error('[Admin Settings] Supabase DB write notice:', error.message);
+    showToast('Settings saved locally! (Supabase notice: ' + (error.message || 'Check database permissions') + ')', 'warning');
   } else {
     showToast('Settings saved & published to live user platform!', 'success');
   }

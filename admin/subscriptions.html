@@ -233,8 +233,8 @@ requireAuth();
 async function loadSettings() {
   const s = await fetchSettings();
 
-  document.getElementById('toggle-free-credits').checked = !!s.freeCreditsEnabled;
-  document.getElementById('toggle-subscriptions').checked = !!s.subscriptionsEnabled;
+  document.getElementById('toggle-free-credits').checked = s.freeCreditsEnabled !== false;
+  document.getElementById('toggle-subscriptions').checked = s.subscriptionsEnabled !== false;
   document.getElementById('free-credits-count').value = s.freeCreditsCount ?? 10;
   document.getElementById('monthly-price').value = s.monthlyPrice ?? 9.99;
   document.getElementById('monthly-credits').value = s.monthlyCredits ?? 100;
