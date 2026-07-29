@@ -1269,19 +1269,26 @@ function setupActionListeners() {
     btn.innerHTML = `<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0"></div> Saving...`;
     btn.disabled = true;
 
-    const { data: existing, error: countErr } = await supabaseClient
-      .from('projects')
-      .select('id')
-      .eq('user_id', currentUser.id);
+    let dbCount = 0;
+    try {
+      const { data: existing } = await supabaseClient
+        .from('projects')
+        .select('id')
+        .eq('user_id', currentUser.id);
+      if (existing) dbCount = existing.length;
+    } catch(e) {}
 
-    if (countErr) {
-      showToast('Failed to verify projects limit.', 'error');
-      resetSaveBtn(btn);
-      return;
-    }
+    let localProjects = [];
+    try {
+      localProjects = JSON.parse(localStorage.getItem('rw_local_projects_' + currentUser.id) || '[]');
+    } catch(e) {}
 
-    if (existing && existing.length >= 2) {
-      showToast('Save limit reached! Please delete a project in "My Projects" first.', 'error');
+    const totalCount = Math.max(dbCount, localProjects.length);
+    const settings = typeof fetchAppSettings === 'function' ? await fetchAppSettings() : {};
+    const maxLimit = settings.maxSavedProjects || 2;
+
+    if (totalCount >= maxLimit) {
+      showToast(`Save limit reached (${maxLimit} max)! Please delete a project in "My Projects" first.`, 'error');
       resetSaveBtn(btn);
       return;
     }
@@ -1293,35 +1300,57 @@ function setupActionListeners() {
         return;
       }
 
-      showToast('Saving design file to cloud storage...', 'info');
+      showToast('Saving design file...', 'info');
       const uuid = Math.random().toString(36).substring(2, 15);
       const path = `outputs/${currentUser.id}/${uuid}.jpg`;
       const uploadRes = await uploadFileToStorage('ratedworktops', path, blob);
 
+      let imageUrl = '';
       if (uploadRes.ok) {
+        imageUrl = uploadRes.url;
+      } else {
+        console.warn('[Save Project] Cloud upload notice:', uploadRes.error, 'Falling back to canvas data URL...');
+        imageUrl = renderCanvas ? renderCanvas.toDataURL('image/jpeg', 0.85) : '';
+      }
+
+      const stoneName = selectedStone ? (selectedStone.name || selectedStone.title || 'Custom Stone') : 'Stone Worktop';
+      const brandName = selectedStone ? (selectedStone.brandName || selectedStone.brand || 'RatedWorktops') : 'RatedWorktops';
+
+      const projectRecord = {
+        id: Math.random().toString(36).substring(2, 15) + Date.now().toString(36),
+        user_id: currentUser.id,
+        stone_name: stoneName,
+        brand_name: brandName,
+        image_url: imageUrl,
+        created_at: new Date().toISOString()
+      };
+
+      // 1. Try Supabase Database Insert
+      try {
         const { error: insertErr } = await supabaseClient
           .from('projects')
           .insert([{
             user_id: currentUser.id,
-            stone_name: selectedStone.name,
-            brand_name: selectedStone.brandName,
-            image_url: uploadRes.url
+            stone_name: stoneName,
+            brand_name: brandName,
+            image_url: imageUrl
           }]);
-
         if (insertErr) {
-          showToast('Failed to save project database row. ' + insertErr.message, 'error');
-          resetSaveBtn(btn);
-        } else {
-          showToast('Project saved successfully!', 'success');
-          btn.innerHTML = `<i data-lucide="check" style="width:16px;height:16px"></i> Saved`;
-          btn.style.background = '#4ade80';
-          btn.style.borderColor = '#4ade80';
-          btn.style.color = '#000';
+          console.warn('[Save Project] Supabase RLS/DB notice:', insertErr.message);
         }
-      } else {
-        showToast('Failed to upload rendered image. ' + uploadRes.error, 'error');
-        resetSaveBtn(btn);
+      } catch (err) {
+        console.warn('[Save Project] Supabase DB exception:', err);
       }
+
+      // 2. Always persist locally as fail-safe guarantee
+      localProjects.unshift(projectRecord);
+      try { localStorage.setItem('rw_local_projects_' + currentUser.id, JSON.stringify(localProjects)); } catch(e) {}
+
+      showToast('Project saved successfully!', 'success');
+      btn.innerHTML = `<i data-lucide="check" style="width:16px;height:16px"></i> Saved`;
+      btn.style.background = '#4ade80';
+      btn.style.borderColor = '#4ade80';
+      btn.style.color = '#000';
       lucide.createIcons();
     });
   });

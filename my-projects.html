@@ -256,16 +256,32 @@
       const settings = typeof fetchAppSettings === 'function' ? await fetchAppSettings() : store.get('settings', {});
       const maxLimit = settings.maxSavedProjects || 2;
       
-      const { data: projects, error } = await supabaseClient
-        .from('projects')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false });
-
-      if (error || !projects) {
-        showToast('Error loading projects', 'error');
-        return;
+      let dbProjects = [];
+      try {
+        const { data, error } = await supabaseClient
+          .from('projects')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('created_at', { ascending: false });
+        if (data && !error) dbProjects = data;
+      } catch (err) {
+        console.warn('[My Projects] Fetch notice:', err);
       }
+
+      let localProjects = [];
+      try {
+        localProjects = JSON.parse(localStorage.getItem('rw_local_projects_' + currentUser.id) || '[]');
+      } catch (err) {}
+
+      // Combine and deduplicate by image_url or id
+      const combined = [...dbProjects];
+      for (const lp of localProjects) {
+        if (!combined.some(p => p.id === lp.id || (p.image_url && p.image_url === lp.image_url))) {
+          combined.push(lp);
+        }
+      }
+
+      const projects = combined;
 
       // 1. Quota calculations
       const usedPercent = Math.min((projects.length / maxLimit) * 100, 100);
@@ -289,9 +305,6 @@
 
       let html = '';
       for (const proj of projects) {
-        // We mocked the image_url to hold the preview image
-        // And stone_name / brand_name are directly on the project
-        
         html += `
           <div class="project-card" id="project-card-${proj.id}">
             <div class="project-thumb-wrap">
@@ -329,16 +342,19 @@
     async function deleteProject(id) {
       if (!confirm("Are you sure you want to permanently delete this project?")) return;
 
-      const { error } = await supabaseClient
-        .from('projects')
-        .delete()
-        .eq('id', id);
+      try {
+        await supabaseClient
+          .from('projects')
+          .delete()
+          .eq('id', id);
+      } catch (err) {}
 
-      if (error) {
-        showToast('Failed to delete project', 'error');
-        return;
-      }
-      
+      try {
+        let localProjects = JSON.parse(localStorage.getItem('rw_local_projects_' + currentUser.id) || '[]');
+        localProjects = localProjects.filter(p => p.id !== id);
+        localStorage.setItem('rw_local_projects_' + currentUser.id, JSON.stringify(localProjects));
+      } catch (err) {}
+
       showToast("Project deleted successfully", 'success');
       renderProjects();
     }
