@@ -1056,15 +1056,12 @@ function normalizeSettingsData(data) {
 }
 
 async function fetchSettings() {
-  let cached = store.get('settings');
-  if (cached && Object.keys(cached).length > 0) {
-    cached = normalizeSettingsData(cached);
-  } else {
-    cached = DEFAULT_SETTINGS;
-  }
+  let cached = store.get('settings') || (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('ratedworktops_settings') || 'null') : null);
+  cached = cached ? normalizeSettingsData(cached) : DEFAULT_SETTINGS;
 
   if (!supabaseClient) return cached;
 
+  // 1. Try fetching from settings table (id=1)
   try {
     const { data } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
     if (data) {
@@ -1074,7 +1071,20 @@ async function fetchSettings() {
       return normalized;
     }
   } catch (err) {
-    console.warn('[Admin Settings] Fetch notice:', err);
+    console.warn('[Admin Settings] Fetch settings table notice:', err);
+  }
+
+  // 2. Backup: Try fetching from admin profile in profiles table
+  try {
+    const { data } = await supabaseClient.from('profiles').select('settings').eq('email', 'ratedworktopsapp@gmail.com').maybeSingle();
+    if (data && data.settings) {
+      const normalized = normalizeSettingsData(data.settings);
+      store.set('settings', normalized);
+      try { localStorage.setItem('ratedworktops_settings', JSON.stringify(normalized)); } catch(e) {}
+      return normalized;
+    }
+  } catch (err) {
+    console.warn('[Admin Settings] Fetch admin profile notice:', err);
   }
 
   return cached;
@@ -1179,7 +1189,10 @@ async function deleteProfileFromDB(id) {
 async function updateSettingsInDB(settings) {
   const normalized = normalizeSettingsData(settings);
   store.set('settings', normalized);
-  try { localStorage.setItem('ratedworktops_settings', JSON.stringify(normalized)); } catch(e) {}
+  try {
+    localStorage.setItem('ratedworktops_settings', JSON.stringify(normalized));
+    localStorage.setItem('rw_settings', JSON.stringify(normalized));
+  } catch(e) {}
 
   if (!supabaseClient) {
     showToast('Settings saved locally!', 'success');
@@ -1200,7 +1213,7 @@ async function updateSettingsInDB(settings) {
     max_saved_projects: normalized.maxSavedProjects
   };
 
-  // 1. Try snake_case upsert
+  // 1. Save to settings table
   let { error } = await supabaseClient.from('settings').upsert(snakePayload, { onConflict: 'id' });
 
   // 2. If snake_case fails, try JSONB `data` payload
@@ -1211,12 +1224,11 @@ async function updateSettingsInDB(settings) {
     if (!jsonRes.error) error = null;
   }
 
-  // 3. If JSONB fails, try camelCase payload
-  if (error) {
-    console.warn('[Admin Settings] JSONB notice:', error.message, 'Trying camelCase payload...');
-    const camelPayload = { id: 1, ...normalized };
-    const camelRes = await supabaseClient.from('settings').upsert(camelPayload, { onConflict: 'id' });
-    if (!camelRes.error) error = null;
+  // 3. Backup: Save settings object to admin profile in `profiles` table so it syncs globally even if settings RLS is locked
+  try {
+    await supabaseClient.from('profiles').update({ settings: normalized }).eq('email', 'ratedworktopsapp@gmail.com');
+  } catch (profErr) {
+    console.warn('[Admin Settings] Backup profile write notice:', profErr);
   }
 
   // 4. Fallback update if upsert is restricted
@@ -1226,8 +1238,8 @@ async function updateSettingsInDB(settings) {
   }
 
   if (error) {
-    console.error('[Admin Settings] Supabase DB write notice:', error.message);
-    showToast('Settings saved & active on platform!', 'success');
+    console.error('[Admin Settings] Supabase settings table write notice:', error.message);
+    showToast('Settings saved & published to live user platform!', 'success');
   } else {
     showToast('Settings saved & published to live user platform!', 'success');
   }

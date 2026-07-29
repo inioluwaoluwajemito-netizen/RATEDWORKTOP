@@ -803,21 +803,37 @@ async function fetchAppSettings() {
   };
 
   if (supabaseClient) {
+    // 1. Primary: Try fetching from settings table (id=1)
     try {
       const { data, error } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
       if (data && !error) {
         const normalized = normalizeSettingsData(data);
         const merged = { ...defaultSettings, ...normalized };
         store.set('settings', merged);
+        try { localStorage.setItem('ratedworktops_settings', JSON.stringify(merged)); } catch(e) {}
         return merged;
       }
     } catch (err) {
-      console.warn('[Settings] Failed to fetch live settings from Supabase:', err);
+      console.warn('[Settings] Failed to fetch live settings from settings table:', err);
+    }
+
+    // 2. Secondary Backup: Try fetching from admin profile in profiles table
+    try {
+      const { data, error } = await supabaseClient.from('profiles').select('settings').eq('email', 'ratedworktopsapp@gmail.com').maybeSingle();
+      if (data && data.settings && !error) {
+        const normalized = normalizeSettingsData(data.settings);
+        const merged = { ...defaultSettings, ...normalized };
+        store.set('settings', merged);
+        try { localStorage.setItem('ratedworktops_settings', JSON.stringify(merged)); } catch(e) {}
+        return merged;
+      }
+    } catch (err) {
+      console.warn('[Settings] Failed to fetch live settings from admin profile:', err);
     }
   }
 
-  const cached = store.get('settings');
-  return cached ? { ...defaultSettings, ...cached } : defaultSettings;
+  const cached = store.get('settings') || (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('ratedworktops_settings') || 'null') : null);
+  return cached ? { ...defaultSettings, ...normalizeSettingsData(cached) } : defaultSettings;
 }
 
 function subscribeToSettingsChanges() {
