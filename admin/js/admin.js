@@ -992,12 +992,24 @@ async function fetchBrands() {
   if (!supabaseClient) return store.get('brands', []);
   const { data: brands, error: bErr } = await supabaseClient.from('brands').select('*');
   const { data: colours, error: cErr } = await supabaseClient.from('colours').select('*');
-  if (bErr || cErr) return store.get('brands', []);
   
-  return brands.map(brand => {
+  let localColours = [];
+  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
+
+  const baseBrands = (brands && brands.length > 0) ? brands : (store.get('brands', []) || []);
+  
+  return baseBrands.map(brand => {
+    const dbCols = colours ? colours.filter(c => c.brand_id == brand.id) : [];
+    const locCols = localColours.filter(c => c.brand_id == brand.id);
+    const combined = [...dbCols];
+    for (const lc of locCols) {
+      if (!combined.some(c => c.id == lc.id || (c.name && c.name === lc.name))) {
+        combined.push(lc);
+      }
+    }
     return {
       ...brand,
-      colours: colours.filter(c => c.brand_id == brand.id)
+      colours: combined
     };
   });
 }

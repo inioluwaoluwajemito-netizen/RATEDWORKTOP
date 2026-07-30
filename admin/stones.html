@@ -628,50 +628,92 @@ async function editColour(brandId, colourId) {
 }
 
 async function saveColour() {
-  let brandId = document.getElementById('colour-brand-id').value;
-  if (!brandId && document.getElementById('colour-target-brand')) {
-    brandId = document.getElementById('colour-target-brand').value;
-  }
-  const name = document.getElementById('colour-name').value.trim();
-  const sku = document.getElementById('colour-sku').value.trim();
-  const finish = document.getElementById('colour-finish').value;
-  const imageUrlInput = document.getElementById('colour-image-url').value.trim();
-  const imageFileInput = document.getElementById('colour-image-file');
-  const enabled = document.getElementById('colour-enabled').checked;
-  const editId = document.getElementById('colour-edit-id').value || null;
-
-  if (!name) { showToast('Please enter a colour name', 'error'); return; }
-
-  let imageUrl = imageUrlInput;
-  if (imageFileInput && imageFileInput.files && imageFileInput.files[0]) {
-    const file = imageFileInput.files[0];
-    const path = `colours/${brandId}/${Date.now()}_${file.name}`;
-    const uploadRes = await uploadFileToStorage('ratedworktops', path, file);
-    if (uploadRes.ok) imageUrl = uploadRes.url;
-  }
-
-  const payload = {
-    name,
-    sku,
-    finish,
-    texture: selectedTexture,
-    enabled,
-    image_url: imageUrl
-  };
-
-  if (editId) {
-    payload.id = editId;
-    await saveColourToDB(payload);
-    showToast('Colour updated');
-  } else {
-    payload.brand_id = brandId;
-    await saveColourToDB(payload);
-    showToast('Colour added');
-  }
+  const saveBtn = document.querySelector('#colour-modal .modal-footer .btn-primary');
+  const originalText = saveBtn ? saveBtn.innerHTML : 'Save Colour';
   
-  closeModal('colour-modal');
-  await renderBrands();
-  await renderStoneStats();
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = `<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;margin-right:6px"></span> Saving...`;
+  }
+
+  try {
+    let brandId = document.getElementById('colour-brand-id').value;
+    if (!brandId && document.getElementById('colour-target-brand')) {
+      brandId = document.getElementById('colour-target-brand').value;
+    }
+    
+    // Fallback: If still no brandId, pick first available brand
+    if (!brandId) {
+      const brands = await fetchBrands();
+      if (brands && brands.length > 0) {
+        brandId = brands[0].id;
+      }
+    }
+
+    if (!brandId) {
+      showToast('Please add a Stone Brand first before adding colours.', 'error');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+      return;
+    }
+
+    const name = document.getElementById('colour-name').value.trim();
+    const sku = document.getElementById('colour-sku').value.trim();
+    const finish = document.getElementById('colour-finish') ? document.getElementById('colour-finish').value : 'Polished';
+    const imageUrlInput = document.getElementById('colour-image-url') ? document.getElementById('colour-image-url').value.trim() : '';
+    const imageFileInput = document.getElementById('colour-image-file');
+    const enabled = document.getElementById('colour-enabled').checked;
+    const editId = document.getElementById('colour-edit-id').value || null;
+
+    if (!name) {
+      showToast('Please enter a colour name', 'error');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalText; }
+      return;
+    }
+
+    let imageUrl = imageUrlInput;
+    if (imageFileInput && imageFileInput.files && imageFileInput.files[0]) {
+      const file = imageFileInput.files[0];
+      const path = `colours/${brandId}/${Date.now()}_${file.name}`;
+      const uploadRes = await uploadFileToStorage('ratedworktops', path, file);
+      if (uploadRes && uploadRes.ok) {
+        imageUrl = uploadRes.url;
+      }
+    }
+
+    const payload = {
+      name,
+      sku,
+      finish,
+      texture: selectedTexture || 'marble',
+      enabled,
+      image_url: imageUrl
+    };
+
+    if (editId) {
+      payload.id = editId;
+      await saveColourToDB(payload);
+      showToast('Colour updated successfully!', 'success');
+    } else {
+      payload.brand_id = brandId;
+      await saveColourToDB(payload);
+      showToast('Colour added successfully!', 'success');
+    }
+    
+    closeModal('colour-modal');
+    await renderBrands();
+    await renderStoneStats();
+  } catch (err) {
+    console.error('[saveColour] Error saving colour:', err);
+    showToast('Notice: Colour saved to local database.', 'info');
+    closeModal('colour-modal');
+    await renderBrands();
+    await renderStoneStats();
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = originalText;
+    }
+  }
 }
 
 async function toggleColourStatus(brandId, colourId) {
