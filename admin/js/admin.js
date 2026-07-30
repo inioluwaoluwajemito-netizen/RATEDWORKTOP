@@ -1141,22 +1141,49 @@ async function fetchSettings() {
 
 // ── Async Admin Write Helpers ─────────────────
 async function saveBrandToDB(brand) {
-  if (!supabaseClient) return;
-  if (brand.id) {
-    await supabaseClient.from('brands').update({
-      name: brand.name,
-      category: brand.category,
-      description: brand.description,
-      enabled: brand.enabled
-    }).eq('id', brand.id);
+  let localBrands = [];
+  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
+
+  const brandId = brand.id || ('brand_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36));
+  const fullBrandRecord = {
+    id: brandId,
+    name: brand.name,
+    category: brand.category || 'Quartz',
+    description: brand.description || '',
+    enabled: brand.enabled !== false,
+    colours: brand.colours || []
+  };
+
+  const existingIdx = localBrands.findIndex(b => b.id == brandId || (b.name && b.name.toLowerCase() === brand.name.toLowerCase()));
+  if (existingIdx >= 0) {
+    localBrands[existingIdx] = fullBrandRecord;
   } else {
-    await supabaseClient.from('brands').insert([{
-      name: brand.name,
-      category: brand.category,
-      description: brand.description,
-      enabled: brand.enabled
-    }]);
+    localBrands.unshift(fullBrandRecord);
   }
+  try { localStorage.setItem('rw_local_brands', JSON.stringify(localBrands)); } catch(e) {}
+
+  if (!supabaseClient) return fullBrandRecord;
+  try {
+    if (brand.id) {
+      await supabaseClient.from('brands').update({
+        name: brand.name,
+        category: brand.category,
+        description: brand.description,
+        enabled: brand.enabled
+      }).eq('id', brand.id);
+    } else {
+      await supabaseClient.from('brands').insert([{
+        id: brandId,
+        name: brand.name,
+        category: brand.category,
+        description: brand.description,
+        enabled: brand.enabled
+      }]);
+    }
+  } catch(e) {
+    console.warn('[Admin saveBrandToDB] DB write notice:', e);
+  }
+  return fullBrandRecord;
 }
 
 async function deleteBrandFromDB(id) {
@@ -1166,23 +1193,79 @@ async function deleteBrandFromDB(id) {
 }
 
 async function saveColourToDB(colour) {
-  if (!supabaseClient) return;
-  if (colour.id) {
-    await supabaseClient.from('colours').update({
-      name: colour.name,
-      sku: colour.sku,
-      texture: colour.texture,
-      enabled: colour.enabled
-    }).eq('id', colour.id);
+  let localColours = [];
+  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
+
+  const colId = colour.id || ('col_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36));
+  const fullColourRecord = {
+    id: colId,
+    brand_id: colour.brand_id,
+    brand_name: colour.brand_name || '',
+    name: colour.name,
+    sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
+    finish: colour.finish || 'Polished',
+    texture: colour.texture || 'marble',
+    image_url: colour.image_url || '',
+    enabled: colour.enabled !== false
+  };
+
+  const existingIdx = localColours.findIndex(c => c.id == colId || (c.name === colour.name && String(c.brand_id) == String(colour.brand_id)));
+  if (existingIdx >= 0) {
+    localColours[existingIdx] = fullColourRecord;
   } else {
-    await supabaseClient.from('colours').insert([{
-      brand_id: colour.brand_id,
-      name: colour.name,
-      sku: colour.sku,
-      texture: colour.texture,
-      enabled: colour.enabled
-    }]);
+    localColours.unshift(fullColourRecord);
   }
+  try { localStorage.setItem('rw_local_colours', JSON.stringify(localColours)); } catch(e) {}
+
+  if (!supabaseClient) return fullColourRecord;
+
+  try {
+    if (colour.id) {
+      const { error: err1 } = await supabaseClient.from('colours').update({
+        name: colour.name,
+        sku: colour.sku,
+        finish: colour.finish,
+        texture: colour.texture,
+        image_url: colour.image_url,
+        enabled: colour.enabled
+      }).eq('id', colour.id);
+
+      if (err1) {
+        await supabaseClient.from('colours').update({
+          name: colour.name,
+          sku: colour.sku,
+          texture: colour.texture,
+          enabled: colour.enabled
+        }).eq('id', colour.id);
+      }
+    } else {
+      const { error: err2 } = await supabaseClient.from('colours').insert([{
+        id: colId,
+        brand_id: colour.brand_id,
+        brand_name: colour.brand_name || '',
+        name: colour.name,
+        sku: colour.sku,
+        finish: colour.finish,
+        texture: colour.texture,
+        image_url: colour.image_url,
+        enabled: colour.enabled
+      }]);
+
+      if (err2) {
+        await supabaseClient.from('colours').insert([{
+          brand_id: colour.brand_id,
+          name: colour.name,
+          sku: colour.sku,
+          texture: colour.texture,
+          enabled: colour.enabled
+        }]);
+      }
+    }
+  } catch (dbErr) {
+    console.warn('[Admin saveColourToDB] DB write notice:', dbErr);
+  }
+
+  return fullColourRecord;
 }
 
 async function deleteColourFromDB(id) {
