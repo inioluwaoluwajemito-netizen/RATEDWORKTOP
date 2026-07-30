@@ -988,16 +988,48 @@ function renderMiniChart(canvasId, data, color = '#c9a96e') {
   });
 }
 
+function fetchBrandsSync() {
+  const baseBrands = store.get('brands', []) || [];
+  let localBrands = [];
+  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
+
+  const allBrands = [...baseBrands];
+  for (const lb of localBrands) {
+    if (!allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
+      allBrands.push(lb);
+    }
+  }
+
+  let localColours = [];
+  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
+
+  return allBrands.map(brand => {
+    const locCols = localColours.filter(c => 
+      String(c.brand_id) === String(brand.id) || 
+      String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
+      (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
+    );
+    return {
+      ...brand,
+      colours: locCols
+    };
+  });
+}
+
 // ── Async Admin Data Helpers ──────────────────
 async function fetchBrands() {
   let dbBrands = [];
   let dbColours = [];
   if (supabaseClient) {
     try {
-      const { data: bData } = await supabaseClient.from('brands').select('*');
-      const { data: cData } = await supabaseClient.from('colours').select('*');
-      if (bData) dbBrands = bData;
-      if (cData) dbColours = cData;
+      const fetchPromise = Promise.all([
+        supabaseClient.from('brands').select('*'),
+        supabaseClient.from('colours').select('*')
+      ]);
+      const timeoutPromise = new Promise(res => setTimeout(() => res([{ data: null }, { data: null }]), 1200));
+      const [bRes, cRes] = await Promise.race([fetchPromise, timeoutPromise]);
+      if (bRes && bRes.data) dbBrands = bRes.data;
+      if (cRes && cRes.data) dbColours = cRes.data;
     } catch(e) {}
   }
   

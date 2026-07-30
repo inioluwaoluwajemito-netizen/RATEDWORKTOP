@@ -378,8 +378,8 @@ async function populateCatFilter() {
   });
 }
 
-async function renderStoneStats() {
-  const brands = await fetchBrands();
+async function renderStoneStats(customBrands = null) {
+  const brands = customBrands || (typeof fetchBrandsSync === 'function' ? fetchBrandsSync() : await fetchBrands());
   let totalB = brands.length;
   let activeB = brands.filter(b => b.enabled).length;
   let totalC = 0;
@@ -414,10 +414,10 @@ async function renderStoneStats() {
   document.getElementById('stone-stats').innerHTML = html;
 }
 
-async function renderBrands() {
+async function renderBrands(customBrands = null) {
   const search = document.getElementById('stone-search').value.toLowerCase();
   const catFilter = document.getElementById('cat-filter').value;
-  let brands = await fetchBrands();
+  let brands = customBrands || (typeof fetchBrandsSync === 'function' ? fetchBrandsSync() : await fetchBrands());
 
   if (catFilter !== 'all') brands = brands.filter(b => b.category === catFilter);
   if (search) brands = brands.filter(b =>
@@ -936,9 +936,22 @@ async function executeBulkImport() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   setActiveSidebarItem();
-  await populateCatFilter();
-  await renderStoneStats();
-  await renderBrands();
+  
+  // 1. INSTANT ZERO-SECOND RENDER FROM LOCAL CACHE
+  const cachedBrands = typeof fetchBrandsSync === 'function' ? fetchBrandsSync() : [];
+  if (cachedBrands && cachedBrands.length > 0) {
+    renderBrands(cachedBrands);
+    renderStoneStats(cachedBrands);
+  }
+  populateCatFilter();
+
+  // 2. Non-blocking Cloud Database Sync
+  fetchBrands().then(remoteBrands => {
+    if (remoteBrands && remoteBrands.length > 0) {
+      renderBrands(remoteBrands);
+      renderStoneStats(remoteBrands);
+    }
+  }).catch(err => console.warn('[Stones Page] Cloud sync notice:', err));
 });
 
 // Filters
