@@ -937,15 +937,13 @@ async function executeBulkImport() {
 document.addEventListener('DOMContentLoaded', async () => {
   setActiveSidebarItem();
   
-  // 1. INSTANT ZERO-SECOND RENDER FROM LOCAL CACHE
-  const cachedBrands = typeof fetchBrandsSync === 'function' ? fetchBrandsSync() : [];
-  if (cachedBrands && cachedBrands.length > 0) {
-    renderBrands(cachedBrands);
-    renderStoneStats(cachedBrands);
-  }
+  // 1. GUARANTEED 0-SECOND INSTANT RENDER (Renders Image 2 content immediately!)
+  const initialBrands = typeof fetchBrandsSync === 'function' ? fetchBrandsSync() : [];
+  renderBrands(initialBrands);
+  renderStoneStats(initialBrands);
   populateCatFilter();
 
-  // 2. Non-blocking Cloud Database Sync
+  // 2. Asynchronous Cloud Database Sync
   fetchBrands().then(remoteBrands => {
     if (remoteBrands && remoteBrands.length > 0) {
       renderBrands(remoteBrands);
