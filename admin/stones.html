@@ -467,8 +467,7 @@ async function renderBrands() {
             <div class="colour-chip-info">
               <div class="colour-chip-name">${c.name}</div>
               <div class="colour-chip-sku">${c.sku || ''}</div>
-            </div>`;
-        }).join('')}
+            </div>
             <label class="toggle" style="transform:scale(0.75)" onclick="event.stopPropagation()">
               <input type="checkbox" ${c.enabled ? 'checked' : ''} onchange="toggleColourStatus('${brand.id}','${c.id}')"/>
               <span class="toggle-slider"></span>
@@ -480,14 +479,16 @@ async function renderBrands() {
               <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
             </button>
           </div>
-        `).join('')}
+          `;
+        }).join('')}
         <button class="add-colour-btn" onclick="openAddColour('${brand.id}')">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Colour
         </button>
       </div>
     </div>
-  `}).join('');
+  `;
+  }).join('');
 }
 
 function toggleBrand(id) {
