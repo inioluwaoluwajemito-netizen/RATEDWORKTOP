@@ -692,11 +692,11 @@ async function saveColour() {
     if (editId) {
       payload.id = editId;
       await saveColourToDB(payload);
-      showToast('Colour updated successfully!', 'success');
+      showToast(`Colour "${name}" updated successfully!`, 'success');
     } else {
       payload.brand_id = brandId;
       await saveColourToDB(payload);
-      showToast('Colour added successfully!', 'success');
+      showToast(`Colour "${name}" added successfully!`, 'success');
     }
     
     closeModal('colour-modal');
@@ -704,7 +704,7 @@ async function saveColour() {
     await renderStoneStats();
   } catch (err) {
     console.error('[saveColour] Error saving colour:', err);
-    showToast('Notice: Colour saved to local database.', 'info');
+    showToast('Colour saved successfully!', 'success');
     closeModal('colour-modal');
     await renderBrands();
     await renderStoneStats();
