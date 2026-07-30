@@ -459,13 +459,16 @@ async function renderBrands() {
         <svg class="brand-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
       <div class="colours-grid" id="colours-${brand.id}">
-        ${brand.colours.map(c => `
+        ${brand.colours.map(c => {
+          const swatchStyle = c.image_url ? `background-image:url('${c.image_url}');background-size:cover;background-position:center;` : `background:${textures[c.texture] || textures.marble}`;
+          return `
           <div class="colour-chip ${c.enabled ? '' : 'disabled'}">
-            <div class="colour-swatch" style="background:${textures[c.texture] || textures.marble}"></div>
+            <div class="colour-swatch" style="${swatchStyle}"></div>
             <div class="colour-chip-info">
               <div class="colour-chip-name">${c.name}</div>
-              <div class="colour-chip-sku">${c.sku}</div>
-            </div>
+              <div class="colour-chip-sku">${c.sku || ''}</div>
+            </div>`;
+        }).join('')}
             <label class="toggle" style="transform:scale(0.75)" onclick="event.stopPropagation()">
               <input type="checkbox" ${c.enabled ? 'checked' : ''} onchange="toggleColourStatus('${brand.id}','${c.id}')"/>
               <span class="toggle-slider"></span>

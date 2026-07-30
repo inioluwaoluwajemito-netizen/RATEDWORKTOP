@@ -338,7 +338,7 @@
       emptyState.style.display = 'none';
 
       grid.innerHTML = filtered.map(stone => {
-        const imgUrl = getStoneImage(stone.sku);
+        const imgUrl = getStoneImage(stone.sku, stone);
         return `
           <div class="stone-card">
             <!-- Normal view state -->

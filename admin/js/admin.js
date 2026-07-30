@@ -990,18 +990,45 @@ function renderMiniChart(canvasId, data, color = '#c9a96e') {
 
 // ── Async Admin Data Helpers ──────────────────
 async function fetchBrands() {
-  if (!supabaseClient) return store.get('brands', []);
-  const { data: brands, error: bErr } = await supabaseClient.from('brands').select('*');
-  const { data: colours, error: cErr } = await supabaseClient.from('colours').select('*');
+  let dbBrands = [];
+  let dbColours = [];
+  if (supabaseClient) {
+    try {
+      const { data: bData } = await supabaseClient.from('brands').select('*');
+      const { data: cData } = await supabaseClient.from('colours').select('*');
+      if (bData) dbBrands = bData;
+      if (cData) dbColours = cData;
+    } catch(e) {}
+  }
   
+  const baseBrands = (dbBrands && dbBrands.length > 0) ? dbBrands : (store.get('brands', []) || []);
+  
+  let localBrands = [];
+  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
+
+  const allBrands = [...baseBrands];
+  for (const lb of localBrands) {
+    if (!allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
+      allBrands.push(lb);
+    }
+  }
+
   let localColours = [];
   try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
 
-  const baseBrands = (brands && brands.length > 0) ? brands : (store.get('brands', []) || []);
-  
-  return baseBrands.map(brand => {
-    const dbCols = colours ? colours.filter(c => c.brand_id == brand.id) : [];
-    const locCols = localColours.filter(c => c.brand_id == brand.id);
+  return allBrands.map(brand => {
+    const dbCols = dbColours ? dbColours.filter(c => 
+      String(c.brand_id) === String(brand.id) || 
+      String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
+      (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
+    ) : [];
+    
+    const locCols = localColours.filter(c => 
+      String(c.brand_id) === String(brand.id) || 
+      String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
+      (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
+    );
+    
     const combined = [...dbCols];
     for (const lc of locCols) {
       if (!combined.some(c => c.id == lc.id || (c.name && c.name === lc.name))) {
@@ -1036,7 +1063,7 @@ async function fetchUsers() {
     shares: p.shares || 0,
     status: p.status || 'active',
     joined: p.created_at || new Date().toISOString(),
-    lastActive: p.updated_at || new Date().toISOString()
+    lastLogin: p.updated_at || p.created_at || new Date().toISOString()
   })) : store.get('users', []);
 }
 
