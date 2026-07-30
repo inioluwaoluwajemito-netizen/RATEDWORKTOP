@@ -156,6 +156,9 @@
         <select id="cat-filter" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;padding:8px 10px;border-radius:8px;outline:none;cursor:pointer">
           <option value="all">All Categories</option>
         </select>
+        <button class="btn btn-ghost btn-sm" onclick="openAddColourDirectly()" style="gap:6px;border:1px solid var(--border);color:var(--text-secondary);display:flex;align-items:center;height:36px;border-radius:8px">
+          🎨 Add Stone Colour
+        </button>
         <button class="btn btn-ghost btn-sm" onclick="openBulkImport()" style="gap:6px;border:1px solid var(--border);color:var(--text-secondary);display:flex;align-items:center;height:36px;border-radius:8px">
           📦 Bulk Import
         </button>
@@ -226,6 +229,12 @@
     <div class="modal-body">
       <input type="hidden" id="colour-brand-id"/>
       <input type="hidden" id="colour-edit-id"/>
+
+      <div class="form-group" id="brand-select-group" style="display:none">
+        <label for="colour-target-brand">Target Brand *</label>
+        <select id="colour-target-brand" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-size:14px;padding:10px;border-radius:8px;outline:none;cursor:pointer;width:100%"></select>
+      </div>
+
       <div class="grid-2">
         <div class="form-group">
           <label for="colour-name">Colour Name *</label>
@@ -236,6 +245,17 @@
           <input type="text" id="colour-sku" placeholder="e.g. SIL-CG"/>
         </div>
       </div>
+
+      <div class="form-group">
+        <label for="colour-finish">Finish Type</label>
+        <select id="colour-finish" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-size:14px;padding:10px;border-radius:8px;outline:none;cursor:pointer;width:100%">
+          <option value="Polished">Polished</option>
+          <option value="Honed">Honed</option>
+          <option value="Leathered">Leathered</option>
+          <option value="Satin / Matt">Satin / Matt</option>
+        </select>
+      </div>
+
       <div class="form-group">
         <label>Stone Texture</label>
         <div class="texture-select" id="texture-select">
@@ -247,6 +267,17 @@
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Select the texture type that best represents this colour</div>
       </div>
+
+      <div class="form-group">
+        <label for="colour-image-file">Custom Texture Image Photo (Optional)</label>
+        <input type="file" id="colour-image-file" accept="image/*" style="padding:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);width:100%;box-sizing:border-box" onchange="previewColourImage(this)"/>
+        <input type="text" id="colour-image-url" placeholder="Or enter image URL (e.g. images/stones/calacatta_gold.png)" style="margin-top:8px"/>
+        <div id="colour-image-preview-wrap" style="display:none;margin-top:8px;align-items:center;gap:10px">
+          <img id="colour-image-preview" src="" style="width:48px;height:48px;border-radius:6px;object-fit:cover;border:1px solid var(--border)"/>
+          <span style="font-size:12px;color:var(--gold)">Image preview loaded</span>
+        </div>
+      </div>
+
       <div class="toggle-wrap">
         <div class="toggle-info"><div class="toggle-label" style="font-size:13px">Enabled</div><div class="toggle-desc">Visible to customers</div></div>
         <label class="toggle"><input type="checkbox" id="colour-enabled" checked/><span class="toggle-slider"></span></label>
@@ -526,12 +557,32 @@ async function deleteBrand(id) {
   });
 }
 
+async function openAddColourDirectly() {
+  const brands = await fetchBrands();
+  if (!brands || brands.length === 0) {
+    showToast('Please add a stone brand first', 'error');
+    openAddBrand();
+    return;
+  }
+  const select = document.getElementById('colour-target-brand');
+  select.innerHTML = '';
+  brands.forEach(b => {
+    select.add(new Option(b.name, b.id));
+  });
+  document.getElementById('brand-select-group').style.display = 'block';
+  openAddColour(brands[0]?.id || '');
+}
+
 function openAddColour(brandId) {
   document.getElementById('colour-modal-title').textContent = 'Add Stone Colour';
-  document.getElementById('colour-brand-id').value = brandId;
+  document.getElementById('colour-brand-id').value = brandId || '';
   document.getElementById('colour-edit-id').value = '';
   document.getElementById('colour-name').value = '';
   document.getElementById('colour-sku').value = '';
+  document.getElementById('colour-finish').value = 'Polished';
+  if (document.getElementById('colour-image-file')) document.getElementById('colour-image-file').value = '';
+  if (document.getElementById('colour-image-url')) document.getElementById('colour-image-url').value = '';
+  if (document.getElementById('colour-image-preview-wrap')) document.getElementById('colour-image-preview-wrap').style.display = 'none';
   document.getElementById('colour-enabled').checked = true;
   selectedTexture = 'marble';
   document.querySelectorAll('.texture-opt').forEach(o => o.classList.remove('selected'));
@@ -539,37 +590,82 @@ function openAddColour(brandId) {
   openModal('colour-modal');
 }
 
+function previewColourImage(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('colour-image-preview').src = e.target.result;
+      document.getElementById('colour-image-preview-wrap').style.display = 'flex';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
 async function editColour(brandId, colourId) {
   const brands = await fetchBrands();
   const brand = brands.find(b => b.id == brandId);
   const colour = brand?.colours.find(c => c.id == colourId);
   if (!colour) return;
+  if (document.getElementById('brand-select-group')) document.getElementById('brand-select-group').style.display = 'none';
   document.getElementById('colour-modal-title').textContent = 'Edit Stone Colour';
   document.getElementById('colour-brand-id').value = brandId;
   document.getElementById('colour-edit-id').value = colourId;
-  document.getElementById('colour-name').value = colour.name;
-  document.getElementById('colour-sku').value = colour.sku;
+  document.getElementById('colour-name').value = colour.name || '';
+  document.getElementById('colour-sku').value = colour.sku || '';
+  document.getElementById('colour-finish').value = colour.finish || 'Polished';
+  if (document.getElementById('colour-image-url')) document.getElementById('colour-image-url').value = colour.image_url || '';
+  if (colour.image_url && document.getElementById('colour-image-preview')) {
+    document.getElementById('colour-image-preview').src = colour.image_url;
+    document.getElementById('colour-image-preview-wrap').style.display = 'flex';
+  } else if (document.getElementById('colour-image-preview-wrap')) {
+    document.getElementById('colour-image-preview-wrap').style.display = 'none';
+  }
   document.getElementById('colour-enabled').checked = colour.enabled;
   document.querySelectorAll('.texture-opt').forEach(o => o.classList.remove('selected'));
   document.querySelector(`[data-texture="${colour.texture}"]`)?.classList.add('selected');
-  selectedTexture = colour.texture;
+  selectedTexture = colour.texture || 'marble';
   openModal('colour-modal');
 }
 
 async function saveColour() {
+  let brandId = document.getElementById('colour-brand-id').value;
+  if (!brandId && document.getElementById('colour-target-brand')) {
+    brandId = document.getElementById('colour-target-brand').value;
+  }
   const name = document.getElementById('colour-name').value.trim();
   const sku = document.getElementById('colour-sku').value.trim();
+  const finish = document.getElementById('colour-finish').value;
+  const imageUrlInput = document.getElementById('colour-image-url').value.trim();
+  const imageFileInput = document.getElementById('colour-image-file');
   const enabled = document.getElementById('colour-enabled').checked;
-  const brandId = document.getElementById('colour-brand-id').value;
   const editId = document.getElementById('colour-edit-id').value || null;
 
   if (!name) { showToast('Please enter a colour name', 'error'); return; }
 
+  let imageUrl = imageUrlInput;
+  if (imageFileInput && imageFileInput.files && imageFileInput.files[0]) {
+    const file = imageFileInput.files[0];
+    const path = `colours/${brandId}/${Date.now()}_${file.name}`;
+    const uploadRes = await uploadFileToStorage('ratedworktops', path, file);
+    if (uploadRes.ok) imageUrl = uploadRes.url;
+  }
+
+  const payload = {
+    name,
+    sku,
+    finish,
+    texture: selectedTexture,
+    enabled,
+    image_url: imageUrl
+  };
+
   if (editId) {
-    await saveColourToDB({ id: editId, name, sku, texture: selectedTexture, enabled });
+    payload.id = editId;
+    await saveColourToDB(payload);
     showToast('Colour updated');
   } else {
-    await saveColourToDB({ brand_id: brandId, name, sku, texture: selectedTexture, enabled });
+    payload.brand_id = brandId;
+    await saveColourToDB(payload);
     showToast('Colour added');
   }
   
