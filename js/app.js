@@ -1125,29 +1125,42 @@ async function getAllStones() {
     try {
       const { data: bData } = await supabaseClient.from('brands').select('*').eq('enabled', true);
       const { data: cData } = await supabaseClient.from('colours').select('*').eq('enabled', true);
-      if (bData) dbBrands = bData;
-      if (cData) dbColours = cData;
+      if (bData && bData.length > 0) dbBrands = bData;
+      if (cData && cData.length > 0) dbColours = cData;
     } catch(e) {}
   }
   
   hydrateCollections(dbBrands, dbColours);
 
-  let localColours = [];
-  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
+  let storedBrands = [];
+  try { storedBrands = JSON.parse(localStorage.getItem('rw_brands') || '[]'); } catch(e) {}
 
   let localBrands = [];
   try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
 
+  let localColours = [];
+  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
+
   const allBrands = [...dbBrands];
-  for (const lb of localBrands) {
-    if (lb.enabled !== false && !allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
+  [...storedBrands, ...localBrands].forEach(lb => {
+    if (lb && lb.enabled !== false && !allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
       allBrands.push(lb);
     }
-  }
+  });
 
   const allColours = [...dbColours];
+  allBrands.forEach(b => {
+    if (b.colours && Array.isArray(b.colours)) {
+      b.colours.forEach(c => {
+        if (c && c.enabled !== false && !allColours.some(existing => existing.id == c.id || (existing.name === c.name && String(existing.brand_id) == String(b.id)))) {
+          allColours.push({ ...c, brand_id: c.brand_id || b.id, brand_name: c.brand_name || b.name });
+        }
+      });
+    }
+  });
+
   for (const lc of localColours) {
-    if (lc.enabled !== false && !allColours.some(c => c.id == lc.id || (c.name && c.name === lc.name && String(c.brand_id) == String(lc.brand_id)))) {
+    if (lc && lc.enabled !== false && !allColours.some(c => c.id == lc.id || (c.name === lc.name && String(c.brand_id) == String(lc.brand_id)))) {
       allColours.push(lc);
     }
   }
@@ -1190,27 +1203,40 @@ async function getBrands() {
     try {
       const { data: bData } = await supabaseClient.from('brands').select('*').eq('enabled', true);
       const { data: cData } = await supabaseClient.from('colours').select('*');
-      if (bData) dbBrands = bData;
-      if (cData) dbColours = cData;
+      if (bData && bData.length > 0) dbBrands = bData;
+      if (cData && cData.length > 0) dbColours = cData;
     } catch(e) {}
   }
   
   hydrateCollections(dbBrands, dbColours);
 
-  let localColours = [];
-  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
+  let storedBrands = [];
+  try { storedBrands = JSON.parse(localStorage.getItem('rw_brands') || '[]'); } catch(e) {}
 
   let localBrands = [];
   try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
 
+  let localColours = [];
+  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
+
   const allBrands = [...dbBrands];
-  for (const lb of localBrands) {
-    if (lb.enabled !== false && !allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
+  [...storedBrands, ...localBrands].forEach(lb => {
+    if (lb && lb.enabled !== false && !allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
       allBrands.push(lb);
     }
-  }
+  });
 
   const allColours = [...dbColours];
+  allBrands.forEach(b => {
+    if (b.colours && Array.isArray(b.colours)) {
+      b.colours.forEach(c => {
+        if (c && !allColours.some(existing => existing.id == c.id || (existing.name === c.name && String(existing.brand_id) == String(b.id)))) {
+          allColours.push({ ...c, brand_id: c.brand_id || b.id, brand_name: c.brand_name || b.name });
+        }
+      });
+    }
+  });
+
   for (const lc of localColours) {
     if (!allColours.some(c => c.id == lc.id || (c.name && c.name === lc.name && String(c.brand_id) == String(lc.brand_id)))) {
       allColours.push(lc);
@@ -1269,7 +1295,10 @@ function getTexture(key) {
   return TEXTURES[key] || TEXTURES.default;
 }
 
-function getStoneImage(sku, stone = null) {
+function getStoneImage(skuOrStone, stoneObj = null) {
+  const stone = (typeof skuOrStone === 'object' && skuOrStone !== null) ? skuOrStone : stoneObj;
+  const sku = (typeof skuOrStone === 'string') ? skuOrStone : (stone ? stone.sku : '');
+
   if (stone && stone.image_url) {
     return stone.image_url;
   }
@@ -1281,6 +1310,11 @@ function getStoneImage(sku, stone = null) {
     if (localImg) {
       return localImg;
     }
+    try {
+      const localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]');
+      const match = localColours.find(c => c.sku && c.sku.toLowerCase() === sku.toLowerCase());
+      if (match && match.image_url) return match.image_url;
+    } catch(e) {}
     return `${SUPABASE_URL}/storage/v1/object/public/ratedworktops/stones/${sku.toLowerCase()}.png`;
   }
   return 'images/photoreal-kitchen.png';

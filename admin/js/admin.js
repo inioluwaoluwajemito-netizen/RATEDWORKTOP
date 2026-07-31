@@ -330,14 +330,34 @@ function syncProfilesToUsers(profiles) {
 }
 
 function syncColoursToBrands(colours) {
-  const brands = safeGetLocalStorage('rw_brands');
+  if (!colours || !Array.isArray(colours)) return;
+  let brands = safeGetLocalStorage('rw_brands');
+  if (!brands || !brands.length) {
+    initBrandsAndColours();
+    brands = safeGetLocalStorage('rw_brands');
+  }
   const updatedBrands = brands.map(brand => {
+    const matchingCols = colours.filter(c => 
+      String(c.brand_id) === String(brand.id) || 
+      String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
+      (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
+    );
+    const existing = brand.colours || [];
+    const combined = [...existing];
+    matchingCols.forEach(mc => {
+      const idx = combined.findIndex(c => c.id == mc.id || (c.name && c.name === mc.name));
+      if (idx >= 0) combined[idx] = { ...combined[idx], ...mc };
+      else combined.push(mc);
+    });
     return {
       ...brand,
-      colours: colours.filter(c => c.brand_id == brand.id)
+      colours: combined
     };
   });
   localStorage.setItem('rw_brands', JSON.stringify(updatedBrands));
+  if (typeof store !== 'undefined' && store.set) {
+    store.set('brands', updatedBrands);
+  }
 }
 
 function initProfilesTable() {
@@ -822,11 +842,9 @@ const supabaseClient = useRealSupabase
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
   : new MockSupabaseClient();
 
-// Seed initial mock data only if using mock database (offline/local dev)
-if (!useRealSupabase) {
-  initProfilesTable();
-  initBrandsAndColours();
-}
+// Seed initial mock data to ensure localStorage is always populated
+initProfilesTable();
+initBrandsAndColours();
 
 // ── Demo credentials ──────────────────────────
 const ADMIN_CREDENTIALS = {
@@ -1225,6 +1243,19 @@ async function saveBrandToDB(brand) {
   }
   try { localStorage.setItem('rw_local_brands', JSON.stringify(localBrands)); } catch(e) {}
 
+  // Sync brand record into rw_brands
+  let rwBrands = safeGetLocalStorage('rw_brands');
+  const bIdx = rwBrands.findIndex(b => b.id == brandId || (b.name && b.name.toLowerCase() === brand.name.toLowerCase()));
+  if (bIdx >= 0) {
+    rwBrands[bIdx] = { ...rwBrands[bIdx], ...fullBrandRecord };
+  } else {
+    rwBrands.unshift(fullBrandRecord);
+  }
+  localStorage.setItem('rw_brands', JSON.stringify(rwBrands));
+  if (typeof store !== 'undefined' && store.set) {
+    store.set('brands', rwBrands);
+  }
+
   if (!supabaseClient) return fullBrandRecord;
   try {
     if (brand.id) {
@@ -1279,6 +1310,9 @@ async function saveColourToDB(colour) {
     localColours.unshift(fullColourRecord);
   }
   try { localStorage.setItem('rw_local_colours', JSON.stringify(localColours)); } catch(e) {}
+
+  // Instantly merge into rw_brands so brand objects in localStorage carry the new colour
+  syncColoursToBrands([fullColourRecord]);
 
   if (!supabaseClient) return fullColourRecord;
 

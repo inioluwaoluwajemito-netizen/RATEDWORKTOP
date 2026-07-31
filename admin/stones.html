@@ -693,13 +693,8 @@ async function saveColour() {
     image_url: imageUrl
   };
 
-  // 2. INSTANT UI UPDATE (0ms delay!)
-  let localColours = [];
-  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
-  const idx = localColours.findIndex(c => c.id == payload.id || (c.name === payload.name && String(c.brand_id) == String(payload.brand_id)));
-  if (idx >= 0) localColours[idx] = payload;
-  else localColours.unshift(payload);
-  try { localStorage.setItem('rw_local_colours', JSON.stringify(localColours)); } catch(e) {}
+  // 2. Save colour into storage & database sync
+  await saveColourToDB(payload);
 
   closeModal('colour-modal');
   showToast(`Colour "${name}" saved successfully!`, 'success');
@@ -711,20 +706,18 @@ async function saveColour() {
     saveBtn.innerHTML = originalText;
   }
 
-  // 3. Background cloud upload & DB sync (does NOT block the UI!)
+  // 3. Background cloud image upload if file selected
   if (imageFileInput && imageFileInput.files && imageFileInput.files[0]) {
     const file = imageFileInput.files[0];
     const path = `colours/${brandId}/${Date.now()}_${file.name}`;
     uploadFileToStorage('ratedworktops', path, file).then(uploadRes => {
       if (uploadRes && uploadRes.ok) {
         payload.image_url = uploadRes.url;
-        saveColourToDB(payload);
-      } else {
-        saveColourToDB(payload);
+        saveColourToDB(payload).then(() => {
+          renderBrands();
+        });
       }
-    }).catch(() => saveColourToDB(payload));
-  } else {
-    saveColourToDB(payload);
+    }).catch(() => {});
   }
 }
 
