@@ -379,7 +379,7 @@ async function populateCatFilter() {
 }
 
 async function renderStoneStats(customBrands = null) {
-  const brands = customBrands || (typeof fetchBrandsSync === 'function' ? fetchBrandsSync() : await fetchBrands());
+  const brands = customBrands || await fetchBrands();
   let totalB = brands.length;
   let activeB = brands.filter(b => b.enabled).length;
   let totalC = 0;
@@ -417,7 +417,7 @@ async function renderStoneStats(customBrands = null) {
 async function renderBrands(customBrands = null) {
   const search = document.getElementById('stone-search').value.toLowerCase();
   const catFilter = document.getElementById('cat-filter').value;
-  let brands = customBrands || (typeof fetchBrandsSync === 'function' ? fetchBrandsSync() : await fetchBrands());
+  let brands = customBrands || await fetchBrands();
 
   if (catFilter !== 'all') brands = brands.filter(b => b.category === catFilter);
   if (search) brands = brands.filter(b =>

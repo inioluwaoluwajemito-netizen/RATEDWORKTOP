@@ -600,17 +600,16 @@ async function fetchBrands() {
     } catch(e) {}
   }
   
-  const baseBrands = (dbBrands && dbBrands.length > 0) ? dbBrands : fetchBrandsSync();
-  
+  const syncBrands = fetchBrandsSync();
   let localBrands = [];
   try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
 
-  const allBrands = [...baseBrands];
-  for (const lb of localBrands) {
-    if (!allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
-      allBrands.push(lb);
+  const allBrands = [...dbBrands];
+  [...syncBrands, ...localBrands].forEach(b => {
+    if (b && !allBrands.some(existing => existing.id == b.id || (existing.name && existing.name.toLowerCase() === b.name.toLowerCase()))) {
+      allBrands.push(b);
     }
-  }
+  });
 
   let localColours = [];
   try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
