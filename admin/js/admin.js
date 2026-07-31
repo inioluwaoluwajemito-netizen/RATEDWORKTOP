@@ -1309,15 +1309,15 @@ async function saveColourToDB(colour) {
   } else {
     localColours.unshift(fullColourRecord);
   }
-  try { localStorage.setItem('rw_local_colours', JSON.stringify(localColours)); } catch(e) {}
+  try { localStorage.setItem('rw_local_colours', JSON.stringify(localColours)); } catch(e) { console.warn('[saveColourToDB] Local storage notice:', e); }
 
   // Instantly merge into rw_brands so brand objects in localStorage carry the new colour
-  syncColoursToBrands([fullColourRecord]);
+  try { syncColoursToBrands([fullColourRecord]); } catch(e) {}
 
   if (!supabaseClient) return fullColourRecord;
 
   try {
-    if (colour.id) {
+    if (colour.isEdit) {
       const { error: err1 } = await supabaseClient.from('colours').update({
         name: colour.name,
         sku: colour.sku,
@@ -1325,18 +1325,23 @@ async function saveColourToDB(colour) {
         texture: colour.texture,
         image_url: colour.image_url,
         enabled: colour.enabled
-      }).eq('id', colour.id);
+      }).eq('id', colId);
 
       if (err1) {
-        await supabaseClient.from('colours').update({
+        await supabaseClient.from('colours').upsert([{
+          id: colId,
+          brand_id: colour.brand_id,
+          brand_name: colour.brand_name || '',
           name: colour.name,
           sku: colour.sku,
+          finish: colour.finish,
           texture: colour.texture,
+          image_url: colour.image_url,
           enabled: colour.enabled
-        }).eq('id', colour.id);
+        }]);
       }
     } else {
-      const { error: err2 } = await supabaseClient.from('colours').insert([{
+      await supabaseClient.from('colours').upsert([{
         id: colId,
         brand_id: colour.brand_id,
         brand_name: colour.brand_name || '',
@@ -1347,16 +1352,6 @@ async function saveColourToDB(colour) {
         image_url: colour.image_url,
         enabled: colour.enabled
       }]);
-
-      if (err2) {
-        await supabaseClient.from('colours').insert([{
-          brand_id: colour.brand_id,
-          name: colour.name,
-          sku: colour.sku,
-          texture: colour.texture,
-          enabled: colour.enabled
-        }]);
-      }
     }
   } catch (dbErr) {
     console.warn('[Admin saveColourToDB] DB write notice:', dbErr);
