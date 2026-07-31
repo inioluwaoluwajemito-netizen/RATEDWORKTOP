@@ -456,6 +456,7 @@ function initBrandsAndColours() {
           { id: 102, name: 'Nebula Pearl', sku: 'SIL-NP', enabled: true, texture: 'quartz', price: '' },
           { id: 103, name: 'Iconic Black', sku: 'SIL-IB', enabled: true, texture: 'black', price: '' },
           { id: 104, name: 'Miami White', sku: 'SIL-MW', enabled: true, texture: 'marble', price: '' },
+          { id: 105, name: 'Desert Silver', sku: 'SIL-DS', enabled: true, texture: 'slate', price: '' }
         ]
       },
       {
@@ -465,6 +466,7 @@ function initBrandsAndColours() {
           { id: 201, name: 'Kreta', sku: 'DEK-KR', enabled: true, texture: 'slate', price: '' },
           { id: 202, name: 'Opera', sku: 'DEK-OP', enabled: true, texture: 'marble', price: '' },
           { id: 203, name: 'Laurent', sku: 'DEK-LR', enabled: true, texture: 'black', price: '' },
+          { id: 204, name: 'Kira', sku: 'DEK-KI', enabled: true, texture: 'marble', price: '' },
           { id: 205, name: 'Charcoal Granite', sku: 'DEK-CG', enabled: true, texture: 'granite', price: '' }
         ]
       },
@@ -475,21 +477,11 @@ function initBrandsAndColours() {
           { id: 301, name: 'Statuario Nuvo', sku: 'CAE-SN', enabled: true, texture: 'marble', price: '' },
           { id: 302, name: 'Vanilla Noir', sku: 'CAE-VN', enabled: true, texture: 'granite', price: '' },
           { id: 303, name: 'Cloudburst Concrete', sku: 'CAE-CC', enabled: true, texture: 'slate', price: '' },
+          { id: 304, name: 'Empira White', sku: 'CAE-EW', enabled: true, texture: 'marble', price: '' }
         ]
       },
       {
-        id: 4, name: 'Calacatta Premium', category: 'Marble', enabled: true,
-        logo: '', description: 'Natural marble from Carrara quarries',
-        colours: [
-          { id: 401, name: 'Calacatta Gold', sku: 'CAL-GD', enabled: true, texture: 'marble', price: '' },
-          { id: 402, name: 'Carrara White Marble', sku: 'CAL-CW', enabled: true, texture: 'marble', price: '' },
-          { id: 403, name: 'Nero Marquina', sku: 'CAL-NM', enabled: true, texture: 'marble', price: '' },
-          { id: 404, name: 'Arabescato Vagli', sku: 'CAL-AV', enabled: true, texture: 'marble', price: '' },
-          { id: 405, name: 'Calacatta Viola', sku: 'CAL-VI', enabled: true, texture: 'marble', price: '' }
-        ]
-      },
-      {
-        id: 5, name: 'Neolith', category: 'Sintered Stone', enabled: true,
+        id: 4, name: 'Neolith', category: 'Sintered Stone', enabled: true,
         logo: '', description: 'The most advanced sintered stone',
         colours: [
           { id: 501, name: 'Arctic White', sku: 'NEO-AW', enabled: true, texture: 'quartz', price: '' },
@@ -498,8 +490,8 @@ function initBrandsAndColours() {
         ]
       },
       {
-        id: 6, name: 'Top Stone', category: 'Marble', enabled: true,
-        logo: '', description: 'No description',
+        id: 5, name: 'Calacatta Premium', category: 'Marble', enabled: true,
+        logo: '', description: 'Natural marble from Carrara quarries',
         colours: []
       }
     ];
@@ -909,7 +901,8 @@ function seedData() {
           { id: 101, name: 'Eternal Calacatta Gold', sku: 'SIL-ECG', enabled: true, texture: 'marble', price: '' },
           { id: 102, name: 'Nebula Pearl', sku: 'SIL-NP', enabled: true, texture: 'quartz', price: '' },
           { id: 103, name: 'Iconic Black', sku: 'SIL-IB', enabled: true, texture: 'black', price: '' },
-          { id: 104, name: 'Miami White', sku: 'SIL-MW', enabled: false, texture: 'marble', price: '' },
+          { id: 104, name: 'Miami White', sku: 'SIL-MW', enabled: true, texture: 'marble', price: '' },
+          { id: 105, name: 'Desert Silver', sku: 'SIL-DS', enabled: true, texture: 'slate', price: '' }
         ]
       },
       {
@@ -919,6 +912,8 @@ function seedData() {
           { id: 201, name: 'Kreta', sku: 'DEK-KR', enabled: true, texture: 'slate', price: '' },
           { id: 202, name: 'Opera', sku: 'DEK-OP', enabled: true, texture: 'marble', price: '' },
           { id: 203, name: 'Laurent', sku: 'DEK-LR', enabled: true, texture: 'black', price: '' },
+          { id: 204, name: 'Kira', sku: 'DEK-KI', enabled: true, texture: 'marble', price: '' },
+          { id: 205, name: 'Charcoal Granite', sku: 'DEK-CG', enabled: true, texture: 'granite', price: '' }
         ]
       },
       {
@@ -927,16 +922,23 @@ function seedData() {
         colours: [
           { id: 301, name: 'Statuario Nuvo', sku: 'CAE-SN', enabled: true, texture: 'marble', price: '' },
           { id: 302, name: 'Vanilla Noir', sku: 'CAE-VN', enabled: true, texture: 'granite', price: '' },
-          { id: 303, name: 'Cloudburst Concrete', sku: 'CAE-CC', enabled: false, texture: 'slate', price: '' },
+          { id: 303, name: 'Cloudburst Concrete', sku: 'CAE-CC', enabled: true, texture: 'slate', price: '' },
+          { id: 304, name: 'Empira White', sku: 'CAE-EW', enabled: true, texture: 'marble', price: '' }
         ]
       },
       {
-        id: 4, name: 'Calacatta Premium', category: 'Marble', enabled: false,
-        logo: '', description: 'Natural marble from Carrara quarries',
+        id: 4, name: 'Neolith', category: 'Sintered Stone', enabled: true,
+        logo: '', description: 'The most advanced sintered stone',
         colours: [
-          { id: 401, name: 'Calacatta Gold', sku: 'CAL-GD', enabled: true, texture: 'marble', price: '' },
-          { id: 402, name: 'Calacatta Extra', sku: 'CAL-EX', enabled: true, texture: 'marble', price: '' },
+          { id: 501, name: 'Arctic White', sku: 'NEO-AW', enabled: true, texture: 'quartz', price: '' },
+          { id: 502, name: 'Iron Grey', sku: 'NEO-IG', enabled: true, texture: 'slate', price: '' },
+          { id: 503, name: 'Nero Zimbabwe', sku: 'NEO-NZ', enabled: true, texture: 'black', price: '' }
         ]
+      },
+      {
+        id: 5, name: 'Calacatta Premium', category: 'Marble', enabled: true,
+        logo: '', description: 'Natural marble from Carrara quarries',
+        colours: []
       }
     ]);
   }
@@ -1102,91 +1104,6 @@ function renderMiniChart(canvasId, data, color = '#c9a96e') {
     ctx.fill();
   });
 }
-
-function fetchBrandsSync() {
-  const baseBrands = store.get('brands', []) || [];
-  let localBrands = [];
-  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
-
-  const allBrands = [...baseBrands];
-  for (const lb of localBrands) {
-    if (!allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
-      allBrands.push(lb);
-    }
-  }
-
-  let localColours = [];
-  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
-
-  return allBrands.map(brand => {
-    const locCols = localColours.filter(c => 
-      String(c.brand_id) === String(brand.id) || 
-      String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
-      (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
-    );
-    return {
-      ...brand,
-      colours: locCols
-    };
-  });
-}
-
-// ── Async Admin Data Helpers ──────────────────
-async function fetchBrands() {
-  let dbBrands = [];
-  let dbColours = [];
-  if (supabaseClient) {
-    try {
-      const fetchPromise = Promise.all([
-        supabaseClient.from('brands').select('*'),
-        supabaseClient.from('colours').select('*')
-      ]);
-      const timeoutPromise = new Promise(res => setTimeout(() => res([{ data: null }, { data: null }]), 1200));
-      const [bRes, cRes] = await Promise.race([fetchPromise, timeoutPromise]);
-      if (bRes && bRes.data) dbBrands = bRes.data;
-      if (cRes && cRes.data) dbColours = cRes.data;
-    } catch(e) {}
-  }
-  
-  const baseBrands = (dbBrands && dbBrands.length > 0) ? dbBrands : (store.get('brands', []) || []);
-  
-  let localBrands = [];
-  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
-
-  const allBrands = [...baseBrands];
-  for (const lb of localBrands) {
-    if (!allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
-      allBrands.push(lb);
-    }
-  }
-
-  let localColours = [];
-  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
-
-  return allBrands.map(brand => {
-    const dbCols = dbColours ? dbColours.filter(c => 
-      String(c.brand_id) === String(brand.id) || 
-      String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
-      (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
-    ) : [];
-    
-    const locCols = localColours.filter(c => 
-      String(c.brand_id) === String(brand.id) || 
-      String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
-      (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
-    );
-    
-    const combined = [...dbCols];
-    for (const lc of locCols) {
-      if (!combined.some(c => c.id == lc.id || (c.name && c.name === lc.name))) {
-        combined.push(lc);
-      }
-    }
-    return {
-      ...brand,
-      colours: combined
-    };
-  });
 }
 
 async function fetchCategories() {
