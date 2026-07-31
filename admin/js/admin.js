@@ -1104,7 +1104,6 @@ function renderMiniChart(canvasId, data, color = '#c9a96e') {
     ctx.fill();
   });
 }
-}
 
 async function fetchCategories() {
   if (!supabaseClient) return store.get('categories', []);
