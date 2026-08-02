@@ -119,7 +119,23 @@ function getStoneVisualDescription(stone) {
   let colorDesc = 'stone';
   if (texture === 'black' || name.includes('black') || name.includes('noir') || name.includes('nero')) {
     colorDesc = 'dark black stone with detailed veining';
-  } else if (texture === 'marble' || name.includes('marble') || name.includes('calacatta') || name.includes('carrara') || name.includes('statuario') || name.includes('vagli') || name.includes('viola')) {
+  } else if (name.includes('red') || name.includes('rosso') || name.includes('ruby') || name.includes('bordeaux') || name.includes('burgundy')) {
+    colorDesc = 'rich deep red stone with natural veining and warm tones';
+  } else if (name.includes('blue') || name.includes('volga') || name.includes('azul') || name.includes('sodalite') || name.includes('sapphire')) {
+    colorDesc = 'deep blue stone with natural crystalline patterns and mineral flecks';
+  } else if (name.includes('green') || name.includes('verde') || name.includes('emerald') || name.includes('forest')) {
+    colorDesc = 'rich green stone with natural veining and mineral patterns';
+  } else if (name.includes('brown') || name.includes('tan') || name.includes('coffee') || name.includes('mocha') || name.includes('bronze') || name.includes('autumn') || name.includes('caramel')) {
+    colorDesc = 'warm brown stone with natural earthy tones and veining';
+  } else if (name.includes('beige') || name.includes('cream') || name.includes('ivory') || name.includes('sand') || name.includes('vanilla') || name.includes('latte')) {
+    colorDesc = 'warm beige cream stone with subtle natural patterns';
+  } else if (name.includes('gold') || name.includes('amber') || name.includes('honey')) {
+    colorDesc = 'warm golden stone with rich amber tones and natural veining';
+  } else if (name.includes('pink') || name.includes('rose') || name.includes('blush')) {
+    colorDesc = 'soft pink rose-toned stone with delicate natural patterns';
+  } else if (name.includes('purple') || name.includes('violet') || name.includes('amethyst') || name.includes('viola')) {
+    colorDesc = 'rich purple stone with dramatic veining and deep violet tones';
+  } else if (texture === 'marble' || name.includes('marble') || name.includes('calacatta') || name.includes('carrara') || name.includes('statuario') || name.includes('vagli')) {
     colorDesc = 'premium white marble with elegant grey and gold veining';
   } else if (texture === 'granite' || name.includes('granite') || name.includes('charcoal')) {
     colorDesc = 'dark grey textured granite';
@@ -171,11 +187,19 @@ async function generateRender() {
     const imageUri = imageCanvas.toDataURL('image/jpeg', 0.90);
     const maskUri = maskCanvas.toDataURL('image/png');
 
+    // ── 1b. Resolve the stone texture image URL to send as reference ─────────
+    let stoneImageUrl = getStoneImage(selectedStone.sku, selectedStone);
+    // Convert relative paths to absolute URLs so Fal.ai can fetch them
+    if (stoneImageUrl && !stoneImageUrl.startsWith('http') && !stoneImageUrl.startsWith('data:')) {
+      stoneImageUrl = new URL(stoneImageUrl, window.location.href).href;
+    }
+    console.log('[Render] Stone texture reference URL:', stoneImageUrl);
+
     // ── 2. Build the AI prompt ───────────────────────────────────────────────
     const stoneDesc = getStoneVisualDescription(selectedStone);
     const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
     const refinementExtra = refinementText ? ` ADDITIONAL USER REFINEMENT INSTRUCTIONS: ${refinementText}.` : '';
-    const prompt = `${colorDetails.promptPrefix} Replace the countertop worktop and splashback surfaces with ${selectedStone.brandName || ''} ${selectedStone.name}. Detailed ${stoneDesc} material with realistic veining, correct color tone, and polished finish. Match lighting and perspective of the kitchen.${refinementExtra}`;
+    const prompt = `${colorDetails.promptPrefix} Replace the countertop worktop and splashback surfaces with ${selectedStone.brandName || ''} ${selectedStone.name}. The worktop and splashback MUST use the EXACT same stone texture, color, pattern, and veining as shown in the reference stone image provided. Detailed ${stoneDesc} material with realistic veining, correct color tone, and polished finish. Match lighting and perspective of the kitchen. Both the worktop and splashback must display the identical stone material.${refinementExtra}`;
 
     console.log('[Render] Inpainting Prompt:', prompt);
     setProgress(2); // Stage 2: Sending to AI
@@ -193,7 +217,8 @@ async function generateRender() {
             body: {
               image: imageUri,
               mask: maskUri,
-              prompt: prompt
+              prompt: prompt,
+              stone_image: stoneImageUrl
             }
           });
           if (error) {
@@ -218,7 +243,8 @@ async function generateRender() {
             body: JSON.stringify({
               image: imageUri,
               mask: maskUri,
-              prompt: prompt
+              prompt: prompt,
+              stone_image: stoneImageUrl
             })
           });
 

@@ -77,12 +77,22 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log(`[Nano Banana Proxy] User: ${user.id} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length}`);
+    console.log(`[Nano Banana Proxy] User: ${user.id} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length} | stone_image: ${body.stone_image ? 'yes' : 'no'}`);
 
     // ── 4. Call fal-ai/nano-banana/edit Endpoint ──────────────────────────────
+    // Build image_urls array: kitchen photo + stone texture reference (if provided)
+    const imageUrls = [body.image];
+    let enhancedPrompt = body.prompt;
+    if (body.stone_image) {
+      imageUrls.push(body.stone_image);
+      // Enhance the prompt to explicitly reference the stone texture image
+      enhancedPrompt = `${body.prompt} CRITICAL: The second reference image shows the exact stone texture slab that MUST be applied. Match its exact color, pattern, veining, and surface finish precisely on both the worktop and splashback surfaces. The worktop and splashback must look identical to the reference stone slab.`;
+      console.log("[Nano Banana Proxy] Stone reference image included in image_urls");
+    }
+
     const falPayload: any = {
-      prompt: body.prompt,
-      image_urls: [body.image],
+      prompt: enhancedPrompt,
+      image_urls: imageUrls,
       num_images: 1,
       aspect_ratio: "auto",
       output_format: "png",
