@@ -19,3 +19,12 @@ www/
 # Local configurations
 android/local.properties
 
+# Secrets and environment files
+.env
+
+# Built packages/APKs
+*.apk
+
+# Scratch and agent files
+scratch/
+.agents/
