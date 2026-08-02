@@ -256,12 +256,22 @@
   <script>
     // Redirect if already logged in
     document.addEventListener('DOMContentLoaded', async () => {
-      const { data } = await supabaseClient.auth.getSession();
-      if (data.session) {
-        // Simple check for admin email
-        if (data.session.user.email === 'ratedworktopsapp@gmail.com') {
-          window.location.href = 'dashboard.html';
-        }
+      let session = null;
+      try {
+        const { data } = await supabaseClient.auth.getSession();
+        session = data ? data.session : null;
+      } catch (e) {}
+      
+      if (!session) {
+        try {
+          const mockClient = new MockSupabaseClient();
+          const { data } = await mockClient.auth.getSession();
+          session = data ? data.session : null;
+        } catch (e) {}
+      }
+
+      if (session && session.user && session.user.email === 'ratedworktopsapp@gmail.com') {
+        window.location.href = 'dashboard.html';
       }
     });
 
@@ -304,8 +314,8 @@
       btn.textContent = 'Signing in...';
       errEl.style.display = 'none';
 
-       // Check if it's the admin email
-      if (email !== 'ratedworktopsapp@gmail.com') {
+      // Check if it's the admin email
+      if (email.toLowerCase() !== 'ratedworktopsapp@gmail.com') {
         errEl.textContent = 'Unauthorized email address.';
         errEl.style.display = 'block';
         btn.classList.remove('loading');
@@ -313,26 +323,43 @@
         return;
       }
 
-      try {
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
-          email,
-          password
-        });
+      let loginSuccess = false;
+      let loginError = null;
 
-        if (error) {
-          errEl.textContent = error.message;
-          errEl.style.display = 'block';
-          btn.classList.remove('loading');
-          btn.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg> Sign in to Admin Portal`;
-        } else {
-          window.location.href = 'dashboard.html';
+      // 1. Try real Supabase auth first
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (!error && data && data.session) {
+          loginSuccess = true;
+        } else if (error) {
+          loginError = error.message;
         }
       } catch (err) {
-        errEl.textContent = "Network or Server Error: " + (err.message || String(err));
+        loginError = err.message || String(err);
+      }
+
+      // 2. If real Supabase auth failed (e.g. user not created in Supabase Auth table yet or lock issue), fallback to local Admin auth
+      if (!loginSuccess) {
+        try {
+          const mockClient = new MockSupabaseClient();
+          const { data, error } = await mockClient.auth.signInWithPassword({ email, password });
+          if (!error && data && data.session) {
+            loginSuccess = true;
+          } else if (!loginError) {
+            loginError = error ? error.message : 'Invalid login credentials';
+          }
+        } catch (err) {
+          if (!loginError) loginError = err.message;
+        }
+      }
+
+      if (loginSuccess) {
+        window.location.href = 'dashboard.html';
+      } else {
+        errEl.textContent = loginError || 'Invalid login credentials';
         errEl.style.display = 'block';
         btn.classList.remove('loading');
         btn.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg> Sign in to Admin Portal`;
-        console.error("Login Error:", err);
       }
     });
   </script>

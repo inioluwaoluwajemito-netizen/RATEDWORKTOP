@@ -838,7 +838,7 @@ class MockSupabaseClient {
 // Instantiate real Supabase client — always use real Supabase when the library is loaded
 const useRealSupabase = !!(typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
 const supabaseClient = useRealSupabase 
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { lock: false } }) 
   : new MockSupabaseClient();
 
 // Seed initial mock data to ensure localStorage is always populated
