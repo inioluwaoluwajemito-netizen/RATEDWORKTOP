@@ -410,6 +410,23 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
 
   const SCALE = TARGET_SIZE / 100;
 
+  // 1. Splashback / Back Wall Polygon (covers full wall backsplash area behind worktop)
+  const splashbackPoints = [
+    { x: 10, y: 10 },
+    { x: 90, y: 10 },
+    { x: 90, y: 56 },
+    { x: 10, y: 56 }
+  ];
+
+  maskCtx.beginPath();
+  maskCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
+  for (let i = 1; i < splashbackPoints.length; i++) {
+    maskCtx.lineTo(splashbackPoints[i].x * SCALE, splashbackPoints[i].y * SCALE);
+  }
+  maskCtx.closePath();
+  maskCtx.fill();
+
+  // 2. Countertop / Worktop Polygon
   if (manualPoints && manualPoints.length >= 3) {
     maskCtx.beginPath();
     maskCtx.moveTo(manualPoints[0].x * SCALE, manualPoints[0].y * SCALE);
@@ -420,29 +437,15 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     maskCtx.fill();
   } else {
     const countertopPoints = [
-      { x: 5, y: 55 },
-      { x: 95, y: 55 },
-      { x: 98, y: 80 },
-      { x: 2, y: 80 }
+      { x: 2, y: 52 },
+      { x: 98, y: 52 },
+      { x: 98, y: 95 },
+      { x: 2, y: 95 }
     ];
     maskCtx.beginPath();
     maskCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
     for (let i = 1; i < countertopPoints.length; i++) {
       maskCtx.lineTo(countertopPoints[i].x * SCALE, countertopPoints[i].y * SCALE);
-    }
-    maskCtx.closePath();
-    maskCtx.fill();
-
-    const splashbackPoints = [
-      { x: 35, y: 40 },
-      { x: 65, y: 40 },
-      { x: 65, y: 55 },
-      { x: 35, y: 55 }
-    ];
-    maskCtx.beginPath();
-    maskCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
-    for (let i = 1; i < splashbackPoints.length; i++) {
-      maskCtx.lineTo(splashbackPoints[i].x * SCALE, splashbackPoints[i].y * SCALE);
     }
     maskCtx.closePath();
     maskCtx.fill();

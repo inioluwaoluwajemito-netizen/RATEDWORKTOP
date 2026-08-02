@@ -86,7 +86,7 @@ serve(async (req: Request) => {
     if (body.stone_image) {
       imageUrls.push(body.stone_image);
       // Enhance the prompt to explicitly reference the stone texture image
-      enhancedPrompt = `${body.prompt} CRITICAL: The second reference image shows the exact stone texture slab that MUST be applied. Match its exact color, pattern, veining, and surface finish precisely on both the worktop and splashback surfaces. The worktop and splashback must look identical to the reference stone slab.`;
+      enhancedPrompt = `${body.prompt} CRITICAL MANDATE: You MUST replace BOTH the worktop/countertop AND the splashback back wall. Do not leave the splashback wall unchanged! The second reference image shows the exact stone texture slab that MUST be applied to BOTH the worktop AND the splashback wall. Match its exact color, pattern, veining, and surface finish precisely on both surfaces. Both the worktop and splashback wall must feature the identical stone material matching the reference stone image.`;
       console.log("[Nano Banana Proxy] Stone reference image included in image_urls");
     }
 
