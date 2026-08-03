@@ -1354,9 +1354,40 @@ async function saveBrandToDB(brand) {
 }
 
 async function deleteBrandFromDB(id) {
+  // 1. Purge from local storage and memory store
+  try {
+    let rwBrands = safeGetLocalStorage('rw_brands');
+    rwBrands = rwBrands.filter(b => b.id != id && String(b.id) !== String(id) && (b.name && b.name.toLowerCase() !== String(id).toLowerCase()));
+    localStorage.setItem('rw_brands', JSON.stringify(rwBrands));
+  } catch(e) {}
+
+  try {
+    let localBrands = safeGetLocalStorage('rw_local_brands');
+    localBrands = localBrands.filter(b => b.id != id && String(b.id) !== String(id) && (b.name && b.name.toLowerCase() !== String(id).toLowerCase()));
+    localStorage.setItem('rw_local_brands', JSON.stringify(localBrands));
+  } catch(e) {}
+
+  try {
+    let localCols = safeGetLocalStorage('rw_local_colours');
+    localCols = localCols.filter(c => c.brand_id != id && String(c.brand_id) !== String(id));
+    localStorage.setItem('rw_local_colours', JSON.stringify(localCols));
+  } catch(e) {}
+
+  if (typeof store !== 'undefined' && store.get) {
+    try {
+      let b = store.get('brands') || [];
+      store.set('brands', b.filter(item => item.id != id && String(item.id) !== String(id)));
+    } catch(e) {}
+  }
+
+  // 2. Remove from Supabase DB
   if (!supabaseClient) return;
-  await supabaseClient.from('colours').delete().eq('brand_id', id);
-  await supabaseClient.from('brands').delete().eq('id', id);
+  try {
+    await supabaseClient.from('colours').delete().eq('brand_id', id);
+    await supabaseClient.from('brands').delete().eq('id', id);
+  } catch(e) {
+    console.warn('[deleteBrandFromDB] DB delete notice:', e);
+  }
 }
 
 async function saveColourToDB(colour) {
@@ -1390,42 +1421,18 @@ async function saveColourToDB(colour) {
   if (!supabaseClient) return fullColourRecord;
 
   try {
-    if (colour.isEdit) {
-      const { error: err1 } = await supabaseClient.from('colours').update({
-        name: colour.name,
-        sku: colour.sku,
-        finish: colour.finish,
-        texture: colour.texture,
-        image_url: colour.image_url,
-        enabled: colour.enabled
-      }).eq('id', colId);
-
-      if (err1) {
-        await supabaseClient.from('colours').upsert([{
-          id: colId,
-          brand_id: colour.brand_id,
-          brand_name: colour.brand_name || '',
-          name: colour.name,
-          sku: colour.sku,
-          finish: colour.finish,
-          texture: colour.texture,
-          image_url: colour.image_url,
-          enabled: colour.enabled
-        }]);
-      }
-    } else {
-      await supabaseClient.from('colours').upsert([{
-        id: colId,
-        brand_id: colour.brand_id,
-        brand_name: colour.brand_name || '',
-        name: colour.name,
-        sku: colour.sku,
-        finish: colour.finish,
-        texture: colour.texture,
-        image_url: colour.image_url,
-        enabled: colour.enabled
-      }]);
-    }
+    const { error: err } = await supabaseClient.from('colours').upsert([{
+      id: colId,
+      brand_id: colour.brand_id,
+      brand_name: colour.brand_name || '',
+      name: colour.name,
+      sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
+      finish: colour.finish || 'Polished',
+      texture: colour.texture || 'marble',
+      image_url: colour.image_url || '',
+      enabled: colour.enabled !== false
+    }]);
+    if (err) console.warn('[Admin saveColourToDB] DB write notice:', err);
   } catch (dbErr) {
     console.warn('[Admin saveColourToDB] DB write notice:', dbErr);
   }
@@ -1433,9 +1440,49 @@ async function saveColourToDB(colour) {
   return fullColourRecord;
 }
 
-async function deleteColourFromDB(id) {
+async function deleteColourFromDB(id, brandId) {
+  // 1. Remove from rw_local_colours
+  try {
+    let localCols = safeGetLocalStorage('rw_local_colours');
+    localCols = localCols.filter(c => c.id != id && String(c.id) !== String(id));
+    localStorage.setItem('rw_local_colours', JSON.stringify(localCols));
+  } catch(e) {}
+
+  // 2. Remove colour from embedded array inside rw_brands and rw_local_brands
+  function purgeColourFromBrands(key) {
+    try {
+      let brands = safeGetLocalStorage(key);
+      let changed = false;
+      brands.forEach(b => {
+        if (b && b.colours && Array.isArray(b.colours)) {
+          const initLen = b.colours.length;
+          b.colours = b.colours.filter(c => c.id != id && String(c.id) !== String(id));
+          if (b.colours.length !== initLen) changed = true;
+        }
+      });
+      if (changed) localStorage.setItem(key, JSON.stringify(brands));
+    } catch(e) {}
+  }
+  purgeColourFromBrands('rw_brands');
+  purgeColourFromBrands('rw_local_brands');
+
+  if (typeof store !== 'undefined' && store.get) {
+    try {
+      let b = store.get('brands') || [];
+      b.forEach(brand => {
+        if (brand.colours) brand.colours = brand.colours.filter(c => c.id != id && String(c.id) !== String(id));
+      });
+      store.set('brands', b);
+    } catch(e) {}
+  }
+
+  // 3. Remove from Supabase DB
   if (!supabaseClient) return;
-  await supabaseClient.from('colours').delete().eq('id', id);
+  try {
+    await supabaseClient.from('colours').delete().eq('id', id);
+  } catch(e) {
+    console.warn('[deleteColourFromDB] DB delete notice:', e);
+  }
 }
 
 async function saveCategoryToDB(cat) {
@@ -1458,8 +1505,18 @@ async function saveCategoryToDB(cat) {
 }
 
 async function deleteCategoryFromDB(id) {
+  try {
+    let cats = safeGetLocalStorage('rw_categories');
+    cats = cats.filter(c => c.id != id && String(c.id) !== String(id) && c.name != id);
+    localStorage.setItem('rw_categories', JSON.stringify(cats));
+  } catch(e) {}
+
   if (!supabaseClient) return;
-  await supabaseClient.from('categories').delete().eq('id', id);
+  try {
+    await supabaseClient.from('categories').delete().eq('id', id);
+  } catch(e) {
+    console.warn('[deleteCategoryFromDB] DB delete notice:', e);
+  }
 }
 
 async function updateProfileInDB(id, updates) {
@@ -1468,19 +1525,42 @@ async function updateProfileInDB(id, updates) {
 }
 
 async function deleteProfileFromDB(id) {
+  // 1. Purge user from local storage and memory stores
+  try {
+    let users = safeGetLocalStorage('rw_users');
+    users = users.filter(u => u.id != id && String(u.id) !== String(id));
+    localStorage.setItem('rw_users', JSON.stringify(users));
+  } catch(e) {}
+
+  try {
+    let localUsers = safeGetLocalStorage('rw_local_users');
+    localUsers = localUsers.filter(u => u.id != id && String(u.id) !== String(id));
+    localStorage.setItem('rw_local_users', JSON.stringify(localUsers));
+  } catch(e) {}
+
+  if (typeof store !== 'undefined' && store.get) {
+    try {
+      let u = store.get('users') || [];
+      store.set('users', u.filter(user => user.id != id && String(user.id) !== String(id)));
+    } catch(e) {}
+  }
+
+  // 2. Delete from Supabase DB
   if (!supabaseClient) return { error: null };
-  
-  // Try the RPC function first — this deletes from BOTH auth.users AND profiles
-  const { error: rpcError } = await supabaseClient.rpc('delete_user_completely', { user_id: id });
-  
-  if (!rpcError) {
+
+  try {
+    // Try the RPC function first (deletes from auth.users AND profiles)
+    const { error: rpcError } = await supabaseClient.rpc('delete_user_completely', { user_id: id });
+    if (!rpcError) return { error: null };
+
+    // Fallback: delete from profiles table directly
+    console.warn('RPC delete_user_completely notice, deleting directly from profiles:', rpcError.message);
+    const { error: deleteError } = await supabaseClient.from('profiles').delete().eq('id', id);
+    return { error: deleteError };
+  } catch (e) {
+    console.warn('[deleteProfileFromDB] DB delete notice:', e);
     return { error: null };
   }
-  
-  // Fallback: if the RPC function doesn't exist yet, delete from profiles table directly
-  console.warn('RPC delete_user_completely not available, falling back to profiles-only delete:', rpcError.message);
-  const { error: deleteError } = await supabaseClient.from('profiles').delete().eq('id', id);
-  return { error: deleteError };
 }
 
 async function updateSettingsInDB(settings) {
