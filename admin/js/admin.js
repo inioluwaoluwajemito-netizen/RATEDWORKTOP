@@ -1267,6 +1267,13 @@ async function saveBrandToDB(brand) {
     colours: brand.colours || []
   };
 
+  // Remove brand from rw_deleted_brands in case it was previously deleted
+  try {
+    let deleted = safeGetLocalStorage('rw_deleted_brands');
+    deleted = deleted.filter(db => db != brandId && String(db) !== String(brandId) && (brand.name && String(db).toLowerCase() !== brand.name.toLowerCase().trim()));
+    localStorage.setItem('rw_deleted_brands', JSON.stringify(deleted));
+  } catch(e) {}
+
   const existingIdx = localBrands.findIndex(b => b.id == brandId || (b.name && b.name.toLowerCase() === brand.name.toLowerCase()));
   if (existingIdx >= 0) {
     localBrands[existingIdx] = fullBrandRecord;
@@ -1370,6 +1377,13 @@ async function saveColourToDB(colour) {
     enabled: colour.enabled !== false
   };
 
+  // Remove colour from rw_deleted_colours in case it was previously deleted
+  try {
+    let deletedCols = safeGetLocalStorage('rw_deleted_colours');
+    deletedCols = deletedCols.filter(dc => dc != colId && String(dc) !== String(colId) && (colour.name && String(dc).toLowerCase() !== colour.name.toLowerCase().trim()));
+    localStorage.setItem('rw_deleted_colours', JSON.stringify(deletedCols));
+  } catch(e) {}
+
   const existingIdx = localColours.findIndex(c => c.id == colId || (c.name === colour.name && String(c.brand_id) == String(colour.brand_id)));
   if (existingIdx >= 0) {
     localColours[existingIdx] = fullColourRecord;
@@ -1459,22 +1473,49 @@ async function deleteColourFromDB(id, brandId, colourName) {
 }
 
 async function saveCategoryToDB(cat) {
-  if (!supabaseClient) return;
-  if (cat.id) {
-    await supabaseClient.from('categories').update({
-      name: cat.name,
-      icon: cat.icon,
-      enabled: cat.enabled,
-      display_order: cat.display_order
-    }).eq('id', cat.id);
+  let localCats = [];
+  try { localCats = JSON.parse(localStorage.getItem('rw_local_categories') || '[]'); } catch(e) {}
+
+  const catId = cat.id || ('cat_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36));
+  const fullCatRecord = {
+    id: catId,
+    name: cat.name,
+    icon: cat.icon || '🪨',
+    enabled: cat.enabled !== false,
+    display_order: cat.display_order || (localCats.length + 1)
+  };
+
+  const existingIdx = localCats.findIndex(c => c.id == catId || (c.name && c.name.toLowerCase() === cat.name.toLowerCase()));
+  if (existingIdx >= 0) {
+    localCats[existingIdx] = fullCatRecord;
   } else {
-    await supabaseClient.from('categories').insert([{
-      name: cat.name,
-      icon: cat.icon,
-      enabled: cat.enabled,
-      display_order: cat.display_order
-    }]);
+    localCats.push(fullCatRecord);
   }
+  try { localStorage.setItem('rw_local_categories', JSON.stringify(localCats)); } catch(e) {}
+
+  let rwCats = safeGetLocalStorage('rw_categories');
+  const cIdx = rwCats.findIndex(c => c.id == catId || (c.name && c.name.toLowerCase() === cat.name.toLowerCase()));
+  if (cIdx >= 0) {
+    rwCats[cIdx] = { ...rwCats[cIdx], ...fullCatRecord };
+  } else {
+    rwCats.push(fullCatRecord);
+  }
+  try { localStorage.setItem('rw_categories', JSON.stringify(rwCats)); } catch(e) {}
+
+  if (!supabaseClient) return fullCatRecord;
+  try {
+    const { error: err } = await supabaseClient.from('categories').upsert([{
+      id: catId,
+      name: cat.name,
+      icon: cat.icon || '🪨',
+      enabled: cat.enabled !== false,
+      display_order: cat.display_order || 1
+    }]);
+    if (err) console.warn('[saveCategoryToDB] DB write notice:', err);
+  } catch(e) {
+    console.warn('[saveCategoryToDB] DB write notice:', e);
+  }
+  return fullCatRecord;
 }
 
 async function deleteCategoryFromDB(id) {

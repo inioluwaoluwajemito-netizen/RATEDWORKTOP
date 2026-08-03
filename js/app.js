@@ -1241,9 +1241,39 @@ async function getBrands() {
 }
 
 async function getCategories() {
-  if (!supabaseClient) return [];
-  const { data } = await supabaseClient.from('categories').select('*').eq('enabled', true).order('display_order', { ascending: true });
-  return data || [];
+  if (typeof fetchCategories === 'function') {
+    try {
+      const adminCats = await fetchCategories();
+      if (adminCats && Array.isArray(adminCats)) {
+        return adminCats.filter(c => c && c.enabled !== false);
+      }
+    } catch(e) {}
+  }
+
+  let dbCats = [];
+  if (supabaseClient) {
+    try {
+      const { data } = await supabaseClient.from('categories').select('*').eq('enabled', true).order('display_order', { ascending: true });
+      if (data && data.length > 0) dbCats = data;
+    } catch(e) {}
+  }
+
+  let localCats = [];
+  try { localCats = JSON.parse(localStorage.getItem('rw_local_categories') || localStorage.getItem('rw_categories') || '[]'); } catch(e) {}
+
+  const catMap = new Map();
+  function mergeCat(c) {
+    if (!c || !c.name || c.enabled === false) return;
+    const key = c.name.toLowerCase().trim();
+    if (!catMap.has(key)) {
+      catMap.set(key, c);
+    }
+  }
+
+  dbCats.forEach(c => mergeCat(c));
+  localCats.forEach(c => mergeCat(c));
+
+  return Array.from(catMap.values());
 }
 
 // ── Texture CSS & Image Mappings ───────────────
