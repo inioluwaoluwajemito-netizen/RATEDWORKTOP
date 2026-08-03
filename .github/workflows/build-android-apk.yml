@@ -18,22 +18,23 @@ jobs:
       with:
         node-version: '20'
 
-    - name: Setup Java JDK 21
+    - name: Setup Java JDK 17
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '21'
+        java-version: '17'
 
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
     - name: Accept Android SDK Licenses
-      run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+      run: |
+        yes | sdkmanager --licenses 2>/dev/null || true
 
     - name: Install dependencies
       run: npm install --legacy-peer-deps
 
-    - name: Build Web Assets (www folder)
+    - name: Prepare Web Assets (www folder)
       run: |
         rm -rf www
         mkdir -p www
@@ -43,10 +44,8 @@ jobs:
         cp -r images www/ 2>/dev/null || true
         cp -r admin www/ 2>/dev/null || true
 
-    - name: Copy Web Assets into Android Assets
-      run: |
-        mkdir -p android/app/src/main/assets/public
-        cp -r www/* android/app/src/main/assets/public/
+    - name: Sync Capacitor Android
+      run: npx cap sync android
 
     - name: Make Gradle Wrapper Executable
       run: chmod +x android/gradlew
