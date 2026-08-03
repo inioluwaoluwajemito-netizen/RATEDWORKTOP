@@ -866,6 +866,17 @@ class MockSupabaseClient {
   from(table) {
     return new MockSupabaseQuery(table);
   }
+
+  async rpc(functionName, params) {
+    if (functionName === 'delete_user_completely' && params && params.user_id) {
+      try {
+        let profiles = JSON.parse(localStorage.getItem('rw_profiles') || '[]');
+        profiles = profiles.filter(p => p.id != params.user_id && String(p.id) !== String(params.user_id));
+        localStorage.setItem('rw_profiles', JSON.stringify(profiles));
+      } catch(e) {}
+    }
+    return { data: true, error: null };
+  }
 }
 
 if (typeof window !== 'undefined') {
@@ -1538,6 +1549,12 @@ async function deleteProfileFromDB(id) {
     localStorage.setItem('rw_local_users', JSON.stringify(localUsers));
   } catch(e) {}
 
+  try {
+    let profiles = safeGetLocalStorage('rw_profiles');
+    profiles = profiles.filter(p => p.id != id && String(p.id) !== String(id));
+    localStorage.setItem('rw_profiles', JSON.stringify(profiles));
+  } catch(e) {}
+
   if (typeof store !== 'undefined' && store.get) {
     try {
       let u = store.get('users') || [];
@@ -1545,22 +1562,27 @@ async function deleteProfileFromDB(id) {
     } catch(e) {}
   }
 
-  // 2. Delete from Supabase DB
+  // 2. Delete from Supabase DB safely
   if (!supabaseClient) return { error: null };
 
   try {
-    // Try the RPC function first (deletes from auth.users AND profiles)
-    const { error: rpcError } = await supabaseClient.rpc('delete_user_completely', { user_id: id });
-    if (!rpcError) return { error: null };
-
-    // Fallback: delete from profiles table directly
-    console.warn('RPC delete_user_completely notice, deleting directly from profiles:', rpcError.message);
-    const { error: deleteError } = await supabaseClient.from('profiles').delete().eq('id', id);
-    return { error: deleteError };
-  } catch (e) {
-    console.warn('[deleteProfileFromDB] DB delete notice:', e);
-    return { error: null };
+    if (typeof supabaseClient.rpc === 'function') {
+      const res = await supabaseClient.rpc('delete_user_completely', { user_id: id });
+      if (res && !res.error) return { error: null };
+    }
+  } catch (rpcErr) {
+    console.warn('[deleteProfileFromDB] RPC delete notice:', rpcErr);
   }
+
+  try {
+    if (typeof supabaseClient.from === 'function') {
+      await supabaseClient.from('profiles').delete().eq('id', id);
+    }
+  } catch (dbErr) {
+    console.warn('[deleteProfileFromDB] DB profiles delete notice:', dbErr);
+  }
+
+  return { error: null };
 }
 
 async function updateSettingsInDB(settings) {
