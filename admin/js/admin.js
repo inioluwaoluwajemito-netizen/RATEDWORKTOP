@@ -868,11 +868,25 @@ class MockSupabaseClient {
   }
 }
 
+if (typeof window !== 'undefined') {
+  window.MockSupabaseQuery = MockSupabaseQuery;
+  window.MockSupabaseClient = MockSupabaseClient;
+}
+
+function createMockSupabaseClient() {
+  const ClientClass = typeof MockSupabaseClient !== 'undefined' ? MockSupabaseClient : (typeof window !== 'undefined' ? window.MockSupabaseClient : null);
+  if (ClientClass) return new ClientClass();
+  return null;
+}
+if (typeof window !== 'undefined') {
+  window.createMockSupabaseClient = createMockSupabaseClient;
+}
+
 // Instantiate real Supabase client — always use real Supabase when the library is loaded
 const useRealSupabase = !!(typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
 const supabaseClient = useRealSupabase 
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { lock: false } }) 
-  : new MockSupabaseClient();
+  : createMockSupabaseClient();
 
 // Seed initial mock data to ensure localStorage is always populated
 initProfilesTable();
@@ -900,9 +914,11 @@ async function requireAuth() {
 
   // 1. Check local/mock session FIRST — instant, no network, no lock issues
   try {
-    const mockClient = new MockSupabaseClient();
-    const { data } = await mockClient.auth.getSession();
-    session = data ? data.session : null;
+    const mockClient = createMockSupabaseClient();
+    if (mockClient) {
+      const { data } = await mockClient.auth.getSession();
+      session = data ? data.session : null;
+    }
   } catch (e) {}
 
   // 2. If no local session, try real Supabase with 1.5s timeout
@@ -932,8 +948,10 @@ async function logout() {
     await supabaseClient.auth.signOut();
   } catch (e) {}
   try {
-    const mockClient = new MockSupabaseClient();
-    await mockClient.auth.signOut();
+    const mockClient = createMockSupabaseClient();
+    if (mockClient) {
+      await mockClient.auth.signOut();
+    }
   } catch (e) {}
   window.location.href = 'index.html';
 }

@@ -96,15 +96,28 @@
   <script src="../js/supabase.js"></script>
   <script src="js/admin.js"></script>
   <script>
+    // Safe helper to get MockSupabaseClient from scope or window
+    function getMockClient() {
+      if (typeof window !== 'undefined' && typeof window.createMockSupabaseClient === 'function') {
+        const inst = window.createMockSupabaseClient();
+        if (inst) return inst;
+      }
+      if (typeof MockSupabaseClient !== 'undefined') return new MockSupabaseClient();
+      if (typeof window !== 'undefined' && window.MockSupabaseClient) return new window.MockSupabaseClient();
+      return null;
+    }
+
     // Redirect if already logged in as admin
     document.addEventListener('DOMContentLoaded', async () => {
       let session = null;
 
       // 1. Check local/mock session FIRST (instant, no network)
       try {
-        const mockClient = new MockSupabaseClient();
-        const { data } = await mockClient.auth.getSession();
-        session = data ? data.session : null;
+        const mockClient = getMockClient();
+        if (mockClient) {
+          const { data } = await mockClient.auth.getSession();
+          session = data ? data.session : null;
+        }
       } catch (e) {}
 
       // 2. If no local session, try real Supabase with 1.5s timeout
@@ -164,19 +177,31 @@
 
       // 1. Try Local/Mock Admin authentication FIRST — this is instant & never hangs
       try {
-        const mockClient = new MockSupabaseClient();
-        const { data, error } = await mockClient.auth.signInWithPassword({ email, password });
-        if (!error && data && data.session) {
-          loginSuccess = true;
-        } else if (error) {
-          loginError = error.message;
+        const mockClient = getMockClient();
+        if (mockClient) {
+          const { data, error } = await mockClient.auth.signInWithPassword({ email, password });
+          if (!error && data && data.session) {
+            loginSuccess = true;
+          } else if (error) {
+            loginError = error.message;
+          }
+        } else {
+          // If no mock client available, fallback to matching ADMIN_CREDENTIALS directly
+          if (password === 'Ratedworktopsapp@') {
+            const adminUser = { id: 999, email: 'ratedworktopsapp@gmail.com', name: 'Site Administrator' };
+            const session = { user: adminUser, access_token: 'mock-token-999', expires_at: Math.floor(Date.now() / 1000) + 3600 };
+            localStorage.setItem('rw_session', JSON.stringify(session));
+            loginSuccess = true;
+          } else {
+            loginError = 'Invalid login credentials';
+          }
         }
       } catch (err) {
         loginError = err.message || String(err);
       }
 
       // 2. Only try real Supabase if local auth failed (background, non-blocking)
-      if (!loginSuccess) {
+      if (!loginSuccess && typeof supabaseClient !== 'undefined' && supabaseClient) {
         try {
           const controller = new AbortController();
           const tid = setTimeout(() => controller.abort(), 2000);
@@ -230,14 +255,16 @@
 
       if (!success) {
         try {
-          const mockClient = new MockSupabaseClient();
-          await mockClient.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-              redirectTo: 'dashboard.html'
-            }
-          });
-          success = true;
+          const mockClient = getMockClient();
+          if (mockClient) {
+            await mockClient.auth.signInWithOAuth({
+              provider: 'google',
+              options: {
+                redirectTo: 'dashboard.html'
+              }
+            });
+            success = true;
+          }
         } catch (err) {}
       }
 

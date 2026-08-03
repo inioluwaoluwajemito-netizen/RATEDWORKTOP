@@ -709,6 +709,11 @@ class MockSupabaseClient {
   }
 }
 
+if (typeof window !== 'undefined') {
+  window.MockSupabaseQuery = window.MockSupabaseQuery || MockSupabaseQuery;
+  window.MockSupabaseClient = window.MockSupabaseClient || MockSupabaseClient;
+}
+
 // Instantiate real Supabase client — always use real Supabase when the library is loaded
 const useRealSupabase = !!(typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
 const supabaseClient = useRealSupabase 
