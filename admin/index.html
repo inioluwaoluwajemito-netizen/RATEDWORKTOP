@@ -157,19 +157,22 @@
       let loginSuccess = false;
       let loginError = null;
 
-      // 1. Try real Supabase auth first
+      // 1. Try real Supabase auth first (with a 2s timeout so it never hangs)
       try {
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (!error && data && data.session) {
+        const realAuthPromise = supabaseClient.auth.signInWithPassword({ email, password });
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ error: { message: 'Network timeout' } }), 2000));
+        const res = await Promise.race([realAuthPromise, timeoutPromise]);
+
+        if (res && res.data && res.data.session) {
           loginSuccess = true;
-        } else if (error) {
-          loginError = error.message;
+        } else if (res && res.error && res.error.message !== 'Network timeout') {
+          loginError = res.error.message;
         }
       } catch (err) {
         loginError = err.message || String(err);
       }
 
-      // 2. Fallback to Local Admin authentication if real Supabase isn't registered for admin yet
+      // 2. Fallback to Local Admin authentication if real Supabase isn't registered for admin yet or timed out
       if (!loginSuccess) {
         try {
           const mockClient = new MockSupabaseClient();

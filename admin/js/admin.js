@@ -864,9 +864,11 @@ const store = {
 // ── Auth Guard ────────────────────────────────
 async function requireAuth() {
   let session = null;
-  // 1. Try real Supabase auth session
+  // 1. Try real Supabase auth session with 1.5s timeout
   try {
-    const { data } = await supabaseClient.auth.getSession();
+    const realSessionPromise = supabaseClient.auth.getSession();
+    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null } }), 1500));
+    const { data } = await Promise.race([realSessionPromise, timeoutPromise]);
     session = data ? data.session : null;
   } catch (e) {}
 
