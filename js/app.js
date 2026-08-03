@@ -1302,7 +1302,17 @@ const STONE_IMAGES = {
   'CAL-VI': 'images/stones/calacatta_viola.png',
   'DEK-LR': 'images/stones/laurent.png',
   'CAE-CC': 'images/stones/cloudburst_concrete.png',
-  'SIL-MW': 'images/stones/miami_white.png'
+  'SIL-MW': 'images/stones/miami_white.png',
+  'TSC-NP': 'images/stones/nero_marquina.png',
+  'TSC-BR': 'images/stones/arabescato_vagli.png',
+  'TSC-RL': 'images/stones/calacatta_viola.png',
+  'TSC-VB': 'images/stones/charcoal_granite.png',
+  'TSC-PO': 'images/stones/carrara_white_marble.png',
+  'TSC-ML': 'images/stones/miami_white.png',
+  'TSC-V3': 'images/stones/calacatta_viola.png',
+  'TSC-SA': 'images/stones/cloudburst_concrete.png',
+  'POR-CG': 'images/stones/eternal_calacatta_gold.png',
+  'POR-BC': 'images/stones/kreta.png'
 };
 
 function getTexture(key) {

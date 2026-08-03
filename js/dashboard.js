@@ -340,25 +340,25 @@ function getStoneColorDetails(stone) {
   const texture = stone.texture ? stone.texture.toLowerCase() : '';
 
   const isBlack = (
-    sku === 'SIL-IB' || sku === 'DEK-LR' || sku === 'DEK-CG' || sku === 'CAE-VN' || sku === 'CAL-NM' ||
-    texture === 'black' || name.includes('black') || name.includes('laurent') || name.includes('noir') || name.includes('nero') || name.includes('charcoal')
+    sku === 'SIL-IB' || sku === 'DEK-LR' || sku === 'DEK-CG' || sku === 'CAE-VN' || sku === 'CAL-NM' || sku === 'TSC-NP' ||
+    texture === 'black' || name.includes('black') || name.includes('laurent') || name.includes('noir') || name.includes('nero') || name.includes('charcoal') || name.includes('picasso')
   );
 
   const isGrey = (
-    sku === 'DEK-KR' || sku === 'DEK-VR' || sku === 'CAE-CC' || sku === 'SIL-LS' ||
-    texture === 'slate' || name.includes('kreta') || name.includes('concrete') || name.includes('slate')
+    sku === 'DEK-KR' || sku === 'DEK-VR' || sku === 'CAE-CC' || sku === 'SIL-LS' || sku === 'POR-BC' ||
+    texture === 'slate' || name.includes('kreta') || name.includes('concrete') || name.includes('slate') || name.includes('grey') || name.includes('bottega')
   );
 
   const isRed = (
-    name.includes('red') || name.includes('rosso') || name.includes('ruby') || name.includes('bordeaux') || name.includes('burgundy') || name.includes('crimson')
+    sku === 'TSC-RL' || name.includes('red') || name.includes('rosso') || name.includes('levanto') || name.includes('ruby') || name.includes('bordeaux') || name.includes('burgundy') || name.includes('crimson')
   );
 
   const isBlue = (
-    name.includes('blue') || name.includes('volga') || name.includes('azul') || name.includes('sodalite') || name.includes('sapphire') || name.includes('ocean')
+    sku === 'TSC-VB' || sku === 'TSC-BR' || name.includes('blue') || name.includes('volga') || name.includes('roma') || name.includes('azul') || name.includes('sodalite') || name.includes('sapphire') || name.includes('ocean')
   );
 
   const isGreen = (
-    name.includes('green') || name.includes('verde') || name.includes('emerald') || name.includes('forest') || name.includes('jade')
+    sku === 'POR-CG' || name.includes('green') || name.includes('verde') || name.includes('emerald') || name.includes('forest') || name.includes('jade')
   );
 
   const isBrown = (
@@ -367,11 +367,11 @@ function getStoneColorDetails(stone) {
   );
 
   const isBeige = (
-    name.includes('beige') || name.includes('cream') || name.includes('ivory') || name.includes('sand') || name.includes('vanilla') || name.includes('latte')
+    sku === 'TSC-SA' || sku === 'TSC-ML' || name.includes('armani') || name.includes('monet') || name.includes('beige') || name.includes('cream') || name.includes('ivory') || name.includes('sand') || name.includes('vanilla') || name.includes('latte')
   );
 
   const isPurple = (
-    name.includes('purple') || name.includes('violet') || name.includes('amethyst') || name.includes('viola')
+    sku === 'TSC-V3' || name.includes('purple') || name.includes('violet') || name.includes('amethyst') || name.includes('viola')
   );
 
   const isGold = (
@@ -379,75 +379,74 @@ function getStoneColorDetails(stone) {
   );
 
   const isPink = (
-    name.includes('pink') || name.includes('rose') || name.includes('blush')
+    sku === 'TSC-PO' || name.includes('pink') || name.includes('rose') || name.includes('onyx') || name.includes('blush')
   );
 
   if (isBlack) {
     return {
       baseColor: 'black',
-      hex: '#1A1A1A',
-      promptPrefix: `DEEP POLISHED BLACK COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid deep black background color with gold and white veining. Absolutely NO white or light background.`
+      hex: '#1C1D21',
+      promptPrefix: `DEEP POLISHED BLACK COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid deep black background color with dramatic gold and white veining. Absolutely NO white or light background.`
     };
   } else if (isRed) {
     return {
-      baseColor: 'red',
-      hex: '#8B1A1A',
-      promptPrefix: `RICH DEEP RED COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid deep red background color matching the reference stone image exactly. The dominant color must be red. Absolutely NO white or black background.`
+      baseColor: 'dark red',
+      hex: '#6B1D2F',
+      promptPrefix: `RICH DEEP ROSSO LEVANTO RED MARBLE SURFACES: Must be deep reddish-burgundy background color with white and grey veins matching the reference stone exactly. Absolutely NO plain white background.`
     };
   } else if (isBlue) {
     return {
-      baseColor: 'blue',
-      hex: '#1A3A5C',
-      promptPrefix: `DEEP BLUE COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid deep blue background color matching the reference stone image exactly. The dominant color must be blue with natural mineral flecks. Absolutely NO white background.`
+      baseColor: 'deep blue',
+      hex: '#1E3A52',
+      promptPrefix: `DEEP VOLGA BLUE / BLUE ROMA QUARTZITE SURFACES: Must be rich deep blue/navy background color with metallic iridescence and golden/grey quartzite veining. The worktop MUST be dark blue.`
     };
   } else if (isGreen) {
     return {
       baseColor: 'green',
-      hex: '#2D5A3D',
-      promptPrefix: `RICH GREEN COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid deep green background color matching the reference stone image exactly. The dominant color must be green. Absolutely NO white background.`
+      hex: '#2A4D38',
+      promptPrefix: `RICH GREEN MARBLE / PORCELAIN SURFACES: Must be deep emerald green background color matching the reference stone image exactly. Absolutely NO white background.`
     };
   } else if (isBrown) {
     return {
       baseColor: 'brown',
       hex: '#5C3A1A',
-      promptPrefix: `WARM BROWN COLOR WORKTOP AND SPLASHBACK SURFACES: Must be warm brown/earthy background color matching the reference stone image exactly. The dominant color must be brown. Absolutely NO white background.`
+      promptPrefix: `WARM BROWN COLOR WORKTOP AND SPLASHBACK SURFACES: Must be warm brown/earthy background color matching the reference stone image exactly.`
     };
   } else if (isPurple) {
     return {
-      baseColor: 'purple',
-      hex: '#4A1A5C',
-      promptPrefix: `RICH PURPLE COLOR WORKTOP AND SPLASHBACK SURFACES: Must be deep purple/violet background color matching the reference stone image exactly. The dominant color must be purple. Absolutely NO white background.`
+      baseColor: 'purple viola',
+      hex: '#4A2545',
+      promptPrefix: `RICH CALACATTA VIOLA PURPLE MARBLE SURFACES: Must have deep cabernet purple and violet veining on a light background matching Calacatta Viola.`
     };
   } else if (isPink) {
     return {
-      baseColor: 'pink',
-      hex: '#C97B8B',
-      promptPrefix: `SOFT PINK ROSE-TONED WORKTOP AND SPLASHBACK SURFACES: Must be pink/rose-toned background color matching the reference stone image exactly. Absolutely NO white or dark background.`
+      baseColor: 'pink onyx',
+      hex: '#D89A9E',
+      promptPrefix: `TRANSLUCENT PINK ONYX MARBLE SURFACES: Soft translucent pink and rose onyx background with creamy white swirls.`
     };
   } else if (isGold) {
     return {
       baseColor: 'gold',
-      hex: '#B8860B',
-      promptPrefix: `WARM GOLDEN COLOR WORKTOP AND SPLASHBACK SURFACES: Must be warm golden/amber background color matching the reference stone image exactly. Absolutely NO white or dark background.`
+      hex: '#C49A45',
+      promptPrefix: `WARM GOLDEN COLOR WORKTOP AND SPLASHBACK SURFACES: Must be warm golden/amber background color matching the reference stone image.`
     };
   } else if (isBeige) {
     return {
-      baseColor: 'beige',
-      hex: '#D4C5A9',
-      promptPrefix: `WARM BEIGE CREAM WORKTOP AND SPLASHBACK SURFACES: Must be warm beige/cream background color matching the reference stone image exactly. Absolutely NO stark white or dark background.`
+      baseColor: 'silver armani / monet light',
+      hex: '#C5BBAA',
+      promptPrefix: `WARM SILVER ARMANI / MONET LIGHT BEIGE MARBLE SURFACES: Elegant warm grey-beige marble background with subtle soft veining.`
     };
   } else if (isGrey) {
     return {
       baseColor: 'grey',
-      hex: '#7A8288',
-      promptPrefix: `MATTE GREY CONCRETE COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid mid-grey concrete texture background color.`
+      hex: '#6B7280',
+      promptPrefix: `MATTE GREY CONCRETE / SLATE COLOR WORKTOP SURFACES: Solid mid-grey texture background color matching the reference stone.`
     };
   } else {
-    // Default: White / Light Marble (e.g. Eternal Calacatta Gold)
     return {
       baseColor: 'white',
-      hex: '#FAFAFA',
-      promptPrefix: `PURE BRIGHT WHITE COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid polished bright white background color with delicate veining. Absolutely NO black, dark grey, or dark background.`
+      hex: '#F5F5F5',
+      promptPrefix: `PURE BRIGHT WHITE COLOR WORKTOP AND SPLASHBACK SURFACES: Solid polished bright white background color with delicate veining.`
     };
   }
 }
@@ -483,7 +482,6 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
   imageCanvas.height = TARGET_SIZE;
   const imgCtx = imageCanvas.getContext('2d');
 
-  // Use un-tainted original image element if available to prevent canvas-taint errors on remote render URLs
   const sourceImage = window._originalImageElement || previewImg;
   try {
     imgCtx.drawImage(sourceImage, 0, 0, TARGET_SIZE, TARGET_SIZE);
@@ -492,40 +490,23 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     imgCtx.drawImage(previewImg, 0, 0, TARGET_SIZE, TARGET_SIZE);
   }
 
-  // 2. Create 512x512 binary mask canvas (Black background = keep, White area = inpaint)
+  // 2. Create 512x512 binary mask canvas (Black = KEEP ORIGINAL KITCHEN, White = REPLACE WORKTOP SURFACE ONLY)
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = TARGET_SIZE;
   maskCanvas.height = TARGET_SIZE;
   const maskCtx = maskCanvas.getContext('2d');
 
-  // Fill background with solid BLACK (0) = Keep original photo context
+  // Fill entire canvas with BLACK (keep original kitchen context intact)
   maskCtx.fillStyle = 'black';
   maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
 
-  // Fill foreground with solid WHITE (255) = Inpaint / Replace area for Fal.ai
+  // Fill targeted worktop area with WHITE (inpaint ONLY the worktop)
   maskCtx.fillStyle = 'white';
 
   const SCALE = TARGET_SIZE / 100; // 5.12 scale factor
 
-  // 1. Splashback / Back Wall Polygon (covers full wall backsplash area behind worktop)
-  const splashbackPoints = [
-    { x: 10, y: 10 },
-    { x: 90, y: 10 },
-    { x: 90, y: 56 },
-    { x: 10, y: 56 }
-  ];
-
-  maskCtx.beginPath();
-  maskCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
-  for (let i = 1; i < splashbackPoints.length; i++) {
-    maskCtx.lineTo(splashbackPoints[i].x * SCALE, splashbackPoints[i].y * SCALE);
-  }
-  maskCtx.closePath();
-  maskCtx.fill();
-
-  // 2. Countertop / Worktop Polygon
   if (manualPoints && manualPoints.length >= 3) {
-    // Drawn Polygon (Hybrid / Manual Mode)
+    // Manual / Hybrid Mode: Inpaint ONLY the exact polygon selected by the user
     maskCtx.beginPath();
     maskCtx.moveTo(manualPoints[0].x * SCALE, manualPoints[0].y * SCALE);
     for (let i = 1; i < manualPoints.length; i++) {
@@ -534,12 +515,12 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     maskCtx.closePath();
     maskCtx.fill();
   } else {
-    // Auto Mode Surface Masking (lower worktop area)
+    // Auto Mode: Target ONLY the worktop surface area (leaving upper cabinets, windows, walls & floor untouched)
     const countertopPoints = [
-      { x: 2, y: 52 },
-      { x: 98, y: 52 },
-      { x: 98, y: 95 },
-      { x: 2, y: 95 }
+      { x: 12, y: 55 },
+      { x: 88, y: 55 },
+      { x: 92, y: 82 },
+      { x: 8, y: 82 }
     ];
     maskCtx.beginPath();
     maskCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
@@ -1672,7 +1653,7 @@ function updateRenderInstantly() {
     simulatedHighlight.style.display = 'none';
     renderCanvas.style.display = 'block';
   };
-  stoneImg.src = getStoneImage(selectedStone.sku);
+  stoneImg.src = getStoneImage(selectedStone.sku, selectedStone);
 }
 
 // ── Perspective Warping & Grid Triangulation ───────────────────

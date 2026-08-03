@@ -403,31 +403,17 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
   maskCanvas.height = TARGET_SIZE;
   const maskCtx = maskCanvas.getContext('2d');
 
+  // Fill entire canvas with BLACK (keep original kitchen context intact)
   maskCtx.fillStyle = 'black';
   maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
 
+  // Fill targeted worktop area with WHITE (inpaint ONLY the worktop)
   maskCtx.fillStyle = 'white';
 
   const SCALE = TARGET_SIZE / 100;
 
-  // 1. Splashback / Back Wall Polygon (covers full wall backsplash area behind worktop)
-  const splashbackPoints = [
-    { x: 10, y: 10 },
-    { x: 90, y: 10 },
-    { x: 90, y: 56 },
-    { x: 10, y: 56 }
-  ];
-
-  maskCtx.beginPath();
-  maskCtx.moveTo(splashbackPoints[0].x * SCALE, splashbackPoints[0].y * SCALE);
-  for (let i = 1; i < splashbackPoints.length; i++) {
-    maskCtx.lineTo(splashbackPoints[i].x * SCALE, splashbackPoints[i].y * SCALE);
-  }
-  maskCtx.closePath();
-  maskCtx.fill();
-
-  // 2. Countertop / Worktop Polygon
   if (manualPoints && manualPoints.length >= 3) {
+    // Manual / Hybrid Mode: Inpaint ONLY the exact polygon selected by the user
     maskCtx.beginPath();
     maskCtx.moveTo(manualPoints[0].x * SCALE, manualPoints[0].y * SCALE);
     for (let i = 1; i < manualPoints.length; i++) {
@@ -436,11 +422,12 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     maskCtx.closePath();
     maskCtx.fill();
   } else {
+    // Auto Mode: Target ONLY the worktop surface area (leaving upper cabinets, windows, walls & floor untouched)
     const countertopPoints = [
-      { x: 2, y: 52 },
-      { x: 98, y: 52 },
-      { x: 98, y: 95 },
-      { x: 2, y: 95 }
+      { x: 12, y: 55 },
+      { x: 88, y: 55 },
+      { x: 92, y: 82 },
+      { x: 8, y: 82 }
     ];
     maskCtx.beginPath();
     maskCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
@@ -1438,7 +1425,7 @@ function getRenderedCanvasBlob() {
         drawWatermarkAndResolve();
       };
       stoneImg.onerror = () => resolve(null);
-      stoneImg.src = getStoneImage(selectedStone.sku);
+      stoneImg.src = getStoneImage(selectedStone.sku, selectedStone);
     } else {
       ctx.drawImage(img, 0, 0);
       drawWatermarkAndResolve();
