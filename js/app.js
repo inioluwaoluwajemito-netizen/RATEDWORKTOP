@@ -1127,6 +1127,25 @@ async function getStoneById(id) {
 }
 
 async function getBrands() {
+  if (typeof fetchBrands === 'function') {
+    try {
+      const adminBrands = await fetchBrands();
+      if (adminBrands && Array.isArray(adminBrands)) {
+        let deletedBrands = [];
+        try { deletedBrands = JSON.parse(localStorage.getItem('rw_deleted_brands') || '[]'); } catch(e) {}
+        let deletedColours = [];
+        try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
+
+        return adminBrands
+          .filter(b => b && b.enabled !== false && !deletedBrands.some(db => db == b.id || String(db) === String(b.id) || String(db).toLowerCase().trim() === b.name.toLowerCase().trim()))
+          .map(b => ({
+            ...b,
+            colours: (b.colours || []).filter(c => c && c.enabled !== false && !deletedColours.some(dc => dc == c.id || String(dc) === String(c.id) || (c.name && String(dc).toLowerCase().trim() === c.name.toLowerCase().trim())))
+          }));
+      }
+    } catch(e) {}
+  }
+
   let dbBrands = [];
   let dbColours = [];
   if (supabaseClient) {
@@ -1153,12 +1172,10 @@ async function getBrands() {
   let deletedColours = [];
   try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
 
-  // Helper: merge brand b into brandMap, combining properties and colours
   const brandMap = new Map();
   function mergeBrand(b) {
     if (!b || !b.name || b.enabled === false) return;
 
-    // Filter out deleted brands
     const bKey = b.name.toLowerCase().trim();
     if (deletedBrands.some(db => db == b.id || String(db) === String(b.id) || String(db).toLowerCase().trim() === bKey)) {
       return;
@@ -1207,7 +1224,6 @@ async function getBrands() {
       }
     }
 
-    // Filter out deleted colours
     const validColours = combined.filter(c => {
       if (!c || c.enabled === false) return false;
       const cKey = c.name ? c.name.toLowerCase().trim() : '';
