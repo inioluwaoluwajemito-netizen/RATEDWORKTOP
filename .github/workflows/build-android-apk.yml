@@ -27,6 +27,9 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
+    - name: Accept Android SDK Licenses
+      run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
     - name: Install dependencies
       run: npm install --legacy-peer-deps
 
@@ -38,6 +41,7 @@ jobs:
         cp -r css www/ 2>/dev/null || true
         cp -r js www/ 2>/dev/null || true
         cp -r images www/ 2>/dev/null || true
+        cp -r admin www/ 2>/dev/null || true
 
     - name: Copy Web Assets into Android Assets
       run: |
