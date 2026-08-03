@@ -456,88 +456,30 @@ function initProfilesTable() {
 }
 
 function initBrandsAndColours() {
-  const storedBrands = localStorage.getItem('rw_brands');
-  let brands = [];
-  if (storedBrands) {
-    try {
-      brands = JSON.parse(storedBrands);
-    } catch (e) {
-      brands = [];
-    }
-  }
-  
-  if (brands.length === 0) {
-    brands = [
-      {
-        id: 1, name: 'Silestone', category: 'Quartz', enabled: true,
-        logo: '', description: 'Premium quartz surfaces by Cosentino',
-        colours: [
-          { id: 101, name: 'Eternal Calacatta Gold', sku: 'SIL-ECG', enabled: true, texture: 'marble', price: '' },
-          { id: 102, name: 'Nebula Pearl', sku: 'SIL-NP', enabled: true, texture: 'quartz', price: '' },
-          { id: 103, name: 'Iconic Black', sku: 'SIL-IB', enabled: true, texture: 'black', price: '' },
-          { id: 104, name: 'Miami White', sku: 'SIL-MW', enabled: true, texture: 'marble', price: '' },
-          { id: 105, name: 'Desert Silver', sku: 'SIL-DS', enabled: true, texture: 'slate', price: '' }
-        ]
-      },
-      {
-        id: 2, name: 'Dekton', category: 'Sintered Stone', enabled: true,
-        logo: '', description: 'Ultra-compact surface by Cosentino',
-        colours: [
-          { id: 201, name: 'Kreta', sku: 'DEK-KR', enabled: true, texture: 'slate', price: '' },
-          { id: 202, name: 'Opera', sku: 'DEK-OP', enabled: true, texture: 'marble', price: '' },
-          { id: 203, name: 'Laurent', sku: 'DEK-LR', enabled: true, texture: 'black', price: '' },
-          { id: 204, name: 'Kira', sku: 'DEK-KI', enabled: true, texture: 'marble', price: '' },
-          { id: 205, name: 'Charcoal Granite', sku: 'DEK-CG', enabled: true, texture: 'granite', price: '' }
-        ]
-      },
-      {
-        id: 3, name: 'Caesarstone', category: 'Quartz', enabled: true,
-        logo: '', description: 'Global leader in quartz surfaces',
-        colours: [
-          { id: 301, name: 'Statuario Nuvo', sku: 'CAE-SN', enabled: true, texture: 'marble', price: '' },
-          { id: 302, name: 'Vanilla Noir', sku: 'CAE-VN', enabled: true, texture: 'granite', price: '' },
-          { id: 303, name: 'Cloudburst Concrete', sku: 'CAE-CC', enabled: true, texture: 'slate', price: '' },
-          { id: 304, name: 'Empira White', sku: 'CAE-EW', enabled: true, texture: 'marble', price: '' }
-        ]
-      },
-      {
-        id: 4, name: 'Neolith', category: 'Sintered Stone', enabled: true,
-        logo: '', description: 'The most advanced sintered stone',
-        colours: [
-          { id: 501, name: 'Arctic White', sku: 'NEO-AW', enabled: true, texture: 'quartz', price: '' },
-          { id: 502, name: 'Iron Grey', sku: 'NEO-IG', enabled: true, texture: 'slate', price: '' },
-          { id: 503, name: 'Nero Zimbabwe', sku: 'NEO-NZ', enabled: true, texture: 'black', price: '' }
-        ]
-      },
-      {
-        id: 5, name: 'Calacatta Premium', category: 'Marble', enabled: true,
-        logo: '', description: 'Natural marble from Carrara quarries',
-        colours: []
-      }
-    ];
-    localStorage.setItem('rw_brands', JSON.stringify(brands));
-  }
-  
-  let colours = [];
-  const storedColours = localStorage.getItem('rw_colours');
-  if (storedColours) {
-    try {
-      colours = JSON.parse(storedColours);
-    } catch (e) {
-      colours = [];
-    }
-  }
-  
-  if (colours.length === 0) {
-    brands.forEach(b => {
-      if (b.colours) {
-        b.colours.forEach(c => {
-          colours.push({ ...c, brand_id: b.id });
-        });
+  const legacySeedNames = ['silestone', 'dekton', 'caesarstone', 'neolith', 'calacatta premium'];
+  try {
+    let deleted = safeGetLocalStorage('rw_deleted_brands');
+    let updatedDeleted = false;
+    legacySeedNames.forEach(name => {
+      if (!deleted.includes(name)) {
+        deleted.push(name);
+        updatedDeleted = true;
       }
     });
-    localStorage.setItem('rw_colours', JSON.stringify(colours));
-  }
+    if (updatedDeleted) localStorage.setItem('rw_deleted_brands', JSON.stringify(deleted));
+  } catch(e) {}
+
+  try {
+    let rwBrands = safeGetLocalStorage('rw_brands');
+    let filtered = rwBrands.filter(b => b && b.name && !legacySeedNames.includes(b.name.toLowerCase().trim()));
+    localStorage.setItem('rw_brands', JSON.stringify(filtered));
+  } catch(e) {}
+
+  try {
+    let localBrands = safeGetLocalStorage('rw_local_brands');
+    let filteredLocal = localBrands.filter(b => b && b.name && !legacySeedNames.includes(b.name.toLowerCase().trim()));
+    localStorage.setItem('rw_local_brands', JSON.stringify(filteredLocal));
+  } catch(e) {}
 }
 
 function fetchBrandsSync() {
