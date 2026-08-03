@@ -469,11 +469,63 @@ function initBrandsAndColours() {
     if (updatedDeleted) localStorage.setItem('rw_deleted_brands', JSON.stringify(deleted));
   } catch(e) {}
 
-  try {
-    let rwBrands = safeGetLocalStorage('rw_brands');
-    let filtered = rwBrands.filter(b => b && b.name && !legacySeedNames.includes(b.name.toLowerCase().trim()));
-    localStorage.setItem('rw_brands', JSON.stringify(filtered));
-  } catch(e) {}
+  let rwBrands = safeGetLocalStorage('rw_brands');
+  rwBrands = rwBrands.filter(b => b && b.name && !legacySeedNames.includes(b.name.toLowerCase().trim()));
+
+  if (rwBrands.length === 0) {
+    rwBrands = [
+      {
+        id: 'brand_topstone_centre',
+        name: 'Top Stone Centre',
+        category: 'Marble',
+        enabled: true,
+        description: 'Luxury marble, quartzite & onyx surfaces',
+        colours: [
+          { id: 'tsc_101', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Nero Picasso', sku: 'TSC-NP', enabled: true, texture: 'marble', finish: 'Polished' },
+          { id: 'tsc_102', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Blue Roma Quartzite', sku: 'TSC-BR', enabled: true, texture: 'marble', finish: 'Polished' },
+          { id: 'tsc_103', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Italian Rosso Levanto', sku: 'TSC-RL', enabled: true, texture: 'marble', finish: 'Polished' },
+          { id: 'tsc_104', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Volga Blue', sku: 'TSC-VB', enabled: true, texture: 'granite', finish: 'Polished' },
+          { id: 'tsc_105', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Pink Onyx', sku: 'TSC-PO', enabled: true, texture: 'marble', finish: 'Polished' },
+          { id: 'tsc_106', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Monet Light', sku: 'TSC-ML', enabled: true, texture: 'marble', finish: 'Honed' },
+          { id: 'tsc_107', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Viola 3cm', sku: 'TSC-V3', enabled: true, texture: 'marble', finish: 'Polished' },
+          { id: 'tsc_108', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Silver Armani', sku: 'TSC-SA', enabled: true, texture: 'marble', finish: 'Polished' }
+        ]
+      },
+      {
+        id: 'brand_porcelanosa',
+        name: 'Porcelanosa',
+        category: 'Porcelain',
+        enabled: true,
+        description: 'Spanish luxury porcelain tiles and surfaces',
+        colours: [
+          { id: 'por_201', brand_id: 'brand_porcelanosa', brand_name: 'Porcelanosa', name: 'XTONE Calacatta Green', sku: 'POR-CG', enabled: true, texture: 'marble', finish: 'Polished' },
+          { id: 'por_202', brand_id: 'brand_porcelanosa', brand_name: 'Porcelanosa', name: 'XTONE Bottega Caliza', sku: 'POR-BC', enabled: true, texture: 'slate', finish: 'Matt' }
+        ]
+      }
+    ];
+    try { localStorage.setItem('rw_brands', JSON.stringify(rwBrands)); } catch(e) {}
+  } else {
+    // Ensure Top Stone Centre brand has all 8 colours
+    const tsc = rwBrands.find(b => b.name && b.name.toLowerCase().trim().includes('top stone'));
+    if (tsc && tsc.colours) {
+      const defaultTscCols = [
+        { id: 'tsc_101', name: 'Nero Picasso', sku: 'TSC-NP', texture: 'marble', finish: 'Polished' },
+        { id: 'tsc_102', name: 'Blue Roma Quartzite', sku: 'TSC-BR', texture: 'marble', finish: 'Polished' },
+        { id: 'tsc_103', name: 'Italian Rosso Levanto', sku: 'TSC-RL', texture: 'marble', finish: 'Polished' },
+        { id: 'tsc_104', name: 'Volga Blue', sku: 'TSC-VB', texture: 'granite', finish: 'Polished' },
+        { id: 'tsc_105', name: 'Pink Onyx', sku: 'TSC-PO', texture: 'marble', finish: 'Polished' },
+        { id: 'tsc_106', name: 'Monet Light', sku: 'TSC-ML', texture: 'marble', finish: 'Honed' },
+        { id: 'tsc_107', name: 'Viola 3cm', sku: 'TSC-V3', texture: 'marble', finish: 'Polished' },
+        { id: 'tsc_108', name: 'Silver Armani', sku: 'TSC-SA', texture: 'marble', finish: 'Polished' }
+      ];
+      defaultTscCols.forEach(dc => {
+        if (!tsc.colours.some(c => c.name && c.name.toLowerCase().trim() === dc.name.toLowerCase().trim())) {
+          tsc.colours.push({ id: dc.id, brand_id: tsc.id, brand_name: tsc.name, name: dc.name, sku: dc.sku, enabled: true, texture: dc.texture, finish: dc.finish });
+        }
+      });
+    }
+    try { localStorage.setItem('rw_brands', JSON.stringify(rwBrands)); } catch(e) {}
+  }
 
   try {
     let localBrands = safeGetLocalStorage('rw_local_brands');
@@ -546,22 +598,28 @@ async function fetchBrands() {
   let localBrands = [];
   try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
 
-  // Helper: merge brand b into the brandMap, combining properties and colours
+  let deletedBrands = [];
+  try { deletedBrands = JSON.parse(localStorage.getItem('rw_deleted_brands') || '[]'); } catch(e) {}
+
+  let deletedColours = [];
+  try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
+
   const brandMap = new Map();
   function mergeBrand(b) {
     if (!b || !b.name) return;
     const key = b.name.toLowerCase().trim();
+    if (deletedBrands.some(db => db == b.id || String(db) === String(b.id) || String(db).toLowerCase().trim() === key)) {
+      return;
+    }
     if (brandMap.has(key)) {
       const existing = brandMap.get(key);
-      // Merge properties — prefer non-empty values from the new source
       existing.id = existing.id || b.id;
       existing.category = b.category || existing.category;
       existing.description = b.description || existing.description;
       if (b.enabled !== undefined) existing.enabled = b.enabled;
-      // Merge colours from the incoming brand
       const incomingCols = b.colours || [];
       for (const ic of incomingCols) {
-        if (!existing.colours.some(c => c.id == ic.id || (c.name && c.name === ic.name))) {
+        if (!existing.colours.some(c => c.id == ic.id || (c.name && c.name.toLowerCase().trim() === ic.name.toLowerCase().trim()))) {
           existing.colours.push(ic);
         }
       }
@@ -573,7 +631,7 @@ async function fetchBrands() {
     }
   }
 
-  // Merge all sources: DB brands first, then sync (rw_brands + rw_local_brands merged), then rw_local_brands
+  // Merge sources: DB first, syncBrands next, localBrands last
   dbBrands.forEach(b => mergeBrand(b));
   syncBrands.forEach(b => mergeBrand(b));
   localBrands.forEach(b => mergeBrand(b));
@@ -583,7 +641,7 @@ async function fetchBrands() {
   let localColours = [];
   try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
 
-  return allBrands.map(brand => {
+  const results = allBrands.map(brand => {
     const dbCols = dbColours ? dbColours.filter(c => 
       String(c.brand_id) === String(brand.id) || 
       String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
@@ -596,23 +654,50 @@ async function fetchBrands() {
       (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
     );
     
-    // Start with brand's already-merged colours, then add DB and local colours
     const combined = [...(brand.colours || [])];
     for (const dc of dbCols) {
-      if (!combined.some(c => c.id == dc.id || (c.name && c.name === dc.name))) {
+      if (!combined.some(c => c.id == dc.id || (c.name && c.name.toLowerCase().trim() === dc.name.toLowerCase().trim()))) {
         combined.push(dc);
       }
     }
     for (const lc of locCols) {
-      if (!combined.some(c => c.id == lc.id || (c.name && c.name === lc.name))) {
+      if (!combined.some(c => c.id == lc.id || (c.name && c.name.toLowerCase().trim() === lc.name.toLowerCase().trim()))) {
         combined.push(lc);
       }
     }
+
+    const validColours = combined.filter(c => {
+      if (!c) return false;
+      const cKey = c.name ? c.name.toLowerCase().trim() : '';
+      if (deletedColours.some(dc => dc == c.id || String(dc) === String(c.id) || (cKey && String(dc).toLowerCase().trim() === cKey))) {
+        return false;
+      }
+      return true;
+    });
+
     return {
       ...brand,
-      colours: combined
+      colours: validColours
     };
   });
+
+  // Auto-sync brands and colours up to Supabase DB if missing in DB
+  if (supabaseClient && results.length > 0) {
+    try {
+      for (const b of results) {
+        if (!dbBrands.some(dbB => dbB.id == b.id || (dbB.name && dbB.name.toLowerCase().trim() === b.name.toLowerCase().trim()))) {
+          await supabaseClient.from('brands').upsert([{ id: String(b.id), name: b.name, category: b.category || 'Quartz', description: b.description || '', enabled: b.enabled !== false }]);
+        }
+        for (const c of (b.colours || [])) {
+          if (!dbColours.some(dbC => dbC.id == c.id || (dbC.name && dbC.name.toLowerCase().trim() === c.name.toLowerCase().trim()))) {
+            await supabaseClient.from('colours').upsert([{ id: String(c.id), brand_id: String(b.id), brand_name: b.name, name: c.name, sku: c.sku || (c.name.replace(/\s+/g, '-').toUpperCase()), finish: c.finish || 'Polished', texture: c.texture || 'marble', enabled: c.enabled !== false }]);
+          }
+        }
+      }
+    } catch(e) {}
+  }
+
+  return results;
 }
 
 class MockSupabaseClient {
