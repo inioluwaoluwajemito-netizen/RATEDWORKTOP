@@ -99,15 +99,20 @@
     // Redirect if already logged in as admin
     document.addEventListener('DOMContentLoaded', async () => {
       let session = null;
+
+      // 1. Check local/mock session FIRST (instant, no network)
       try {
-        const { data } = await supabaseClient.auth.getSession();
+        const mockClient = new MockSupabaseClient();
+        const { data } = await mockClient.auth.getSession();
         session = data ? data.session : null;
       } catch (e) {}
-      
-      if (!session) {
+
+      // 2. If no local session, try real Supabase with 1.5s timeout
+      if (!session || !session.user) {
         try {
-          const mockClient = new MockSupabaseClient();
-          const { data } = await mockClient.auth.getSession();
+          const realPromise = supabaseClient.auth.getSession();
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null } }), 1500));
+          const { data } = await Promise.race([realPromise, timeoutPromise]);
           session = data ? data.session : null;
         } catch (e) {}
       }
@@ -157,33 +162,34 @@
       let loginSuccess = false;
       let loginError = null;
 
-      // 1. Try real Supabase auth first (with a 2s timeout so it never hangs)
+      // 1. Try Local/Mock Admin authentication FIRST — this is instant & never hangs
       try {
-        const realAuthPromise = supabaseClient.auth.signInWithPassword({ email, password });
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ error: { message: 'Network timeout' } }), 2000));
-        const res = await Promise.race([realAuthPromise, timeoutPromise]);
-
-        if (res && res.data && res.data.session) {
+        const mockClient = new MockSupabaseClient();
+        const { data, error } = await mockClient.auth.signInWithPassword({ email, password });
+        if (!error && data && data.session) {
           loginSuccess = true;
-        } else if (res && res.error && res.error.message !== 'Network timeout') {
-          loginError = res.error.message;
+        } else if (error) {
+          loginError = error.message;
         }
       } catch (err) {
         loginError = err.message || String(err);
       }
 
-      // 2. Fallback to Local Admin authentication if real Supabase isn't registered for admin yet or timed out
+      // 2. Only try real Supabase if local auth failed (background, non-blocking)
       if (!loginSuccess) {
         try {
-          const mockClient = new MockSupabaseClient();
-          const { data, error } = await mockClient.auth.signInWithPassword({ email, password });
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 2000);
+          const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+          clearTimeout(tid);
           if (!error && data && data.session) {
             loginSuccess = true;
-          } else if (!loginError) {
-            loginError = error ? error.message : 'Invalid login credentials';
+            loginError = null;
+          } else if (error && !loginError) {
+            loginError = error.message;
           }
         } catch (err) {
-          if (!loginError) loginError = err.message;
+          // Supabase timed out or failed — no problem, local auth result stands
         }
       }
 

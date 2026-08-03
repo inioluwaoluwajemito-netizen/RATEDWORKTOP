@@ -604,12 +604,39 @@ async function fetchBrands() {
   let localBrands = [];
   try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
 
-  const allBrands = [...dbBrands];
-  [...syncBrands, ...localBrands].forEach(b => {
-    if (b && !allBrands.some(existing => existing.id == b.id || (existing.name && existing.name.toLowerCase() === b.name.toLowerCase()))) {
-      allBrands.push(b);
+  // Helper: merge brand b into the brandMap, combining properties and colours
+  const brandMap = new Map();
+  function mergeBrand(b) {
+    if (!b || !b.name) return;
+    const key = b.name.toLowerCase().trim();
+    if (brandMap.has(key)) {
+      const existing = brandMap.get(key);
+      // Merge properties — prefer non-empty values from the new source
+      existing.id = existing.id || b.id;
+      existing.category = b.category || existing.category;
+      existing.description = b.description || existing.description;
+      if (b.enabled !== undefined) existing.enabled = b.enabled;
+      // Merge colours from the incoming brand
+      const incomingCols = b.colours || [];
+      for (const ic of incomingCols) {
+        if (!existing.colours.some(c => c.id == ic.id || (c.name && c.name === ic.name))) {
+          existing.colours.push(ic);
+        }
+      }
+    } else {
+      brandMap.set(key, {
+        ...b,
+        colours: [...(b.colours || [])]
+      });
     }
-  });
+  }
+
+  // Merge all sources: DB brands first, then sync (rw_brands + rw_local_brands merged), then rw_local_brands
+  dbBrands.forEach(b => mergeBrand(b));
+  syncBrands.forEach(b => mergeBrand(b));
+  localBrands.forEach(b => mergeBrand(b));
+
+  const allBrands = Array.from(brandMap.values());
 
   let localColours = [];
   try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
@@ -627,7 +654,13 @@ async function fetchBrands() {
       (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
     );
     
-    const combined = [...(brand.colours || []), ...dbCols];
+    // Start with brand's already-merged colours, then add DB and local colours
+    const combined = [...(brand.colours || [])];
+    for (const dc of dbCols) {
+      if (!combined.some(c => c.id == dc.id || (c.name && c.name === dc.name))) {
+        combined.push(dc);
+      }
+    }
     for (const lc of locCols) {
       if (!combined.some(c => c.id == lc.id || (c.name && c.name === lc.name))) {
         combined.push(lc);
@@ -864,19 +897,20 @@ const store = {
 // ── Auth Guard ────────────────────────────────
 async function requireAuth() {
   let session = null;
-  // 1. Try real Supabase auth session with 1.5s timeout
+
+  // 1. Check local/mock session FIRST — instant, no network, no lock issues
   try {
-    const realSessionPromise = supabaseClient.auth.getSession();
-    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null } }), 1500));
-    const { data } = await Promise.race([realSessionPromise, timeoutPromise]);
+    const mockClient = new MockSupabaseClient();
+    const { data } = await mockClient.auth.getSession();
     session = data ? data.session : null;
   } catch (e) {}
 
-  // 2. Fallback to Local/Mock auth session if real Supabase session is absent
+  // 2. If no local session, try real Supabase with 1.5s timeout
   if (!session || !session.user) {
     try {
-      const mockClient = new MockSupabaseClient();
-      const { data } = await mockClient.auth.getSession();
+      const realSessionPromise = supabaseClient.auth.getSession();
+      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null } }), 1500));
+      const { data } = await Promise.race([realSessionPromise, timeoutPromise]);
       session = data ? data.session : null;
     } catch (e) {}
   }
