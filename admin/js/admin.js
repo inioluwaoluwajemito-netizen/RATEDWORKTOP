@@ -718,34 +718,34 @@ class MockSupabaseClient {
       signInWithOAuth: async ({ provider, options }) => {
         initProfilesTable();
         let profiles = JSON.parse(localStorage.getItem('rw_profiles')) || [];
-        let googleUser = profiles.find(p => p.email === 'demo@ratedworktops.com');
-        if (!googleUser) {
-          googleUser = {
-            id: 1,
-            name: 'Sophie Anderson',
-            email: 'demo@ratedworktops.com',
-            password: 'Demo123',
-            plan: 'Pro',
-            credits: 78,
-            visualisations: 23,
-            downloads: 15,
-            shares: 8,
+        let adminUser = profiles.find(p => p.email === 'ratedworktopsapp@gmail.com');
+        if (!adminUser) {
+          adminUser = {
+            id: 999,
+            name: 'Site Administrator',
+            email: 'ratedworktopsapp@gmail.com',
+            password: 'Ratedworktopsapp@',
+            plan: 'Admin',
+            credits: 99999,
+            visualisations: 0,
+            downloads: 0,
+            shares: 0,
             status: 'active',
-            created_at: new Date('2025-11-14').toISOString(),
+            created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
-          profiles.push(googleUser);
+          profiles.push(adminUser);
           localStorage.setItem('rw_profiles', JSON.stringify(profiles));
           syncProfilesToUsers(profiles);
         }
         
         const session = {
           user: {
-            id: googleUser.id,
-            email: googleUser.email,
-            user_metadata: { name: googleUser.name }
+            id: adminUser.id,
+            email: adminUser.email,
+            user_metadata: { name: adminUser.name }
           },
-          access_token: 'mock-token-' + googleUser.id,
+          access_token: 'mock-token-' + adminUser.id,
           expires_at: Math.floor(Date.now() / 1000) + 3600
         };
         localStorage.setItem('rw_session', JSON.stringify(session));
@@ -863,16 +863,42 @@ const store = {
 
 // ── Auth Guard ────────────────────────────────
 async function requireAuth() {
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session || session.user.email !== 'ratedworktopsapp@gmail.com') {
-    window.location.href = '../admin/index.html';
+  let session = null;
+  // 1. Try real Supabase auth session
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    session = data ? data.session : null;
+  } catch (e) {}
+
+  // 2. Fallback to Local/Mock auth session if real Supabase session is absent
+  if (!session || !session.user) {
+    try {
+      const mockClient = new MockSupabaseClient();
+      const { data } = await mockClient.auth.getSession();
+      session = data ? data.session : null;
+    } catch (e) {}
+  }
+
+  const userEmail = session && session.user && session.user.email ? session.user.email.toLowerCase().trim() : '';
+
+  if (!session || !session.user || userEmail !== 'ratedworktopsapp@gmail.com') {
+    const currentPath = window.location.pathname;
+    if (!currentPath.endsWith('/index.html') && !currentPath.endsWith('/admin/') && !currentPath.endsWith('/admin')) {
+      window.location.href = 'index.html';
+    }
     return false;
   }
   return true;
 }
 
 async function logout() {
-  await supabaseClient.auth.signOut();
+  try {
+    await supabaseClient.auth.signOut();
+  } catch (e) {}
+  try {
+    const mockClient = new MockSupabaseClient();
+    await mockClient.auth.signOut();
+  } catch (e) {}
   window.location.href = 'index.html';
 }
 
