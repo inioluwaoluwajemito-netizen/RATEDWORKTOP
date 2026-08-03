@@ -1364,7 +1364,17 @@ async function saveBrandToDB(brand) {
   return fullBrandRecord;
 }
 
-async function deleteBrandFromDB(id) {
+async function deleteBrandFromDB(id, brandName) {
+  // 0. Log deletion in rw_deleted_brands for cross-catalog sync
+  try {
+    let deleted = safeGetLocalStorage('rw_deleted_brands');
+    if (!deleted.includes(String(id))) deleted.push(String(id));
+    if (brandName && !deleted.includes(String(brandName).toLowerCase().trim())) {
+      deleted.push(String(brandName).toLowerCase().trim());
+    }
+    localStorage.setItem('rw_deleted_brands', JSON.stringify(deleted));
+  } catch(e) {}
+
   // 1. Purge from local storage and memory store
   try {
     let rwBrands = safeGetLocalStorage('rw_brands');
@@ -1451,7 +1461,17 @@ async function saveColourToDB(colour) {
   return fullColourRecord;
 }
 
-async function deleteColourFromDB(id, brandId) {
+async function deleteColourFromDB(id, brandId, colourName) {
+  // 0. Log deletion in rw_deleted_colours for cross-catalog sync
+  try {
+    let deleted = safeGetLocalStorage('rw_deleted_colours');
+    if (!deleted.includes(String(id))) deleted.push(String(id));
+    if (colourName && !deleted.includes(String(colourName).toLowerCase().trim())) {
+      deleted.push(String(colourName).toLowerCase().trim());
+    }
+    localStorage.setItem('rw_deleted_colours', JSON.stringify(deleted));
+  } catch(e) {}
+
   // 1. Remove from rw_local_colours
   try {
     let localCols = safeGetLocalStorage('rw_local_colours');

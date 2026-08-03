@@ -552,7 +552,7 @@ async function deleteBrand(id) {
   const brands = await fetchBrands();
   const brand = brands.find(b => b.id == id);
   confirmAction(`Delete brand "${brand?.name}" and all its colours? This cannot be undone.`, async () => {
-    await deleteBrandFromDB(id);
+    await deleteBrandFromDB(id, brand?.name);
     await renderBrands();
     await renderStoneStats();
     showToast('Brand deleted', 'warning');
@@ -779,7 +779,7 @@ async function deleteColour(brandId, colourId) {
   const brand = brands.find(b => b.id == brandId);
   const colour = brand?.colours.find(c => c.id == colourId);
   confirmAction(`Delete colour "${colour?.name}"?`, async () => {
-    await deleteColourFromDB(colourId);
+    await deleteColourFromDB(colourId, brandId, colour?.name);
     await renderBrands();
     await renderStoneStats();
     showToast('Colour deleted');

@@ -1093,7 +1093,12 @@ function seedAppData() {
 
 // ── Stone helpers ─────────────────────────────
 function hydrateCollections(brands, colours) {
-  if (brands && !brands.find(b => b.id === 4)) {
+  let deletedBrands = [];
+  try { deletedBrands = JSON.parse(localStorage.getItem('rw_deleted_brands') || '[]'); } catch(e) {}
+  let deletedColours = [];
+  try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
+
+  if (brands && !brands.find(b => b.id === 4) && !deletedBrands.some(db => db == 4 || String(db).toLowerCase() === 'calacatta premium')) {
     brands.push({
       id: 4,
       name: 'Calacatta Premium',
@@ -1108,7 +1113,6 @@ function hydrateCollections(brands, colours) {
     { id: 403, brand_id: 4, name: 'Nero Marquina', sku: 'CAL-NM', enabled: true, texture: 'marble' },
     { id: 404, brand_id: 4, name: 'Arabescato Vagli', sku: 'CAL-AV', enabled: true, texture: 'marble' },
     { id: 205, brand_id: 2, name: 'Charcoal Granite', sku: 'DEK-CG', enabled: true, texture: 'granite' },
-    
     { id: 405, brand_id: 4, name: 'Calacatta Viola', sku: 'CAL-VI', enabled: true, texture: 'marble' },
     { id: 203, brand_id: 2, name: 'Laurent', sku: 'DEK-LR', enabled: true, texture: 'black' },
     { id: 303, brand_id: 3, name: 'Cloudburst Concrete', sku: 'CAE-CC', enabled: true, texture: 'slate' },
@@ -1116,7 +1120,8 @@ function hydrateCollections(brands, colours) {
   ];
   if (colours) {
     additionalColours.forEach(ac => {
-      if (!colours.find(c => c.sku === ac.sku)) {
+      const isDeleted = deletedColours.some(dc => dc == ac.id || String(dc) === String(ac.id) || String(dc).toLowerCase().trim() === ac.name.toLowerCase().trim());
+      if (!colours.find(c => c.sku === ac.sku) && !isDeleted) {
         colours.push(ac);
       }
     });
@@ -1180,13 +1185,25 @@ async function getBrands() {
   let localColours = [];
   try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
 
+  let deletedBrands = [];
+  try { deletedBrands = JSON.parse(localStorage.getItem('rw_deleted_brands') || '[]'); } catch(e) {}
+
+  let deletedColours = [];
+  try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
+
   // Helper: merge brand b into brandMap, combining properties and colours
   const brandMap = new Map();
   function mergeBrand(b) {
     if (!b || !b.name || b.enabled === false) return;
-    const key = b.name.toLowerCase().trim();
-    if (brandMap.has(key)) {
-      const existing = brandMap.get(key);
+
+    // Filter out deleted brands
+    const bKey = b.name.toLowerCase().trim();
+    if (deletedBrands.some(db => db == b.id || String(db) === String(b.id) || String(db).toLowerCase().trim() === bKey)) {
+      return;
+    }
+
+    if (brandMap.has(bKey)) {
+      const existing = brandMap.get(bKey);
       existing.id = existing.id || b.id;
       existing.category = b.category || existing.category;
       existing.description = b.description || existing.description;
@@ -1198,7 +1215,7 @@ async function getBrands() {
         }
       }
     } else {
-      brandMap.set(key, {
+      brandMap.set(bKey, {
         ...b,
         colours: [...(b.colours || [])]
       });
@@ -1210,7 +1227,6 @@ async function getBrands() {
   localBrands.forEach(b => mergeBrand(b));
 
   const allBrands = Array.from(brandMap.values());
-
   const allColours = [...dbColours, ...localColours];
 
   return allBrands.map(brand => {
@@ -1228,9 +1244,20 @@ async function getBrands() {
         combined.push(mc);
       }
     }
+
+    // Filter out deleted colours
+    const validColours = combined.filter(c => {
+      if (!c || c.enabled === false) return false;
+      const cKey = c.name ? c.name.toLowerCase().trim() : '';
+      if (deletedColours.some(dc => dc == c.id || String(dc) === String(c.id) || (cKey && String(dc).toLowerCase().trim() === cKey))) {
+        return false;
+      }
+      return true;
+    });
+
     return {
       ...brand,
-      colours: combined.filter(c => c && c.enabled !== false)
+      colours: validColours
     };
   });
 }
