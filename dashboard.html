@@ -1002,6 +1002,24 @@
   <script src="js/app.js"></script>
   <script src="js/dashboard.js?v=2"></script>
   <script>
+    // Automatic guard: if Administrator is logged in, immediately redirect to Admin Portal
+    (async function checkAdminGuard() {
+      try {
+        let session = null;
+        if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.auth) {
+          const { data } = await supabaseClient.auth.getSession();
+          session = data ? data.session : null;
+        }
+        if (!session) {
+          const sessionStr = localStorage.getItem('rw_session');
+          if (sessionStr) { try { session = JSON.parse(sessionStr); } catch (e) {} }
+        }
+        if (session && session.user && session.user.email && session.user.email.toLowerCase().trim() === 'ratedworktopsapp@gmail.com') {
+          window.location.href = window.location.origin + '/admin/dashboard.html';
+        }
+      } catch (e) {}
+    })();
+
     lucide.createIcons();
   </script>
 </body>

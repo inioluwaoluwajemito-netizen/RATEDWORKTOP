@@ -151,7 +151,7 @@
       const result = await loginUser({ email, password });
       if (result.ok) {
         if (email.toLowerCase() === 'ratedworktopsapp@gmail.com') {
-          window.location.href = 'admin/index.html' + window.location.search;
+          window.location.href = window.location.origin + '/admin/dashboard.html';
         } else {
           window.location.href = 'dashboard.html' + window.location.search;
         }
