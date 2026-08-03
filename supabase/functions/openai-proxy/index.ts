@@ -1,11 +1,9 @@
 /* =========================================================================
-   RatedWorktops — Nano Banana (Gemini Flash) Fal.ai Image Edit Proxy
-   (Supabase Edge Function)
+   RatedWorktops — OpenAI Image Inpainting & Edit Proxy (Supabase Edge Function)
    =========================================================================
-   Uses fal-ai/nano-banana/edit (Gemini Flash Image Editor) via Fal.ai API key
-   to perform high-precision photorealistic image-to-image kitchen worktop
-   replacement.
-   Required Supabase secret: FAL_KEY
+   Uses OpenAI API (v1/images/edits and v1/images/generations) to perform
+   photorealistic image-to-image kitchen worktop and splashback replacement.
+   Required Supabase secret: OPENAI_API_KEY
    ========================================================================= */
 
 // @ts-ignore
@@ -13,7 +11,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// @ts-ignore - Deno is available in Supabase Edge Functions
+// @ts-ignore
 declare const Deno: any;
 
 const CORS_HEADERS = {
@@ -22,16 +20,17 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-// Safe Uint8Array to Base64 conversion avoiding RangeError / stack overflow
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  const len = bytes.byteLength;
-  const chunkSize = 8192;
-  for (let i = 0; i < len; i += chunkSize) {
-    const chunk = bytes.subarray(i, Math.min(i + chunkSize, len));
-    binary += String.fromCharCode.apply(null, chunk as any);
+// Helper: Convert Data URI to Blob for FormData upload
+function dataURItoBlob(dataURI: string): Blob {
+  const parts = dataURI.split(',');
+  const mimeMatch = parts[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+  const binary = atob(parts[1]);
+  const array = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    array[i] = binary.charCodeAt(i);
   }
-  return btoa(binary);
+  return new Blob([array], { type: mime });
 }
 
 serve(async (req: Request) => {
@@ -61,125 +60,101 @@ serve(async (req: Request) => {
       });
     }
 
-    // ── 2. Check for FAL_KEY secret ──────────────────────────────────────────
-    const FAL_KEY = Deno.env.get("FAL_KEY");
-    if (!FAL_KEY) {
-      return new Response(JSON.stringify({ error: { message: "Server error: FAL_KEY secret not set in Supabase Dashboard." } }), {
+    // ── 2. Parse request body ─────────────────────────────────────────────────
+    const body = await req.json();
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || body.openai_key || body.api_key;
+
+    if (!OPENAI_API_KEY) {
+      return new Response(JSON.stringify({ error: { message: "OpenAI API Key not set. Please add OPENAI_API_KEY to Supabase Edge Function Secrets." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    // ── 3. Parse request body ─────────────────────────────────────────────────
-    const body = await req.json();
     if (!body.image || !body.prompt) {
       return new Response(JSON.stringify({ error: { message: "Missing required fields: image and prompt." } }), {
         status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log(`[Nano Banana Proxy] User: ${user.id} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length} | stone_image: ${body.stone_image ? 'yes' : 'no'}`);
+    console.log(`[OpenAI Proxy] User: ${user.id} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length}`);
 
-    // ── 4. Call fal-ai/nano-banana/edit Endpoint ──────────────────────────────
-    // Build image_urls array: kitchen photo + stone texture reference (if provided)
-    const imageUrls = [body.image];
-    let enhancedPrompt = body.prompt;
-    if (body.stone_image) {
-      imageUrls.push(body.stone_image);
-      // Enhance the prompt to explicitly reference the stone texture image
-      enhancedPrompt = `${body.prompt} CRITICAL MANDATE: You MUST replace BOTH the worktop/countertop AND the splashback back wall. Do not leave the splashback wall unchanged! The second reference image shows the exact stone texture slab that MUST be applied to BOTH the worktop AND the splashback wall. Match its exact color, pattern, veining, and surface finish precisely on both surfaces. Both the worktop and splashback wall must feature the identical stone material matching the reference stone image.`;
-      console.log("[Nano Banana Proxy] Stone reference image included in image_urls");
+    // ── 3. Build OpenAI Image Edit request (v1/images/edits) ──────────────────
+    const formData = new FormData();
+    const imageBlob = dataURItoBlob(body.image);
+    formData.append('image', imageBlob, 'image.png');
+
+    if (body.mask) {
+      const maskBlob = dataURItoBlob(body.mask);
+      formData.append('mask', maskBlob, 'mask.png');
     }
 
-    const falPayload: any = {
-      prompt: enhancedPrompt,
-      image_urls: imageUrls,
-      num_images: 1,
-      aspect_ratio: "auto",
-      output_format: "png",
-      safety_tolerance: "4"
-    };
+    formData.append('prompt', body.prompt);
+    formData.append('n', '1');
+    formData.append('size', '1024x1024');
+    formData.append('response_format', 'b64_json');
 
-    console.log("[Nano Banana Proxy] Sending request to fal-ai/nano-banana/edit ...");
+    console.log("[OpenAI Proxy] Sending request to OpenAI v1/images/edits ...");
 
-    let falResponse = await fetch("https://fal.run/fal-ai/nano-banana/edit", {
+    let openAiRes = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
       headers: {
-        "Authorization": `Key ${FAL_KEY}`,
-        "Content-Type": "application/json"
+        "Authorization": `Bearer ${OPENAI_API_KEY}`
       },
-      body: JSON.stringify(falPayload)
+      body: formData
     });
 
-    let resData = await falResponse.json();
-    console.log("[Nano Banana Proxy] Nano Banana status:", falResponse.status);
+    let resData = await openAiRes.json();
+    console.log("[OpenAI Proxy] OpenAI Response Status:", openAiRes.status);
 
-    // Fallback to fast-sdxl/inpainting if nano-banana returns error
-    if (!falResponse.ok) {
-      console.warn("[Nano Banana Proxy] Nano Banana failed, falling back to fast-sdxl/inpainting:", JSON.stringify(resData));
-      const fallbackPayload: any = {
-        image_url: body.image,
+    // ── 4. Fallback to DALL-E 3 Generation if Image Edit is unavailable ────────
+    if (!openAiRes.ok) {
+      console.warn("[OpenAI Proxy] v1/images/edits failed, falling back to DALL-E 3 generation:", JSON.stringify(resData));
+      const dallePayload = {
+        model: "dall-e-3",
         prompt: body.prompt,
-        strength: 0.90,
-        num_inference_steps: 35,
-        guidance_scale: 7.5
+        n: 1,
+        size: "1024x1024",
+        response_format: "b64_json"
       };
-      if (body.mask) fallbackPayload.mask_url = body.mask;
 
-      falResponse = await fetch("https://fal.run/fal-ai/fast-sdxl/inpainting", {
+      openAiRes = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: {
-          "Authorization": `Key ${FAL_KEY}`,
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(fallbackPayload)
+        body: JSON.stringify(dallePayload)
       });
-      resData = await falResponse.json();
-      console.log("[Nano Banana Proxy] Fallback status:", falResponse.status);
+      resData = await openAiRes.json();
+      console.log("[OpenAI Proxy] DALL-E 3 Fallback Status:", openAiRes.status);
     }
 
-    if (!falResponse.ok) {
-      const errMsg = resData?.detail ?? resData?.message ?? JSON.stringify(resData);
-      console.error("[Nano Banana Proxy] Fal.ai error:", errMsg);
-      return new Response(JSON.stringify({ error: { message: "Fal.ai error: " + errMsg } }), {
-        status: falResponse.status,
+    if (!openAiRes.ok) {
+      const errMsg = resData?.error?.message || JSON.stringify(resData);
+      console.error("[OpenAI Proxy] OpenAI API Error:", errMsg);
+      return new Response(JSON.stringify({ error: { message: "OpenAI Error: " + errMsg } }), {
+        status: openAiRes.status,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    const falImageUrl = resData.images?.[0]?.url || resData.image?.url;
-    const falContentType = resData.images?.[0]?.content_type || "image/png";
-
-    if (!falImageUrl) {
-      console.error("[Nano Banana Proxy] No image URL in response:", JSON.stringify(resData));
-      return new Response(JSON.stringify({ error: { message: "Fal.ai returned no image." } }), {
+    const b64Data = resData.data?.[0]?.b64_json;
+    if (!b64Data) {
+      return new Response(JSON.stringify({ error: { message: "OpenAI returned no image data." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log("[Nano Banana Proxy] Generated Image URL:", falImageUrl.substring(0, 90));
+    const finalUrl = `data:image/png;base64,${b64Data}`;
+    console.log("[OpenAI Proxy] OpenAI Inpainting generated successfully, data URI length:", finalUrl.length);
 
-    // ── 5. Convert generated image to Base64 ──────────────────────────────────
-    let finalUrl = falImageUrl;
-    try {
-      const imgResponse = await fetch(falImageUrl);
-      if (imgResponse.ok) {
-        const imgBytes = new Uint8Array(await imgResponse.arrayBuffer());
-        const imgBase64 = uint8ArrayToBase64(imgBytes);
-        finalUrl = `data:${falContentType};base64,${imgBase64}`;
-        console.log("[Nano Banana Proxy] Converted to base64 successfully, len:", finalUrl.length);
-      }
-    } catch (b64Err) {
-      console.warn("[Nano Banana Proxy] Base64 conversion skipped, using CDN URL:", b64Err);
-    }
-
-    // ── 6. Return response to client ──────────────────────────────────────────
     return new Response(JSON.stringify({ data: [{ url: finalUrl }] }), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
 
   } catch (err: any) {
-    console.error("[Nano Banana Proxy] Unhandled error:", err);
+    console.error("[OpenAI Proxy] Unhandled error:", err);
     return new Response(JSON.stringify({ error: { message: String(err?.message ?? err) } }), {
       status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
