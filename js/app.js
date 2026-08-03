@@ -1124,74 +1124,30 @@ function hydrateCollections(brands, colours) {
 }
 
 async function getAllStones() {
-  let dbBrands = [];
-  let dbColours = [];
-  if (supabaseClient) {
-    try {
-      const { data: bData } = await supabaseClient.from('brands').select('*').eq('enabled', true);
-      const { data: cData } = await supabaseClient.from('colours').select('*').eq('enabled', true);
-      if (bData && bData.length > 0) dbBrands = bData;
-      if (cData && cData.length > 0) dbColours = cData;
-    } catch(e) {}
-  }
-  
-  hydrateCollections(dbBrands, dbColours);
-
-  let storedBrands = [];
-  try { storedBrands = JSON.parse(localStorage.getItem('rw_brands') || '[]'); } catch(e) {}
-
-  let localBrands = [];
-  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
-
-  let localColours = [];
-  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
-
-  const allBrands = [...dbBrands];
-  [...storedBrands, ...localBrands].forEach(lb => {
-    if (lb && lb.enabled !== false && !allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
-      allBrands.push(lb);
-    }
-  });
-
-  const allColours = [...dbColours];
-  allBrands.forEach(b => {
-    if (b.colours && Array.isArray(b.colours)) {
-      b.colours.forEach(c => {
-        if (c && c.enabled !== false && !allColours.some(existing => existing.id == c.id || (existing.name === c.name && String(existing.brand_id) == String(b.id)))) {
-          allColours.push({ ...c, brand_id: c.brand_id || b.id, brand_name: c.brand_name || b.name });
+  const brands = await getBrands();
+  const stones = [];
+  brands.forEach(brand => {
+    if (brand && brand.colours && Array.isArray(brand.colours)) {
+      brand.colours.forEach(colour => {
+        if (colour && colour.enabled !== false) {
+          stones.push({
+            id: `${brand.id}-${colour.id}`,
+            brandId: brand.id,
+            colourId: colour.id,
+            name: colour.name,
+            brand: brand.name,
+            brandName: brand.name,
+            category: brand.category || 'Quartz',
+            categoryName: brand.category || 'Quartz',
+            sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
+            texture: colour.texture || 'marble',
+            finish: colour.finish || 'Polished',
+            image_url: colour.image_url || '',
+            description: brand.description || ''
+          });
         }
       });
     }
-  });
-
-  for (const lc of localColours) {
-    if (lc && lc.enabled !== false && !allColours.some(c => c.id == lc.id || (c.name === lc.name && String(c.brand_id) == String(lc.brand_id)))) {
-      allColours.push(lc);
-    }
-  }
-
-  const stones = [];
-  allBrands.forEach(brand => {
-    const brandColours = allColours.filter(c => 
-      String(c.brand_id) === String(brand.id) || 
-      String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
-      (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
-    );
-    brandColours.forEach(colour => {
-      stones.push({
-        id: `${brand.id}-${colour.id}`,
-        brandId: brand.id,
-        colourId: colour.id,
-        name: colour.name,
-        brand: brand.name,
-        category: brand.category || 'Quartz',
-        sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
-        texture: colour.texture || 'marble',
-        finish: colour.finish || 'Polished',
-        image_url: colour.image_url || '',
-        description: brand.description || ''
-      });
-    });
   });
   return stones;
 }
@@ -1224,39 +1180,57 @@ async function getBrands() {
   let localColours = [];
   try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
 
-  const allBrands = [...dbBrands];
-  [...storedBrands, ...localBrands].forEach(lb => {
-    if (lb && lb.enabled !== false && !allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
-      allBrands.push(lb);
-    }
-  });
-
-  const allColours = [...dbColours];
-  allBrands.forEach(b => {
-    if (b.colours && Array.isArray(b.colours)) {
-      b.colours.forEach(c => {
-        if (c && !allColours.some(existing => existing.id == c.id || (existing.name === c.name && String(existing.brand_id) == String(b.id)))) {
-          allColours.push({ ...c, brand_id: c.brand_id || b.id, brand_name: c.brand_name || b.name });
+  // Helper: merge brand b into brandMap, combining properties and colours
+  const brandMap = new Map();
+  function mergeBrand(b) {
+    if (!b || !b.name || b.enabled === false) return;
+    const key = b.name.toLowerCase().trim();
+    if (brandMap.has(key)) {
+      const existing = brandMap.get(key);
+      existing.id = existing.id || b.id;
+      existing.category = b.category || existing.category;
+      existing.description = b.description || existing.description;
+      if (b.enabled !== undefined) existing.enabled = b.enabled;
+      const incomingCols = b.colours || [];
+      for (const ic of incomingCols) {
+        if (!existing.colours.some(c => c.id == ic.id || (c.name && c.name.toLowerCase().trim() === ic.name.toLowerCase().trim()))) {
+          existing.colours.push(ic);
         }
+      }
+    } else {
+      brandMap.set(key, {
+        ...b,
+        colours: [...(b.colours || [])]
       });
     }
-  });
-
-  for (const lc of localColours) {
-    if (!allColours.some(c => c.id == lc.id || (c.name && c.name === lc.name && String(c.brand_id) == String(lc.brand_id)))) {
-      allColours.push(lc);
-    }
   }
-  
+
+  dbBrands.forEach(b => mergeBrand(b));
+  storedBrands.forEach(b => mergeBrand(b));
+  localBrands.forEach(b => mergeBrand(b));
+
+  const allBrands = Array.from(brandMap.values());
+
+  const allColours = [...dbColours, ...localColours];
+
   return allBrands.map(brand => {
+    const matchingCols = allColours.filter(c => 
+      c && c.enabled !== false && (
+        String(c.brand_id) === String(brand.id) || 
+        String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
+        (c.brand_name && c.brand_name.toLowerCase().trim() === brand.name.toLowerCase().trim())
+      )
+    );
+    
+    const combined = [...(brand.colours || [])];
+    for (const mc of matchingCols) {
+      if (!combined.some(c => c.id == mc.id || (c.name && c.name.toLowerCase().trim() === mc.name.toLowerCase().trim()))) {
+        combined.push(mc);
+      }
+    }
     return {
       ...brand,
-      colours: allColours.filter(c => 
-        (String(c.brand_id) === String(brand.id) || 
-         String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
-         (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())) &&
-        c.enabled !== false
-      )
+      colours: combined.filter(c => c && c.enabled !== false)
     };
   });
 }

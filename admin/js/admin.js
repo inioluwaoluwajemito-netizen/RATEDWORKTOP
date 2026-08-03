@@ -1337,21 +1337,15 @@ async function saveBrandToDB(brand) {
 
   if (!supabaseClient) return fullBrandRecord;
   try {
-    if (brand.id) {
-      await supabaseClient.from('brands').update({
-        name: brand.name,
-        category: brand.category,
-        description: brand.description,
-        enabled: brand.enabled
-      }).eq('id', brand.id);
-    } else {
-      await supabaseClient.from('brands').insert([{
-        id: brandId,
-        name: brand.name,
-        category: brand.category,
-        description: brand.description,
-        enabled: brand.enabled
-      }]);
+    const { error: err } = await supabaseClient.from('brands').upsert([{
+      id: brandId,
+      name: brand.name,
+      category: brand.category || 'Quartz',
+      description: brand.description || '',
+      enabled: brand.enabled !== false
+    }]);
+    if (err) {
+      console.warn('[Admin saveBrandToDB] DB write notice:', err);
     }
   } catch(e) {
     console.warn('[Admin saveBrandToDB] DB write notice:', e);

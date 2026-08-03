@@ -310,10 +310,14 @@
                               stone.sku.toLowerCase().includes(searchVal);
         
         // Brand check
-        const matchesBrand = brandVal === 'All' || stone.brand === brandVal;
+        const matchesBrand = brandVal === 'All' || 
+          (stone.brand && stone.brand.toLowerCase().trim() === brandVal.toLowerCase().trim()) ||
+          (stone.brandName && stone.brandName.toLowerCase().trim() === brandVal.toLowerCase().trim());
         
         // Category check
-        const matchesCat = activeCategory === 'All' || stone.category === activeCategory;
+        const matchesCat = activeCategory === 'All' || 
+          (stone.category && stone.category.toLowerCase().trim() === activeCategory.toLowerCase().trim()) ||
+          (stone.categoryName && stone.categoryName.toLowerCase().trim() === activeCategory.toLowerCase().trim());
         
         return matchesSearch && matchesBrand && matchesCat;
       });

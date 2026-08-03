@@ -736,8 +736,8 @@ function renderStones() {
   const query = searchInput ? searchInput.value.toLowerCase() : '';
 
   const filtered = allStones.filter(s => {
-    if (selCat !== 'all' && s.categoryName !== selCat) return false;
-    if (selBrand !== 'all' && s.brandName !== selBrand) return false;
+    if (selCat !== 'all' && s.categoryName && s.categoryName.toLowerCase().trim() !== selCat.toLowerCase().trim()) return false;
+    if (selBrand !== 'all' && s.brandName && s.brandName.toLowerCase().trim() !== selBrand.toLowerCase().trim()) return false;
     if (query && !s.name.toLowerCase().includes(query)) return false;
     return true;
   });
