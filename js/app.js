@@ -1092,42 +1092,6 @@ function seedAppData() {
 }
 
 // ── Stone helpers ─────────────────────────────
-function hydrateCollections(brands, colours) {
-  let deletedBrands = [];
-  try { deletedBrands = JSON.parse(localStorage.getItem('rw_deleted_brands') || '[]'); } catch(e) {}
-  let deletedColours = [];
-  try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
-
-  if (brands && !brands.find(b => b.id === 4) && !deletedBrands.some(db => db == 4 || String(db).toLowerCase() === 'calacatta premium')) {
-    brands.push({
-      id: 4,
-      name: 'Calacatta Premium',
-      category: 'Marble',
-      enabled: true,
-      description: 'Natural marble from Carrara quarries'
-    });
-  }
-  const additionalColours = [
-    { id: 401, brand_id: 4, name: 'Calacatta Gold', sku: 'CAL-GD', enabled: true, texture: 'marble' },
-    { id: 402, brand_id: 4, name: 'Carrara White Marble', sku: 'CAL-CW', enabled: true, texture: 'marble' },
-    { id: 403, brand_id: 4, name: 'Nero Marquina', sku: 'CAL-NM', enabled: true, texture: 'marble' },
-    { id: 404, brand_id: 4, name: 'Arabescato Vagli', sku: 'CAL-AV', enabled: true, texture: 'marble' },
-    { id: 205, brand_id: 2, name: 'Charcoal Granite', sku: 'DEK-CG', enabled: true, texture: 'granite' },
-    { id: 405, brand_id: 4, name: 'Calacatta Viola', sku: 'CAL-VI', enabled: true, texture: 'marble' },
-    { id: 203, brand_id: 2, name: 'Laurent', sku: 'DEK-LR', enabled: true, texture: 'black' },
-    { id: 303, brand_id: 3, name: 'Cloudburst Concrete', sku: 'CAE-CC', enabled: true, texture: 'slate' },
-    { id: 104, brand_id: 1, name: 'Miami White', sku: 'SIL-MW', enabled: true, texture: 'marble' }
-  ];
-  if (colours) {
-    additionalColours.forEach(ac => {
-      const isDeleted = deletedColours.some(dc => dc == ac.id || String(dc) === String(ac.id) || String(dc).toLowerCase().trim() === ac.name.toLowerCase().trim());
-      if (!colours.find(c => c.sku === ac.sku) && !isDeleted) {
-        colours.push(ac);
-      }
-    });
-  }
-}
-
 async function getAllStones() {
   const brands = await getBrands();
   const stones = [];
@@ -1173,8 +1137,6 @@ async function getBrands() {
       if (cData && cData.length > 0) dbColours = cData;
     } catch(e) {}
   }
-  
-  hydrateCollections(dbBrands, dbColours);
 
   let storedBrands = [];
   try { storedBrands = JSON.parse(localStorage.getItem('rw_brands') || '[]'); } catch(e) {}
