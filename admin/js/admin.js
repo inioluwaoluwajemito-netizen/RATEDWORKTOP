@@ -31,6 +31,26 @@ function safeToISOString(dateStr) {
   }
 }
 
+const store = {
+  _cache: {},
+  get(key, fallback = null) {
+    try {
+      if (this._cache[key] !== undefined && this._cache[key] !== null) return this._cache[key];
+      const item = localStorage.getItem('rw_' + key) || localStorage.getItem('ratedworktops_' + key);
+      return item ? JSON.parse(item) : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  },
+  set(key, val) {
+    try {
+      this._cache[key] = val;
+      localStorage.setItem('rw_' + key, JSON.stringify(val));
+      localStorage.setItem('ratedworktops_' + key, JSON.stringify(val));
+    } catch (e) {}
+  }
+};
+
 class MockSupabaseQuery {
   constructor(table) {
     this.table = table;
