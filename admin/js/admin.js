@@ -1644,19 +1644,24 @@ async function updateProfileInDB(id, updates) {
 }
 async function fetchSettings() {
   let cached = store.get('settings') || safeGetLocalStorage('ratedworktops_settings', null) || safeGetLocalStorage('rw_settings', null);
-  cached = cached ? normalizeSettingsData(cached) : DEFAULT_SETTINGS;
+  cached = cached ? normalizeSettingsData(cached) : null;
 
-  if (!supabaseClient) return cached;
+  if (!supabaseClient) return cached || DEFAULT_SETTINGS;
 
   const dbPromise = (async () => {
     try {
       const { data } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
       if (data) {
         const normalized = normalizeSettingsData(data);
-        if (cached && cached._updatedAt && normalized._updatedAt && new Date(cached._updatedAt).getTime() > new Date(normalized._updatedAt).getTime()) {
+        const cachedTime = cached && cached._updatedAt ? new Date(cached._updatedAt).getTime() : 0;
+        const remoteTime = normalized && (normalized._updatedAt || data.updated_at) ? new Date(normalized._updatedAt || data.updated_at).getTime() : 0;
+
+        if (cached && cachedTime > 0 && cachedTime >= remoteTime) {
+          console.log('[Admin Settings] Preserving newer local settings cache and syncing to DB...');
           updateSettingsInDB(cached);
           return cached;
         }
+
         store.set('settings', normalized);
         safeSetLocalStorage('ratedworktops_settings', normalized);
         safeSetLocalStorage('rw_settings', normalized);
@@ -1670,6 +1675,13 @@ async function fetchSettings() {
       const { data } = await supabaseClient.from('profiles').select('settings').eq('email', 'ratedworktopsapp@gmail.com').maybeSingle();
       if (data && data.settings) {
         const normalized = normalizeSettingsData(data.settings);
+        const cachedTime = cached && cached._updatedAt ? new Date(cached._updatedAt).getTime() : 0;
+        const remoteTime = normalized && normalized._updatedAt ? new Date(normalized._updatedAt).getTime() : 0;
+
+        if (cached && cachedTime > 0 && cachedTime >= remoteTime) {
+          return cached;
+        }
+
         store.set('settings', normalized);
         safeSetLocalStorage('ratedworktops_settings', normalized);
         safeSetLocalStorage('rw_settings', normalized);
@@ -1678,12 +1690,19 @@ async function fetchSettings() {
     } catch (err) {
       console.warn('[Admin Settings] Fetch admin profile notice:', err);
     }
+
     return null;
   })();
 
   const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 2000));
   const remoteResult = await Promise.race([dbPromise, timeoutPromise]);
-  return remoteResult || cached;
+
+  const finalResult = remoteResult || cached || DEFAULT_SETTINGS;
+  store.set('settings', finalResult);
+  safeSetLocalStorage('ratedworktops_settings', finalResult);
+  safeSetLocalStorage('rw_settings', finalResult);
+
+  return finalResult;
 }
 
 // ── Async Admin Write Helpers ─────────────────
@@ -1759,7 +1778,10 @@ async function updateSettingsInDB(settings) {
 
         let { error } = await supabaseClient.from('settings').upsert(payload, { onConflict: 'id' });
         if (error) {
+          console.warn('[Admin Settings] Supabase settings table upsert notice:', error.message);
           await supabaseClient.from('profiles').update({ settings: normalized }).eq('email', 'ratedworktopsapp@gmail.com');
+        } else {
+          console.log('[Admin Settings] Saved successfully to Supabase DB settings table!');
         }
       } catch (dbErr) {
         console.warn('[Admin Settings] Supabase DB sync notice:', dbErr);
