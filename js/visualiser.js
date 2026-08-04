@@ -608,35 +608,45 @@ async function loadProfile() {
 
 async function loadFiltersAndStones() {
   const cats = await getCategories();
-  if (cats && cats.length) {
-    allCategories = cats;
-    cats.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.name;
-      opt.textContent = c.name;
-      filterCategory.appendChild(opt);
-    });
+  if (filterCategory) {
+    filterCategory.innerHTML = '<option value="all">All Categories</option>';
+    if (cats && cats.length) {
+      allCategories = cats;
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.name;
+        opt.textContent = c.name;
+        filterCategory.appendChild(opt);
+      });
+    }
   }
 
   const brands = await getBrands();
-  if (brands && brands.length) {
-    allBrands = brands;
-    brands.forEach(b => {
-      const opt = document.createElement('option');
-      opt.value = b.name;
-      opt.textContent = b.name;
-      filterBrand.appendChild(opt);
+  allStones = [];
+  if (filterBrand) {
+    filterBrand.innerHTML = '<option value="all">All Brands</option>';
+    if (brands && brands.length) {
+      allBrands = brands;
+      brands.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.name;
+        opt.textContent = b.name;
+        filterBrand.appendChild(opt);
 
-      if (b.colours) {
-        b.colours.forEach(c => {
-          allStones.push({
-            ...c,
-            brandName: b.name,
-            categoryName: b.category
+        if (b.colours && b.colours.length) {
+          b.colours.forEach(c => {
+            allStones.push({
+              ...c,
+              brandName: b.name,
+              brand_name: b.name,
+              brand: b.name,
+              categoryName: b.category,
+              category: b.category
+            });
           });
-        });
-      }
-    });
+        }
+      });
+    }
   }
 
   renderStones();
@@ -672,8 +682,8 @@ function renderStones() {
   const query = searchInput ? searchInput.value.toLowerCase() : '';
 
   const filtered = allStones.filter(s => {
-    if (selCat !== 'all' && s.categoryName !== selCat) return false;
-    if (selBrand !== 'all' && s.brandName !== selBrand) return false;
+    if (selCat !== 'all' && s.categoryName && s.categoryName.toLowerCase().trim() !== selCat.toLowerCase().trim()) return false;
+    if (selBrand !== 'all' && s.brandName && s.brandName.toLowerCase().trim() !== selBrand.toLowerCase().trim()) return false;
     if (query && !s.name.toLowerCase().includes(query)) return false;
     return true;
   });
