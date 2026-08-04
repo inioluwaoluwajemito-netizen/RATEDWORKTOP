@@ -1175,15 +1175,20 @@ async function getBrands() {
 
         dbColours.forEach(c => {
           if (!c || !c.name || c.enabled === false) return;
-          const brandIdKey = String(c.brand_id);
-          let targetBrand = brandMap.get(brandIdKey);
+          const rawBrandId = String(c.brand_id || '').toLowerCase().trim();
+          const rawBrandName = String(c.brand_name || '').toLowerCase().trim();
 
-          if (!targetBrand) {
-            for (const b of brandMap.values()) {
-              if (b.name.toLowerCase().trim() === (c.brand_name || '').toLowerCase().trim() || String(b.name).toLowerCase() === brandIdKey.toLowerCase()) {
-                targetBrand = b;
-                break;
-              }
+          let targetBrand = null;
+          for (const b of brandMap.values()) {
+            const bId = String(b.id || '').toLowerCase().trim();
+            const bName = String(b.name || '').toLowerCase().trim();
+
+            if (
+              (rawBrandId && (rawBrandId === bId || rawBrandId === bName)) ||
+              (rawBrandName && (rawBrandName === bName || rawBrandName === bId))
+            ) {
+              targetBrand = b;
+              break;
             }
           }
 
@@ -1217,6 +1222,25 @@ async function getBrands() {
   } catch(e) {
     return [];
   }
+}
+
+async function getAllStones() {
+  const brands = await getBrands();
+  const stones = [];
+  brands.forEach(b => {
+    if (b.colours && b.colours.length > 0) {
+      b.colours.forEach(c => {
+        stones.push({
+          ...c,
+          brand: b.name,
+          brandName: b.name,
+          category: b.category || 'Quartz',
+          categoryName: b.category || 'Quartz'
+        });
+      });
+    }
+  });
+  return stones;
 }
 }
 

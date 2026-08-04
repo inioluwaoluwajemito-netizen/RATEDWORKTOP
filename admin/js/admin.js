@@ -626,15 +626,20 @@ async function fetchBrands() {
 
         dbColours.forEach(c => {
           if (!c || !c.name) return;
-          const brandIdKey = String(c.brand_id);
-          let targetBrand = brandMap.get(brandIdKey);
-          
-          if (!targetBrand) {
-            for (const b of brandMap.values()) {
-              if (b.name.toLowerCase().trim() === (c.brand_name || '').toLowerCase().trim() || String(b.name).toLowerCase() === brandIdKey.toLowerCase()) {
-                targetBrand = b;
-                break;
-              }
+          const rawBrandId = String(c.brand_id || '').toLowerCase().trim();
+          const rawBrandName = String(c.brand_name || '').toLowerCase().trim();
+
+          let targetBrand = null;
+          for (const b of brandMap.values()) {
+            const bId = String(b.id || '').toLowerCase().trim();
+            const bName = String(b.name || '').toLowerCase().trim();
+
+            if (
+              (rawBrandId && (rawBrandId === bId || rawBrandId === bName)) ||
+              (rawBrandName && (rawBrandName === bName || rawBrandName === bId))
+            ) {
+              targetBrand = b;
+              break;
             }
           }
 
