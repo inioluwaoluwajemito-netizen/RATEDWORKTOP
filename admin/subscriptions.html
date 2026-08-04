@@ -101,7 +101,7 @@
             <div class="toggle-desc">New customers receive a set number of free credits when they register. Disable to require subscription from day one.</div>
           </div>
           <label class="toggle">
-            <input type="checkbox" id="toggle-free-credits"/>
+            <input type="checkbox" id="toggle-free-credits" checked/>
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -112,7 +112,7 @@
             <div class="toggle-desc">Enable paid subscription plans. When disabled, all users get unlimited free access with no credit limits.</div>
           </div>
           <label class="toggle">
-            <input type="checkbox" id="toggle-subscriptions"/>
+            <input type="checkbox" id="toggle-subscriptions" checked/>
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -130,7 +130,7 @@
         <div style="display:flex;align-items:center;gap:16px">
           <div style="flex:1">
             <label for="free-credits-count">Credits per new user</label>
-            <input type="number" id="free-credits-count" min="0" max="9999" placeholder="e.g. 10"/>
+            <input type="number" id="free-credits-count" min="0" max="9999" value="10" placeholder="10"/>
           </div>
           <div style="padding-top:20px">
             <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Each credit =</div>
@@ -156,16 +156,16 @@
         <div class="price-card">
           <div class="plan-name">Monthly Plan</div>
           <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Billed every month. Cancel anytime.</div>
-          <div class="plan-price">£<span id="monthly-price-display">–</span><span style="font-size:14px;color:var(--text-muted)"> / month</span></div>
-          <div class="plan-credits" id="monthly-credits-display">– credits / month</div>
+          <div class="plan-price">£<span id="monthly-price-display">9.99</span><span style="font-size:14px;color:var(--text-muted)"> / month</span></div>
+          <div class="plan-credits" id="monthly-credits-display">100 credits / month</div>
           <hr style="border:none;border-top:1px solid var(--border);margin:16px 0"/>
           <div class="form-group">
             <label for="monthly-price">Monthly price (£)</label>
-            <input type="number" id="monthly-price" min="0" step="0.01" placeholder="9.99"/>
+            <input type="number" id="monthly-price" min="0" step="0.01" value="9.99" placeholder="9.99"/>
           </div>
           <div class="form-group" style="margin-bottom:0">
             <label for="monthly-credits">Credits per month</label>
-            <input type="number" id="monthly-credits" min="0" placeholder="100"/>
+            <input type="number" id="monthly-credits" min="0" value="100" placeholder="100"/>
           </div>
         </div>
 
@@ -173,17 +173,17 @@
         <div class="price-card featured">
           <div class="plan-name">Annual Plan</div>
           <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Billed annually. Best value for regular users.</div>
-          <div class="plan-price">£<span id="annual-price-display">–</span><span style="font-size:14px;color:var(--text-muted)"> / year</span></div>
-          <div class="plan-credits" id="annual-credits-display">– credits / year</div>
-          <div id="annual-saving-badge" style="font-size:11px;color:var(--success);background:var(--success-bg);padding:3px 10px;border-radius:99px;display:inline-block;margin-bottom:4px"></div>
+          <div class="plan-price">£<span id="annual-price-display">89.99</span><span style="font-size:14px;color:var(--text-muted)"> / year</span></div>
+          <div class="plan-credits" id="annual-credits-display">1,500 credits / year</div>
+          <div id="annual-saving-badge" style="font-size:11px;color:var(--success);background:var(--success-bg);padding:3px 10px;border-radius:99px;display:inline-block;margin-bottom:4px">Save 25% vs monthly</div>
           <hr style="border:none;border-top:1px solid var(--border-gold);margin:16px 0"/>
           <div class="form-group">
             <label for="annual-price">Annual price (£)</label>
-            <input type="number" id="annual-price" min="0" step="0.01" placeholder="89.99"/>
+            <input type="number" id="annual-price" min="0" step="0.01" value="89.99" placeholder="89.99"/>
           </div>
           <div class="form-group" style="margin-bottom:0">
             <label for="annual-credits">Credits per year</label>
-            <input type="number" id="annual-credits" min="0" placeholder="1500"/>
+            <input type="number" id="annual-credits" min="0" value="1500" placeholder="1500"/>
           </div>
         </div>
 
@@ -201,12 +201,12 @@
         <div class="grid-2">
           <div class="form-group" style="margin-bottom:0">
             <label for="temp-storage">Temporary storage (hours)</label>
-            <input type="number" id="temp-storage" min="1" max="168" placeholder="48"/>
+            <input type="number" id="temp-storage" min="1" max="168" value="48" placeholder="48"/>
             <div style="font-size:11px;color:var(--text-muted);margin-top:5px">Unsaved images auto-delete after this time</div>
           </div>
           <div class="form-group" style="margin-bottom:0">
             <label for="max-projects">Max saved projects</label>
-            <input type="number" id="max-projects" min="1" max="10" placeholder="2"/>
+            <input type="number" id="max-projects" min="1" max="10" value="2" placeholder="2"/>
             <div style="font-size:11px;color:var(--text-muted);margin-top:5px">Per customer account</div>
           </div>
         </div>
@@ -231,18 +231,22 @@
 requireAuth();
 
 async function loadSettings() {
-  const s = await fetchSettings();
-
-  document.getElementById('toggle-free-credits').checked = s.freeCreditsEnabled !== false;
-  document.getElementById('toggle-subscriptions').checked = s.subscriptionsEnabled !== false;
-  document.getElementById('free-credits-count').value = s.freeCreditsCount ?? 10;
-  document.getElementById('monthly-price').value = s.monthlyPrice ?? 9.99;
-  document.getElementById('monthly-credits').value = s.monthlyCredits ?? 100;
-  document.getElementById('annual-price').value = s.annualPrice ?? 89.99;
-  document.getElementById('annual-credits').value = s.annualCredits ?? 1500;
-  document.getElementById('temp-storage').value = s.tempStorageHours ?? 48;
-  document.getElementById('max-projects').value = s.maxSavedProjects ?? 2;
-
+  try {
+    const s = await fetchSettings();
+    if (s) {
+      if (document.getElementById('toggle-free-credits')) document.getElementById('toggle-free-credits').checked = s.freeCreditsEnabled !== false;
+      if (document.getElementById('toggle-subscriptions')) document.getElementById('toggle-subscriptions').checked = s.subscriptionsEnabled !== false;
+      if (document.getElementById('free-credits-count')) document.getElementById('free-credits-count').value = s.freeCreditsCount ?? 10;
+      if (document.getElementById('monthly-price')) document.getElementById('monthly-price').value = s.monthlyPrice ?? 9.99;
+      if (document.getElementById('monthly-credits')) document.getElementById('monthly-credits').value = s.monthlyCredits ?? 100;
+      if (document.getElementById('annual-price')) document.getElementById('annual-price').value = s.annualPrice ?? 89.99;
+      if (document.getElementById('annual-credits')) document.getElementById('annual-credits').value = s.annualCredits ?? 1500;
+      if (document.getElementById('temp-storage')) document.getElementById('temp-storage').value = s.tempStorageHours ?? 48;
+      if (document.getElementById('max-projects')) document.getElementById('max-projects').value = s.maxSavedProjects ?? 2;
+    }
+  } catch (e) {
+    console.warn('[Subscriptions] Load settings notice:', e);
+  }
   updatePlanDisplays();
 }
 
