@@ -1303,58 +1303,15 @@ function normalizeSettingsData(data) {
   return {
     freeCreditsEnabled: (typeof source.free_credits_enabled === 'boolean') ? source.free_credits_enabled : ((typeof source.freeCreditsEnabled === 'boolean') ? source.freeCreditsEnabled : DEFAULT_SETTINGS.freeCreditsEnabled),
     subscriptionsEnabled: (typeof source.subscriptions_enabled === 'boolean') ? source.subscriptions_enabled : ((typeof source.subscriptionsEnabled === 'boolean') ? source.subscriptionsEnabled : DEFAULT_SETTINGS.subscriptionsEnabled),
-    freeCreditsCount: source.free_credits_count !== undefined ? Number(source.free_credits_count) : (source.freeCreditsCount !== undefined ? Number(source.freeCreditsCount) : DEFAULT_SETTINGS.freeCreditsCount),
-    monthlyPrice: source.monthly_price !== undefined ? Number(source.monthly_price) : (source.monthlyPrice !== undefined ? Number(source.monthlyPrice) : DEFAULT_SETTINGS.monthlyPrice),
-    monthlyCredits: source.monthly_credits !== undefined ? Number(source.monthly_credits) : (source.monthlyCredits !== undefined ? Number(source.monthlyCredits) : DEFAULT_SETTINGS.monthlyCredits),
-    annualPrice: source.annual_price !== undefined ? Number(source.annual_price) : (source.annualPrice !== undefined ? Number(source.annualPrice) : DEFAULT_SETTINGS.annualPrice),
-    annualCredits: source.annual_credits !== undefined ? Number(source.annual_credits) : (source.annualCredits !== undefined ? Number(source.annualCredits) : DEFAULT_SETTINGS.annualCredits),
-    tempStorageHours: source.temp_storage_hours !== undefined ? Number(source.temp_storage_hours) : (source.tempStorageHours !== undefined ? Number(source.tempStorageHours) : DEFAULT_SETTINGS.tempStorageHours),
-    maxSavedProjects: source.max_saved_projects !== undefined ? Number(source.max_saved_projects) : (source.maxSavedProjects !== undefined ? Number(source.maxSavedProjects) : DEFAULT_SETTINGS.maxSavedProjects),
-    _updatedAt: source._updatedAt || source.updated_at || null
+    freeCreditsCount: source.free_credits_count !== undefined && source.free_credits_count !== null ? Number(source.free_credits_count) : (source.freeCreditsCount !== undefined && source.freeCreditsCount !== null ? Number(source.freeCreditsCount) : DEFAULT_SETTINGS.freeCreditsCount),
+    monthlyPrice: source.monthly_price !== undefined && source.monthly_price !== null ? Number(source.monthly_price) : (source.monthlyPrice !== undefined && source.monthlyPrice !== null ? Number(source.monthlyPrice) : DEFAULT_SETTINGS.monthlyPrice),
+    monthlyCredits: source.monthly_credits !== undefined && source.monthly_credits !== null ? Number(source.monthly_credits) : (source.monthlyCredits !== undefined && source.monthlyCredits !== null ? Number(source.monthlyCredits) : DEFAULT_SETTINGS.monthlyCredits),
+    annualPrice: source.annual_price !== undefined && source.annual_price !== null ? Number(source.annual_price) : (source.annualPrice !== undefined && source.annualPrice !== null ? Number(source.annualPrice) : DEFAULT_SETTINGS.annualPrice),
+    annualCredits: source.annual_credits !== undefined && source.annual_credits !== null ? Number(source.annual_credits) : (source.annualCredits !== undefined && source.annualCredits !== null ? Number(source.annualCredits) : DEFAULT_SETTINGS.annualCredits),
+    tempStorageHours: source.temp_storage_hours !== undefined && source.temp_storage_hours !== null ? Number(source.temp_storage_hours) : (source.tempStorageHours !== undefined && source.tempStorageHours !== null ? Number(source.tempStorageHours) : DEFAULT_SETTINGS.tempStorageHours),
+    maxSavedProjects: source.max_saved_projects !== undefined && source.max_saved_projects !== null ? Number(source.max_saved_projects) : (source.maxSavedProjects !== undefined && source.maxSavedProjects !== null ? Number(source.maxSavedProjects) : DEFAULT_SETTINGS.maxSavedProjects),
+    _updatedAt: source._updatedAt || source.updated_at || new Date().toISOString()
   };
-}
-
-async function fetchSettings() {
-  let cached = store.get('settings') || (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('ratedworktops_settings') || 'null') : null);
-  cached = cached ? normalizeSettingsData(cached) : DEFAULT_SETTINGS;
-
-  if (!supabaseClient) return cached;
-
-  // 1. Try fetching from settings table (id=1)
-  try {
-    const { data } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
-    if (data) {
-      const normalized = normalizeSettingsData(data);
-      if (cached && cached._updatedAt && normalized._updatedAt && new Date(cached._updatedAt).getTime() > new Date(normalized._updatedAt).getTime()) {
-        console.log('[Admin Settings] Local cache is newer than DB data, preserving local settings and syncing...');
-        updateSettingsInDB(cached);
-        return cached;
-      }
-      store.set('settings', normalized);
-      try { localStorage.setItem('ratedworktops_settings', JSON.stringify(normalized)); } catch(e) {}
-      return normalized;
-    }
-  } catch (err) {
-    console.warn('[Admin Settings] Fetch settings table notice:', err);
-  }
-
-  // 2. Backup: Try fetching from admin profile in profiles table
-  try {
-    const { data } = await supabaseClient.from('profiles').select('settings').eq('email', 'ratedworktopsapp@gmail.com').maybeSingle();
-    if (data && data.settings) {
-      const normalized = normalizeSettingsData(data.settings);
-      if (cached && cached._updatedAt && normalized._updatedAt && new Date(cached._updatedAt).getTime() > new Date(normalized._updatedAt).getTime()) {
-        return cached;
-      }
-      store.set('settings', normalized);
-      try { localStorage.setItem('ratedworktops_settings', JSON.stringify(normalized)); } catch(e) {}
-      return normalized;
-    }
-  } catch (err) {
-    console.warn('[Admin Settings] Fetch admin profile notice:', err);
-  }
-
-  return cached;
 }
 
 // ── Async Admin Write Helpers ─────────────────
@@ -1656,8 +1613,8 @@ async function fetchSettings() {
         const cachedTime = cached && cached._updatedAt ? new Date(cached._updatedAt).getTime() : 0;
         const remoteTime = normalized && (normalized._updatedAt || data.updated_at) ? new Date(normalized._updatedAt || data.updated_at).getTime() : 0;
 
-        if (cached && cachedTime > 0 && cachedTime >= remoteTime) {
-          console.log('[Admin Settings] Preserving newer local settings cache and syncing to DB...');
+        if (cached && (remoteTime <= cachedTime || remoteTime === 0)) {
+          console.log('[Admin Settings] Preserving local settings cache and syncing to DB...');
           updateSettingsInDB(cached);
           return cached;
         }
@@ -1678,7 +1635,7 @@ async function fetchSettings() {
         const cachedTime = cached && cached._updatedAt ? new Date(cached._updatedAt).getTime() : 0;
         const remoteTime = normalized && normalized._updatedAt ? new Date(normalized._updatedAt).getTime() : 0;
 
-        if (cached && cachedTime > 0 && cachedTime >= remoteTime) {
+        if (cached && (remoteTime <= cachedTime || remoteTime === 0)) {
           return cached;
         }
 
