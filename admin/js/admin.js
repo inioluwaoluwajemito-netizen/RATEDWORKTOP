@@ -670,24 +670,7 @@ async function fetchBrands() {
   return syncBrands;
 }
 
-  // Auto-sync brands and colours up to Supabase DB if missing in DB
-  if (supabaseClient && results.length > 0) {
-    try {
-      for (const b of results) {
-        if (!dbBrands.some(dbB => dbB.id == b.id || (dbB.name && dbB.name.toLowerCase().trim() === b.name.toLowerCase().trim()))) {
-          await supabaseClient.from('brands').upsert([{ id: String(b.id), name: b.name, category: b.category || 'Quartz', description: b.description || '', enabled: b.enabled !== false }]);
-        }
-        for (const c of (b.colours || [])) {
-          if (!dbColours.some(dbC => dbC.id == c.id || (dbC.name && dbC.name.toLowerCase().trim() === c.name.toLowerCase().trim()))) {
-            await supabaseClient.from('colours').upsert([{ id: String(c.id), brand_id: String(b.id), brand_name: b.name, name: c.name, sku: c.sku || (c.name.replace(/\s+/g, '-').toUpperCase()), finish: c.finish || 'Polished', texture: c.texture || 'marble', enabled: c.enabled !== false }]);
-          }
-        }
-      }
-    } catch(e) {}
-  }
 
-  return results;
-}
 
 class MockSupabaseClient {
   constructor() {
