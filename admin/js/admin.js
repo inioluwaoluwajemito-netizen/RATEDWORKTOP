@@ -598,108 +598,77 @@ function fetchBrandsSync() {
 
 // ── Async Admin Data Helpers ──────────────────
 async function fetchBrands() {
-  initBrandsAndColours();
-  let dbBrands = [];
-  let dbColours = [];
   if (supabaseClient) {
     try {
       const fetchPromise = Promise.all([
         supabaseClient.from('brands').select('*'),
         supabaseClient.from('colours').select('*')
       ]);
-      const timeoutPromise = new Promise(res => setTimeout(() => res([{ data: null }, { data: null }]), 1500));
+      const timeoutPromise = new Promise(res => setTimeout(() => res([{ data: null }, { data: null }]), 2500));
       const [bRes, cRes] = await Promise.race([fetchPromise, timeoutPromise]);
-      if (bRes && bRes.data && bRes.data.length > 0) dbBrands = bRes.data;
-      if (cRes && cRes.data && cRes.data.length > 0) dbColours = cRes.data;
-    } catch(e) {}
+      
+      if (bRes && !bRes.error && bRes.data) {
+        const dbBrands = bRes.data;
+        const dbColours = (cRes && !cRes.error && cRes.data) ? cRes.data : [];
+
+        const brandMap = new Map();
+        dbBrands.forEach(b => {
+          if (!b || !b.name) return;
+          brandMap.set(String(b.id), {
+            id: b.id,
+            name: b.name,
+            category: b.category || 'Quartz',
+            description: b.description || '',
+            enabled: b.enabled !== false,
+            colours: []
+          });
+        });
+
+        dbColours.forEach(c => {
+          if (!c || !c.name) return;
+          const brandIdKey = String(c.brand_id);
+          let targetBrand = brandMap.get(brandIdKey);
+          
+          if (!targetBrand) {
+            for (const b of brandMap.values()) {
+              if (b.name.toLowerCase().trim() === (c.brand_name || '').toLowerCase().trim() || String(b.name).toLowerCase() === brandIdKey.toLowerCase()) {
+                targetBrand = b;
+                break;
+              }
+            }
+          }
+
+          if (targetBrand) {
+            targetBrand.colours.push({
+              id: c.id,
+              brand_id: c.brand_id,
+              name: c.name,
+              sku: c.sku || '',
+              finish: c.finish || 'Polished',
+              thickness: c.thickness || '20mm',
+              price_tier: c.price_tier || 'Standard',
+              price_per_m2: c.price_per_m2 || 150,
+              image_url: c.image_url || 'images/placeholder-kitchen.jpg',
+              texture: c.texture || 'marble',
+              enabled: c.enabled !== false
+            });
+          }
+        });
+
+        const results = Array.from(brandMap.values());
+        store.set('brands', results);
+        return results;
+      }
+    } catch(e) {
+      console.warn('[Admin Brands] Supabase fetch notice:', e);
+    }
   }
-  
+
+  // Fallback to local storage cache only if offline
   const syncBrands = fetchBrandsSync();
-  let localBrands = [];
-  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
-
-  let deletedBrands = [];
-  try { deletedBrands = JSON.parse(localStorage.getItem('rw_deleted_brands') || '[]'); } catch(e) {}
-
-  let deletedColours = [];
-  try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
-
-  const brandMap = new Map();
-  function mergeBrand(b) {
-    if (!b || !b.name) return;
-    const key = b.name.toLowerCase().trim();
-    if (deletedBrands.some(db => db == b.id || String(db) === String(b.id) || String(db).toLowerCase().trim() === key)) {
-      return;
-    }
-    if (brandMap.has(key)) {
-      const existing = brandMap.get(key);
-      existing.id = existing.id || b.id;
-      existing.category = b.category || existing.category;
-      existing.description = b.description || existing.description;
-      if (b.enabled !== undefined) existing.enabled = b.enabled;
-      const incomingCols = b.colours || [];
-      for (const ic of incomingCols) {
-        if (!existing.colours.some(c => c.id == ic.id || (c.name && c.name.toLowerCase().trim() === ic.name.toLowerCase().trim()))) {
-          existing.colours.push(ic);
-        }
-      }
-    } else {
-      brandMap.set(key, {
-        ...b,
-        colours: [...(b.colours || [])]
-      });
-    }
-  }
-
-  // Merge sources: DB first, syncBrands next, localBrands last
-  dbBrands.forEach(b => mergeBrand(b));
-  syncBrands.forEach(b => mergeBrand(b));
-  localBrands.forEach(b => mergeBrand(b));
-
-  const allBrands = Array.from(brandMap.values());
-
-  let localColours = [];
-  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
-
-  const results = allBrands.map(brand => {
-    const dbCols = dbColours ? dbColours.filter(c => 
-      String(c.brand_id) === String(brand.id) || 
-      String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
-      (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
-    ) : [];
-    
-    const locCols = localColours.filter(c => 
-      String(c.brand_id) === String(brand.id) || 
-      String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
-      (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
-    );
-    
-    const combined = [...(brand.colours || [])];
-    for (const dc of dbCols) {
-      if (!combined.some(c => c.id == dc.id || (c.name && c.name.toLowerCase().trim() === dc.name.toLowerCase().trim()))) {
-        combined.push(dc);
-      }
-    }
-    for (const lc of locCols) {
-      if (!combined.some(c => c.id == lc.id || (c.name && c.name.toLowerCase().trim() === lc.name.toLowerCase().trim()))) {
-        combined.push(lc);
-      }
-    }
-
-    const validColours = combined.filter(c => {
-      if (!c) return false;
-      const cKey = c.name ? c.name.toLowerCase().trim() : '';
-      if (deletedColours.some(dc => dc == c.id || String(dc) === String(c.id) || (cKey && String(dc).toLowerCase().trim() === cKey))) {
-        return false;
-      }
-      return true;
-    });
-
-    return {
-      ...brand,
-      colours: validColours
-    };
-  });
+  store.set('brands', syncBrands);
+  return syncBrands;
+}
 
   // Auto-sync brands and colours up to Supabase DB if missing in DB
   if (supabaseClient && results.length > 0) {
