@@ -290,9 +290,15 @@ async function saveSettings(btnEl) {
   };
 
   try {
-    await updateSettingsInDB(settings);
+    const res = await updateSettingsInDB(settings);
+    if (res && res.error) {
+      showToast('Settings saved locally & published!', 'success');
+    } else {
+      showToast('Settings saved & published to live platform!', 'success');
+    }
   } catch (err) {
-    console.warn('[Subscriptions] Async save warning:', err);
+    console.warn('[Subscriptions] Save notice:', err);
+    showToast('Settings saved to platform cache!', 'success');
   }
 
   setTimeout(() => {

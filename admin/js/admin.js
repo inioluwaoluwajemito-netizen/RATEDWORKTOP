@@ -1798,7 +1798,10 @@ async function updateSettingsInDB(settings) {
   safeSetLocalStorage('ratedworktops_settings', normalized);
   safeSetLocalStorage('rw_settings', normalized);
 
-  // 2. Perform background Supabase DB sync with 2-second timeout guard
+  let finalError = null;
+  let writeSuccess = false;
+
+  // 2. Perform Supabase DB sync with 2.5-second timeout guard
   if (supabaseClient) {
     const syncPromise = (async () => {
       try {
@@ -1817,24 +1820,42 @@ async function updateSettingsInDB(settings) {
           updated_at: now
         };
 
-        let { error } = await supabaseClient.from('settings').upsert(payload, { onConflict: 'id' });
-        if (error) {
-          console.warn('[Admin Settings] Supabase settings table upsert notice:', error.message);
-          await supabaseClient.from('profiles').update({ settings: normalized }).eq('email', 'ratedworktopsapp@gmail.com');
+        // Try upserting to settings table and returning modified rows via select()
+        let { data, error } = await supabaseClient.from('settings').upsert(payload, { onConflict: 'id' }).select();
+        
+        if (!error && data && data.length > 0) {
+          writeSuccess = true;
+          console.log('[Admin Settings] Saved & verified in Supabase settings table:', data[0]);
         } else {
-          console.log('[Admin Settings] Saved successfully to Supabase DB settings table!');
+          if (error) console.warn('[Admin Settings] settings table upsert notice:', error.message);
+          
+          // Try fallback update by ID
+          const updateRes = await supabaseClient.from('settings').update(payload).eq('id', 1).select();
+          if (!updateRes.error && updateRes.data && updateRes.data.length > 0) {
+            writeSuccess = true;
+            console.log('[Admin Settings] Updated settings table row id=1:', updateRes.data[0]);
+          } else {
+            // Backup write to admin profile in profiles table
+            const profRes = await supabaseClient.from('profiles').update({ settings: normalized }).eq('email', 'ratedworktopsapp@gmail.com');
+            if (!profRes.error) {
+              writeSuccess = true;
+              console.log('[Admin Settings] Saved to admin profile in profiles table');
+            } else {
+              finalError = error || updateRes.error || profRes.error;
+            }
+          }
         }
       } catch (dbErr) {
         console.warn('[Admin Settings] Supabase DB sync notice:', dbErr);
+        finalError = dbErr;
       }
     })();
 
-    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 2000));
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 2500));
     await Promise.race([syncPromise, timeoutPromise]);
   }
 
-  showToast('Settings saved & published to live platform!', 'success');
-  return normalized;
+  return { data: normalized, error: finalError };
 }
 
 function drawMiniBarChart(canvas, data, color = '#c9a96e') {
