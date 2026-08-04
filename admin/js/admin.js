@@ -1684,66 +1684,39 @@ async function updateProfileInDB(id, updates) {
 }
 
 async function fetchSettings() {
-  let cached = store.get('settings') || safeGetLocalStorage('ratedworktops_settings', null) || safeGetLocalStorage('rw_settings', null);
-  cached = cached ? normalizeSettingsData(cached) : null;
-
-  if (!supabaseClient) return cached || DEFAULT_SETTINGS;
-
-  const dbPromise = (async () => {
+  // 1. Primary Source of Truth: Fetch fresh settings directly from Supabase DB settings table (id=1)
+  if (supabaseClient) {
     try {
-      const { data } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
-      if (data) {
+      const { data, error } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
+      if (!error && data) {
         const normalized = normalizeSettingsData(data);
-        const cachedTime = cached && cached._updatedAt ? new Date(cached._updatedAt).getTime() : 0;
-        const remoteTime = normalized && (normalized._updatedAt || data.updated_at) ? new Date(normalized._updatedAt || data.updated_at).getTime() : 0;
-
-        if (cached && (remoteTime <= cachedTime || remoteTime === 0)) {
-          console.log('[Admin Settings] Preserving local settings cache and syncing to DB...');
-          updateSettingsInDB(cached);
-          return cached;
-        }
-
         store.set('settings', normalized);
         safeSetLocalStorage('ratedworktops_settings', normalized);
         safeSetLocalStorage('rw_settings', normalized);
         return normalized;
       }
     } catch (err) {
-      console.warn('[Admin Settings] Fetch settings table notice:', err);
+      console.warn('[Admin Settings] Supabase DB fetch notice:', err);
     }
 
+    // 2. Backup DB location: Fetch from admin profile in profiles table
     try {
-      const { data } = await supabaseClient.from('profiles').select('settings').eq('email', 'ratedworktopsapp@gmail.com').maybeSingle();
-      if (data && data.settings) {
+      const { data, error } = await supabaseClient.from('profiles').select('settings').eq('email', 'ratedworktopsapp@gmail.com').maybeSingle();
+      if (!error && data && data.settings) {
         const normalized = normalizeSettingsData(data.settings);
-        const cachedTime = cached && cached._updatedAt ? new Date(cached._updatedAt).getTime() : 0;
-        const remoteTime = normalized && normalized._updatedAt ? new Date(normalized._updatedAt).getTime() : 0;
-
-        if (cached && (remoteTime <= cachedTime || remoteTime === 0)) {
-          return cached;
-        }
-
         store.set('settings', normalized);
         safeSetLocalStorage('ratedworktops_settings', normalized);
         safeSetLocalStorage('rw_settings', normalized);
         return normalized;
       }
     } catch (err) {
-      console.warn('[Admin Settings] Fetch admin profile notice:', err);
+      console.warn('[Admin Settings] Admin profile settings fetch notice:', err);
     }
+  }
 
-    return null;
-  })();
-
-  const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 2000));
-  const remoteResult = await Promise.race([dbPromise, timeoutPromise]);
-
-  const finalResult = remoteResult || cached || DEFAULT_SETTINGS;
-  store.set('settings', finalResult);
-  safeSetLocalStorage('ratedworktops_settings', finalResult);
-  safeSetLocalStorage('rw_settings', finalResult);
-
-  return finalResult;
+  // 3. Fallback only if offline/unreachable: return cached or defaults
+  let cached = store.get('settings') || safeGetLocalStorage('ratedworktops_settings', null) || safeGetLocalStorage('rw_settings', null);
+  return cached ? normalizeSettingsData(cached) : DEFAULT_SETTINGS;
 }
 
 // ── Async Admin Write Helpers ─────────────────
@@ -1792,70 +1765,56 @@ async function deleteProfileFromDB(id) {
 async function updateSettingsInDB(settings) {
   const now = new Date().toISOString();
   const normalized = { ...normalizeSettingsData(settings), _updatedAt: now };
-  
-  // 1. Instantly save to memory store and local storage
-  store.set('settings', normalized);
-  safeSetLocalStorage('ratedworktops_settings', normalized);
-  safeSetLocalStorage('rw_settings', normalized);
 
-  let finalError = null;
-  let writeSuccess = false;
-
-  // 2. Perform Supabase DB sync with 2.5-second timeout guard
-  if (supabaseClient) {
-    const syncPromise = (async () => {
-      try {
-        const payload = {
-          id: 1,
-          free_credits_enabled: normalized.freeCreditsEnabled,
-          subscriptions_enabled: normalized.subscriptionsEnabled,
-          free_credits_count: normalized.freeCreditsCount,
-          monthly_price: normalized.monthlyPrice,
-          monthly_credits: normalized.monthlyCredits,
-          annual_price: normalized.annualPrice,
-          annual_credits: normalized.annualCredits,
-          temp_storage_hours: normalized.tempStorageHours,
-          max_saved_projects: normalized.maxSavedProjects,
-          data: normalized,
-          updated_at: now
-        };
-
-        // Try upserting to settings table and returning modified rows via select()
-        let { data, error } = await supabaseClient.from('settings').upsert(payload, { onConflict: 'id' }).select();
-        
-        if (!error && data && data.length > 0) {
-          writeSuccess = true;
-          console.log('[Admin Settings] Saved & verified in Supabase settings table:', data[0]);
-        } else {
-          if (error) console.warn('[Admin Settings] settings table upsert notice:', error.message);
-          
-          // Try fallback update by ID
-          const updateRes = await supabaseClient.from('settings').update(payload).eq('id', 1).select();
-          if (!updateRes.error && updateRes.data && updateRes.data.length > 0) {
-            writeSuccess = true;
-            console.log('[Admin Settings] Updated settings table row id=1:', updateRes.data[0]);
-          } else {
-            // Backup write to admin profile in profiles table
-            const profRes = await supabaseClient.from('profiles').update({ settings: normalized }).eq('email', 'ratedworktopsapp@gmail.com');
-            if (!profRes.error) {
-              writeSuccess = true;
-              console.log('[Admin Settings] Saved to admin profile in profiles table');
-            } else {
-              finalError = error || updateRes.error || profRes.error;
-            }
-          }
-        }
-      } catch (dbErr) {
-        console.warn('[Admin Settings] Supabase DB sync notice:', dbErr);
-        finalError = dbErr;
-      }
-    })();
-
-    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 2500));
-    await Promise.race([syncPromise, timeoutPromise]);
+  if (!supabaseClient) {
+    store.set('settings', normalized);
+    safeSetLocalStorage('ratedworktops_settings', normalized);
+    safeSetLocalStorage('rw_settings', normalized);
+    return { data: normalized, error: new Error('Supabase client not connected') };
   }
 
-  return { data: normalized, error: finalError };
+  const payload = {
+    id: 1,
+    free_credits_enabled: normalized.freeCreditsEnabled,
+    subscriptions_enabled: normalized.subscriptionsEnabled,
+    free_credits_count: normalized.freeCreditsCount,
+    monthly_price: normalized.monthlyPrice,
+    monthly_credits: normalized.monthlyCredits,
+    annual_price: normalized.annualPrice,
+    annual_credits: normalized.annualCredits,
+    temp_storage_hours: normalized.tempStorageHours,
+    max_saved_projects: normalized.maxSavedProjects,
+    data: normalized,
+    updated_at: now
+  };
+
+  // Direct write to Supabase settings table (id=1)
+  let { data, error } = await supabaseClient.from('settings').upsert(payload, { onConflict: 'id' }).select();
+
+  if (error || !data || data.length === 0) {
+    // Attempt fallback update by ID
+    const updateRes = await supabaseClient.from('settings').update(payload).eq('id', 1).select();
+    if (!updateRes.error && updateRes.data && updateRes.data.length > 0) {
+      data = updateRes.data;
+      error = null;
+    }
+  }
+
+  // Backup write to admin profile in profiles table
+  try {
+    await supabaseClient.from('profiles').update({ settings: normalized }).eq('email', 'ratedworktopsapp@gmail.com');
+  } catch (e) {}
+
+  if (!error) {
+    store.set('settings', normalized);
+    safeSetLocalStorage('ratedworktops_settings', normalized);
+    safeSetLocalStorage('rw_settings', normalized);
+    console.log('[Admin Settings] Settings successfully persisted to Supabase DB settings table!');
+    return { data: normalized, error: null };
+  } else {
+    console.error('[Admin Settings] Supabase DB write failed:', error.message);
+    return { data: null, error };
+  }
 }
 
 function drawMiniBarChart(canvas, data, color = '#c9a96e') {
