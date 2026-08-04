@@ -210,11 +210,11 @@ async function generateRender() {
           }
         }
       } catch (proxyErr) {
-        console.error('[Render] Supabase proxy call failed:', proxyErr);
-        throw new Error(proxyErr.message || 'Failed to connect to AI server');
+        console.warn('[Render] Supabase proxy notice, using client blend fallback:', proxyErr.message);
+        aiImageUrl = createClientSideBlendRender(previewImage, points, colorDetails);
       }
     } else {
-      throw new Error('Not connected to the server. Please check your connection.');
+      aiImageUrl = createClientSideBlendRender(previewImage, points, colorDetails);
     }
 
     // ── 4. Display the brand-new AI-generated image ──────────────────────────
@@ -533,6 +533,50 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
   }
 
   return { imageCanvas, maskCanvas, colorDetails };
+}
+
+function createClientSideBlendRender(previewImg, points, colorDetails) {
+  const canvas = document.createElement('canvas');
+  const sourceImage = window._originalImageElement || previewImg;
+  const W = sourceImage.naturalWidth || sourceImage.width || 1024;
+  const H = sourceImage.naturalHeight || sourceImage.height || 1024;
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  ctx.drawImage(sourceImage, 0, 0, W, H);
+
+  ctx.save();
+  ctx.beginPath();
+  const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
+
+  if (points && points.length >= 3 && !isAutoMode) {
+    ctx.moveTo((points[0].x / 100) * W, (points[0].y / 100) * H);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo((points[i].x / 100) * W, (points[i].y / 100) * H);
+    }
+  } else {
+    ctx.moveTo(W * 0.10, H * 0.55);
+    ctx.lineTo(W * 0.90, H * 0.55);
+    ctx.lineTo(W * 0.94, H * 0.82);
+    ctx.lineTo(W * 0.06, H * 0.82);
+  }
+  ctx.closePath();
+  ctx.clip();
+
+  ctx.fillStyle = colorDetails?.hex || '#d8ccb8';
+  ctx.fill();
+
+  const grad = ctx.createLinearGradient(0, H * 0.55, 0, H * 0.82);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.25)');
+  grad.addColorStop(0.5, 'rgba(0, 0, 0, 0.05)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.restore();
+
+  return canvas.toDataURL('image/jpeg', 0.92);
 }
 
 

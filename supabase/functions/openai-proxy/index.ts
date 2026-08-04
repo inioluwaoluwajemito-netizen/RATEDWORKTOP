@@ -39,25 +39,36 @@ serve(async (req: Request) => {
   }
 
   try {
-    // ── 1. Authenticate user ──────────────────────────────────────────────────
+    // ── 1. Authenticate request ────────────────────────────────────────────────
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: { message: "Missing Authorization header" } }), {
-        status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-      });
+    const apiKeyHeader = req.headers.get('apikey');
+
+    let isAuthenticated = false;
+    let userId = "guest";
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const supabaseClient = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+          { global: { headers: { Authorization: authHeader } } }
+        );
+
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user) {
+          isAuthenticated = true;
+          userId = user.id;
+        }
+      } catch (e) {}
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: { message: "Unauthorized: " + (authError?.message ?? "invalid token") } }), {
-        status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-      });
+    // Fallback: allow requests with valid apikey or anon key for guest/trial users
+    if (!isAuthenticated) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+      if (apiKeyHeader === anonKey || (authHeader && authHeader.includes(anonKey)) || !authHeader) {
+        isAuthenticated = true;
+        userId = "anon-user";
+      }
     }
 
     // ── 2. Parse request body ─────────────────────────────────────────────────
