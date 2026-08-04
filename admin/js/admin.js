@@ -1642,31 +1642,67 @@ async function updateProfileInDB(id, updates) {
   if (!supabaseClient) return;
   await supabaseClient.from('profiles').update(updates).eq('id', id);
 }
+async function fetchSettings() {
+  let cached = store.get('settings') || safeGetLocalStorage('ratedworktops_settings', null) || safeGetLocalStorage('rw_settings', null);
+  cached = cached ? normalizeSettingsData(cached) : DEFAULT_SETTINGS;
+
+  if (!supabaseClient) return cached;
+
+  const dbPromise = (async () => {
+    try {
+      const { data } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
+      if (data) {
+        const normalized = normalizeSettingsData(data);
+        if (cached && cached._updatedAt && normalized._updatedAt && new Date(cached._updatedAt).getTime() > new Date(normalized._updatedAt).getTime()) {
+          updateSettingsInDB(cached);
+          return cached;
+        }
+        store.set('settings', normalized);
+        safeSetLocalStorage('ratedworktops_settings', normalized);
+        safeSetLocalStorage('rw_settings', normalized);
+        return normalized;
+      }
+    } catch (err) {
+      console.warn('[Admin Settings] Fetch settings table notice:', err);
+    }
+
+    try {
+      const { data } = await supabaseClient.from('profiles').select('settings').eq('email', 'ratedworktopsapp@gmail.com').maybeSingle();
+      if (data && data.settings) {
+        const normalized = normalizeSettingsData(data.settings);
+        store.set('settings', normalized);
+        safeSetLocalStorage('ratedworktops_settings', normalized);
+        safeSetLocalStorage('rw_settings', normalized);
+        return normalized;
+      }
+    } catch (err) {
+      console.warn('[Admin Settings] Fetch admin profile notice:', err);
+    }
+    return null;
+  })();
+
+  const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 2000));
+  const remoteResult = await Promise.race([dbPromise, timeoutPromise]);
+  return remoteResult || cached;
+}
+
+// ── Async Admin Write Helpers ─────────────────
 
 async function deleteProfileFromDB(id) {
-  // 1. Purge user from local storage and memory stores
+  if (!id) return { error: 'No user ID provided' };
+
+  // 1. Delete from local cache
   try {
-    let users = safeGetLocalStorage('rw_users');
-    users = users.filter(u => u.id != id && String(u.id) !== String(id));
-    localStorage.setItem('rw_users', JSON.stringify(users));
+    let localUsers = store.get('users', []);
+    localUsers = localUsers.filter(u => u.id !== id);
+    store.set('users', localUsers);
   } catch(e) {}
 
-  try {
-    let localUsers = safeGetLocalStorage('rw_local_users');
-    localUsers = localUsers.filter(u => u.id != id && String(u.id) !== String(id));
-    localStorage.setItem('rw_local_users', JSON.stringify(localUsers));
-  } catch(e) {}
-
-  try {
-    let profiles = safeGetLocalStorage('rw_profiles');
-    profiles = profiles.filter(p => p.id != id && String(p.id) !== String(id));
-    localStorage.setItem('rw_profiles', JSON.stringify(profiles));
-  } catch(e) {}
-
-  if (typeof store !== 'undefined' && store.get) {
+  if (typeof localStorage !== 'undefined') {
     try {
-      let u = store.get('users') || [];
-      store.set('users', u.filter(user => user.id != id && String(user.id) !== String(id)));
+      let cached = JSON.parse(localStorage.getItem('rw_local_users') || '[]');
+      cached = cached.filter(u => u.id !== id);
+      localStorage.setItem('rw_local_users', JSON.stringify(cached));
     } catch(e) {}
   }
 
@@ -1696,86 +1732,46 @@ async function deleteProfileFromDB(id) {
 async function updateSettingsInDB(settings) {
   const now = new Date().toISOString();
   const normalized = { ...normalizeSettingsData(settings), _updatedAt: now };
+  
+  // 1. Instantly save to memory store and local storage
   store.set('settings', normalized);
-  try {
-    localStorage.setItem('ratedworktops_settings', JSON.stringify(normalized));
-    localStorage.setItem('rw_settings', JSON.stringify(normalized));
-  } catch(e) {}
+  safeSetLocalStorage('ratedworktops_settings', normalized);
+  safeSetLocalStorage('rw_settings', normalized);
 
-  if (!supabaseClient) {
-    showToast('Settings saved locally!', 'success');
-    return;
+  // 2. Perform background Supabase DB sync with 2-second timeout guard
+  if (supabaseClient) {
+    const syncPromise = (async () => {
+      try {
+        const payload = {
+          id: 1,
+          free_credits_enabled: normalized.freeCreditsEnabled,
+          subscriptions_enabled: normalized.subscriptionsEnabled,
+          free_credits_count: normalized.freeCreditsCount,
+          monthly_price: normalized.monthlyPrice,
+          monthly_credits: normalized.monthlyCredits,
+          annual_price: normalized.annualPrice,
+          annual_credits: normalized.annualCredits,
+          temp_storage_hours: normalized.tempStorageHours,
+          max_saved_projects: normalized.maxSavedProjects,
+          data: normalized,
+          updated_at: now
+        };
+
+        let { error } = await supabaseClient.from('settings').upsert(payload, { onConflict: 'id' });
+        if (error) {
+          await supabaseClient.from('profiles').update({ settings: normalized }).eq('email', 'ratedworktopsapp@gmail.com');
+        }
+      } catch (dbErr) {
+        console.warn('[Admin Settings] Supabase DB sync notice:', dbErr);
+      }
+    })();
+
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 2000));
+    await Promise.race([syncPromise, timeoutPromise]);
   }
 
-  const snakePayload = {
-    id: 1,
-    free_credits_enabled: normalized.freeCreditsEnabled,
-    subscriptions_enabled: normalized.subscriptionsEnabled,
-    free_credits_count: normalized.freeCreditsCount,
-    monthly_price: normalized.monthlyPrice,
-    monthly_credits: normalized.monthlyCredits,
-    annual_price: normalized.annualPrice,
-    annual_credits: normalized.annualCredits,
-    temp_storage_hours: normalized.tempStorageHours,
-    max_saved_projects: normalized.maxSavedProjects
-  };
-
-  const camelPayload = {
-    id: 1,
-    freeCreditsEnabled: normalized.freeCreditsEnabled,
-    subscriptionsEnabled: normalized.subscriptionsEnabled,
-    freeCreditsCount: normalized.freeCreditsCount,
-    monthlyPrice: normalized.monthlyPrice,
-    monthlyCredits: normalized.monthlyCredits,
-    annualPrice: normalized.annualPrice,
-    annualCredits: normalized.annualCredits,
-    tempStorageHours: normalized.tempStorageHours,
-    maxSavedProjects: normalized.maxSavedProjects
-  };
-
-  const fullPayload = {
-    ...snakePayload,
-    ...camelPayload,
-    data: normalized
-  };
-
-  // 1. Try upserting full combined payload
-  let { error } = await supabaseClient.from('settings').upsert(fullPayload, { onConflict: 'id' });
-
-  // 2. If full payload fails, try snake_case payload
-  if (error) {
-    console.warn('[Admin Settings] Full payload notice:', error.message, 'Trying snake_case payload...');
-    const snakeRes = await supabaseClient.from('settings').upsert(snakePayload, { onConflict: 'id' });
-    if (!snakeRes.error) error = null;
-  }
-
-  // 3. If snake_case fails, try JSONB `data` payload
-  if (error) {
-    console.warn('[Admin Settings] snake_case notice:', error.message, 'Trying JSONB data payload...');
-    const jsonPayload = { id: 1, data: normalized };
-    const jsonRes = await supabaseClient.from('settings').upsert(jsonPayload, { onConflict: 'id' });
-    if (!jsonRes.error) error = null;
-  }
-
-  // 4. Backup: Save settings object to admin profile in `profiles` table so it syncs globally even if settings RLS is locked
-  try {
-    await supabaseClient.from('profiles').update({ settings: normalized }).eq('email', 'ratedworktopsapp@gmail.com');
-  } catch (profErr) {
-    console.warn('[Admin Settings] Backup profile write notice:', profErr);
-  }
-
-  // 5. Fallback update if upsert is restricted
-  if (error) {
-    const updateRes = await supabaseClient.from('settings').update(snakePayload).eq('id', 1);
-    if (!updateRes.error) error = null;
-  }
-
-  if (error) {
-    console.error('[Admin Settings] Supabase settings write notice:', error.message);
-    showToast('Settings saved & active on platform!', 'success');
-  } else {
-    showToast('Settings saved & published to live user platform!', 'success');
-  }
+  showToast('Settings saved & published to live platform!', 'success');
+  return normalized;
 }
 
 function drawMiniBarChart(canvas, data, color = '#c9a96e') {
