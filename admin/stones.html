@@ -695,18 +695,41 @@ async function saveColour() {
       saveBtn.innerHTML = `<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;margin-right:6px"></span> Saving...`;
     }
 
-    // 1. Process image file instantly with light compression to prevent quota errors
+    // 1. Process image file with Supabase Storage upload
     let imageUrl = imageUrlInput;
     if (imageFileInput && imageFileInput.files && imageFileInput.files[0]) {
       const file = imageFileInput.files[0];
-      const rawDataUrl = await new Promise((res) => {
-        const r = new FileReader();
-        r.onload = e => res(e.target.result);
-        r.onerror = () => res('');
-        r.readAsDataURL(file);
-      });
-      if (rawDataUrl) {
-        imageUrl = await compressImageDataUrl(rawDataUrl, 400);
+      if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.storage) {
+        try {
+          const fileExt = file.name.split('.').pop() || 'png';
+          const fileName = `stone-textures/${(sku || name || 'stone').replace(/\s+/g, '-').toLowerCase()}_${Date.now()}.${fileExt}`;
+          const { data: storageData, error: storageErr } = await supabaseClient.storage
+            .from('ratedworktops')
+            .upload(fileName, file, { upsert: true });
+
+          if (!storageErr && storageData) {
+            const { data: publicUrlData } = supabaseClient.storage
+              .from('ratedworktops')
+              .getPublicUrl(fileName);
+            if (publicUrlData && publicUrlData.publicUrl) {
+              imageUrl = publicUrlData.publicUrl;
+            }
+          }
+        } catch(storageException) {
+          console.warn('[Admin Save Colour] Storage upload notice:', storageException);
+        }
+      }
+      
+      if (!imageUrl) {
+        const rawDataUrl = await new Promise((res) => {
+          const r = new FileReader();
+          r.onload = e => res(e.target.result);
+          r.onerror = () => res('');
+          r.readAsDataURL(file);
+        });
+        if (rawDataUrl) {
+          imageUrl = await compressImageDataUrl(rawDataUrl, 400);
+        }
       }
     }
 
@@ -916,10 +939,16 @@ async function executeBulkImport() {
           
           if (supabaseClient) {
             // Upload to Supabase bucket 'ratedworktops'
-            await supabaseClient.storage.from('ratedworktops').upload(path, file, {
+            const { error: upErr } = await supabaseClient.storage.from('ratedworktops').upload(path, file, {
               upsert: true,
               contentType: file.type || 'image/png'
             });
+            if (!upErr) {
+              const { data: pUrlData } = supabaseClient.storage.from('ratedworktops').getPublicUrl(path);
+              if (pUrlData && pUrlData.publicUrl) {
+                await supabaseClient.from('colours').update({ image_url: pUrlData.publicUrl }).eq('sku', sku);
+              }
+            }
           }
           
           // Local storage mock upload
