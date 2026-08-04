@@ -227,28 +227,43 @@
     let brandsList = [];
 
     document.addEventListener('DOMContentLoaded', async () => {
-      // Build shared nav & footer
-      await buildNav('stones.html');
-      buildFooter();
+      try {
+        await buildNav('stones.html');
+        buildFooter();
+      } catch (e) {
+        console.warn('[Stones Nav] Build notice:', e);
+      }
       
-      // Load initial lists
-      stonesData = await getAllStones();
+      try {
+        brandsList = await getBrands();
+      } catch(e) {
+        console.warn('[Stones Brands] Notice:', e);
+        brandsList = [];
+      }
+
+      try {
+        stonesData = await getAllStones();
+      } catch(e) {
+        console.warn('[Stones Data] Notice:', e);
+        stonesData = [];
+      }
       
-      // Retrieve brands list
-      brandsList = await getBrands();
-      
-      // Retrieve categories
-      const categories = await getCategories();
-      // Temporarily store in localStorage so renderCategoryTabs can use it, or we update renderCategoryTabs to accept it.
-      // Wait, renderCategoryTabs uses store.get('categories') internally. Let's pass it if possible, but actually we should just update renderCategoryTabs in stones.html.
+      let categories = [];
+      try {
+        categories = await getCategories();
+      } catch(e) {
+        console.warn('[Stones Categories] Notice:', e);
+        categories = [];
+      }
       window.loadedCategories = categories;
       
-      // Initialise components
       renderBrandFilter();
       renderCategoryTabs(categories);
-      renderStonesGrid();
+      renderStonesGrid(stonesData);
       
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+      }
     });
 
     function renderBrandFilter() {

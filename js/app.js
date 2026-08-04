@@ -1126,26 +1126,6 @@ async function getStoneById(id) {
   return stones.find(s => s.id === id);
 }
 
-async function getBrands() {
-  if (typeof fetchBrands === 'function') {
-    try {
-      const adminBrands = await fetchBrands();
-      if (adminBrands && Array.isArray(adminBrands)) {
-        let deletedBrands = [];
-        try { deletedBrands = JSON.parse(localStorage.getItem('rw_deleted_brands') || '[]'); } catch(e) {}
-        let deletedColours = [];
-        try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
-
-        return adminBrands
-          .filter(b => b && b.enabled !== false && !deletedBrands.some(db => db == b.id || String(db) === String(b.id) || String(db).toLowerCase().trim() === b.name.toLowerCase().trim()))
-          .map(b => ({
-            ...b,
-            colours: (b.colours || []).filter(c => c && c.enabled !== false && !deletedColours.some(dc => dc == c.id || String(dc) === String(c.id) || (c.name && String(dc).toLowerCase().trim() === c.name.toLowerCase().trim())))
-          }));
-      }
-    } catch(e) {}
-  }
-
 const DEFAULT_BRANDS = [
   {
     id: 'silestone',
@@ -1197,6 +1177,26 @@ const DEFAULT_BRANDS = [
 ];
 
 async function getBrands() {
+  if (typeof fetchBrands === 'function') {
+    try {
+      const adminBrands = await fetchBrands();
+      if (adminBrands && Array.isArray(adminBrands) && adminBrands.length > 0) {
+        let deletedBrands = [];
+        try { deletedBrands = JSON.parse(localStorage.getItem('rw_deleted_brands') || '[]'); } catch(e) {}
+        let deletedColours = [];
+        try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
+
+        const filtered = adminBrands
+          .filter(b => b && b.enabled !== false && !deletedBrands.some(db => db == b.id || String(db) === String(b.id) || String(db).toLowerCase().trim() === b.name.toLowerCase().trim()))
+          .map(b => ({
+            ...b,
+            colours: (b.colours || []).filter(c => c && c.enabled !== false && !deletedColours.some(dc => dc == c.id || String(dc) === String(c.id) || (c.name && String(dc).toLowerCase().trim() === c.name.toLowerCase().trim())))
+          }));
+        if (filtered.length > 0) return filtered;
+      }
+    } catch(e) {}
+  }
+
   if (supabaseClient) {
     try {
       const [bRes, cRes] = await Promise.all([
@@ -1305,13 +1305,22 @@ async function getAllStones() {
   });
   return stones;
 }
-}
+
+const DEFAULT_CATEGORIES = [
+  { id: 1, name: 'Marble', icon: '🤍', enabled: true, display_order: 1 },
+  { id: 2, name: 'Granite', icon: '🖤', enabled: true, display_order: 2 },
+  { id: 3, name: 'Quartz', icon: '💎', enabled: true, display_order: 3 },
+  { id: 4, name: 'Quartzite', icon: '🪨', enabled: true, display_order: 4 },
+  { id: 5, name: 'Porcelain', icon: '⬜', enabled: true, display_order: 5 },
+  { id: 6, name: 'Sintered Stone', icon: '🔷', enabled: true, display_order: 6 },
+  { id: 7, name: 'Limestone', icon: '🟤', enabled: true, display_order: 7 }
+];
 
 async function getCategories() {
   if (typeof fetchCategories === 'function') {
     try {
       const adminCats = await fetchCategories();
-      if (adminCats && Array.isArray(adminCats)) {
+      if (adminCats && Array.isArray(adminCats) && adminCats.length > 0) {
         return adminCats.filter(c => c && c.enabled !== false);
       }
     } catch(e) {}
@@ -1320,27 +1329,21 @@ async function getCategories() {
   let dbCats = [];
   if (supabaseClient) {
     try {
-      const { data } = await supabaseClient.from('categories').select('*').eq('enabled', true).order('display_order', { ascending: true });
-      if (data && data.length > 0) dbCats = data;
+      const { data } = await supabaseClient.from('categories').select('*').order('display_order', { ascending: true });
+      if (data && data.length > 0) dbCats = data.filter(c => c && c.enabled !== false);
     } catch(e) {}
   }
 
+  if (dbCats.length > 0) return dbCats;
+
   let localCats = [];
   try { localCats = JSON.parse(localStorage.getItem('rw_local_categories') || localStorage.getItem('rw_categories') || '[]'); } catch(e) {}
-
-  const catMap = new Map();
-  function mergeCat(c) {
-    if (!c || !c.name || c.enabled === false) return;
-    const key = c.name.toLowerCase().trim();
-    if (!catMap.has(key)) {
-      catMap.set(key, c);
-    }
+  
+  if (localCats && localCats.length > 0) {
+    return localCats.filter(c => c && c.enabled !== false);
   }
 
-  dbCats.forEach(c => mergeCat(c));
-  localCats.forEach(c => mergeCat(c));
-
-  return Array.from(catMap.values());
+  return DEFAULT_CATEGORIES;
 }
 
 // ── Texture CSS & Image Mappings ───────────────
