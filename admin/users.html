@@ -307,9 +307,9 @@ async function toggleSuspend(id) {
   const action = newStatus === 'suspended' ? 'suspend' : 'reactivate';
 
   confirmAction(`Are you sure you want to ${action} ${user.name}?`, async () => {
-    const { error } = await supabaseClient.from('profiles').update({ status: newStatus }).eq('id', id);
+    const { error } = await updateProfileInDB(id, { status: newStatus });
     if (error) {
-      showToast(`Failed to ${action} user: ${error.message}`, 'error');
+      showToast(`Failed to ${action} user: ${error}`, 'error');
       return;
     }
     await filterUsers();

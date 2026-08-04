@@ -1261,28 +1261,77 @@ function renderMiniChart(canvasId, data, color = '#c9a96e') {
 }
 
 async function fetchCategories() {
-  if (!supabaseClient) return store.get('categories', []);
-  const { data } = await supabaseClient.from('categories').select('*').order('display_order');
-  return data || store.get('categories', []);
+  const localCats = store.get('categories', []);
+  if (!supabaseClient) return localCats;
+
+  const dbPromise = (async () => {
+    try {
+      const { data } = await supabaseClient.from('categories').select('*').order('display_order');
+      if (data && data.length > 0) {
+        return data.map(c => ({
+          id: c.id,
+          name: c.name,
+          icon: c.icon || '🪨',
+          enabled: c.enabled !== false,
+          display_order: c.display_order || c.order || 1
+        }));
+      }
+    } catch(e) {}
+    return null;
+  })();
+
+  const timeoutPromise = new Promise(res => setTimeout(() => res(null), 2000));
+  const remoteCats = await Promise.race([dbPromise, timeoutPromise]);
+
+  if (!remoteCats || remoteCats.length === 0) return localCats;
+
+  const merged = [...remoteCats];
+  for (const lc of localCats) {
+    if (!merged.some(c => c.id == lc.id || (c.name && c.name.toLowerCase() === lc.name.toLowerCase()))) {
+      merged.push(lc);
+    }
+  }
+  return merged;
 }
 
 async function fetchUsers() {
-  if (!supabaseClient) return store.get('users', []);
-  const { data } = await supabaseClient.from('profiles').select('*');
-  // Map Supabase profiles to admin format
-  return data ? data.map(p => ({
-    id: p.id,
-    name: p.name || p.full_name || 'Unknown',
-    email: p.email,
-    plan: p.plan || 'Free',
-    credits: p.credits !== undefined ? p.credits : 0,
-    visualisations: p.visualisations || 0,
-    downloads: p.downloads || 0,
-    shares: p.shares || 0,
-    status: p.status || 'active',
-    joined: p.created_at || new Date().toISOString(),
-    lastLogin: p.updated_at || p.created_at || new Date().toISOString()
-  })) : store.get('users', []);
+  const localUsers = store.get('users', []);
+  if (!supabaseClient) return localUsers;
+
+  const dbPromise = (async () => {
+    try {
+      const { data } = await supabaseClient.from('profiles').select('*');
+      if (data && data.length > 0) {
+        return data.map(p => ({
+          id: p.id,
+          name: p.name || p.full_name || 'Unknown',
+          email: p.email,
+          plan: p.plan || 'Free',
+          credits: p.credits !== undefined ? p.credits : 10,
+          visualisations: p.visualisations || 0,
+          downloads: p.downloads || 0,
+          shares: p.shares || 0,
+          status: p.status || 'active',
+          joined: p.created_at || new Date().toISOString(),
+          lastLogin: p.updated_at || p.created_at || new Date().toISOString()
+        }));
+      }
+    } catch(e) {}
+    return null;
+  })();
+
+  const timeoutPromise = new Promise(res => setTimeout(() => res(null), 2000));
+  const remoteUsers = await Promise.race([dbPromise, timeoutPromise]);
+
+  if (!remoteUsers || remoteUsers.length === 0) return localUsers;
+
+  const merged = [...remoteUsers];
+  for (const lu of localUsers) {
+    if (!merged.some(u => u.id == lu.id || (u.email && u.email.toLowerCase() === lu.email.toLowerCase()))) {
+      merged.push(lu);
+    }
+  }
+  return merged;
 }
 
 const DEFAULT_SETTINGS = {
@@ -1596,9 +1645,38 @@ async function deleteCategoryFromDB(id) {
 }
 
 async function updateProfileInDB(id, updates) {
-  if (!supabaseClient) return;
-  await supabaseClient.from('profiles').update(updates).eq('id', id);
+  if (!id) return { error: 'No user ID provided' };
+
+  // 1. Update local memory store and localStorage
+  try {
+    let users = store.get('users', []);
+    users = users.map(u => u.id == id || String(u.id) === String(id) ? { ...u, ...updates } : u);
+    store.set('users', users);
+  } catch(e) {}
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      let cached = JSON.parse(localStorage.getItem('rw_users') || '[]');
+      cached = cached.map(u => u.id == id || String(u.id) === String(id) ? { ...u, ...updates } : u);
+      localStorage.setItem('rw_users', JSON.stringify(cached));
+    } catch(e) {}
+  }
+
+  // 2. Update Supabase DB profiles table
+  if (supabaseClient) {
+    try {
+      const { error } = await supabaseClient.from('profiles').update(updates).eq('id', id);
+      if (error) {
+        console.warn('[updateProfileInDB] Supabase DB profile update notice:', error.message);
+      }
+    } catch (err) {
+      console.warn('[updateProfileInDB] Notice:', err);
+    }
+  }
+
+  return { error: null };
 }
+
 async function fetchSettings() {
   let cached = store.get('settings') || safeGetLocalStorage('ratedworktops_settings', null) || safeGetLocalStorage('rw_settings', null);
   cached = cached ? normalizeSettingsData(cached) : null;
