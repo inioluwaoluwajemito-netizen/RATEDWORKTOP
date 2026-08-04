@@ -1146,17 +1146,65 @@ async function getBrands() {
     } catch(e) {}
   }
 
+const DEFAULT_BRANDS = [
+  {
+    id: 'silestone',
+    name: 'Silestone',
+    category: 'Quartz',
+    description: 'Leading brand of quartz surfaces for kitchens and bathrooms',
+    enabled: true,
+    colours: [
+      { id: 'sil-ecg', name: 'Eternal Calacatta Gold', sku: 'SIL-ECG', finish: 'Polished', texture: 'marble', enabled: true },
+      { id: 'sil-sd', name: 'Suede Desert', sku: 'SIL-SD', finish: 'Suede', texture: 'quartz', enabled: true },
+      { id: 'sil-en', name: 'Eternal Noir', sku: 'SIL-EN', finish: 'Polished', texture: 'black', enabled: true }
+    ]
+  },
+  {
+    id: 'caesarstone',
+    name: 'Caesarstone',
+    category: 'Quartz',
+    description: 'Premium quartz surfaces designed for high durability and timeless beauty',
+    enabled: true,
+    colours: [
+      { id: 'cae-4011', name: 'Cloudburst Concrete', sku: 'CAE-4011', finish: 'Rough Matt', texture: 'granite', enabled: true },
+      { id: 'cae-5131', name: 'Calacatta Nuvo', sku: 'CAE-5131', finish: 'Polished', texture: 'marble', enabled: true },
+      { id: 'cae-5003', name: 'Piatra Grey', sku: 'CAE-5003', finish: 'Polished', texture: 'slate', enabled: true }
+    ]
+  },
+  {
+    id: 'dekton',
+    name: 'Dekton',
+    category: 'Sintered Stone',
+    description: 'Ultra-compact porcelain surface with high resistance to heat, UV, and scratches',
+    enabled: true,
+    colours: [
+      { id: 'dek-laurent', name: 'Laurent', sku: 'DEK-LAU', finish: 'Velvet', texture: 'black', enabled: true },
+      { id: 'dek-entzo', name: 'Entzo', sku: 'DEK-ENT', finish: 'Smooth', texture: 'marble', enabled: true },
+      { id: 'dek-kremanya', name: 'Kremanya', sku: 'DEK-KRM', finish: 'Matte', texture: 'quartz', enabled: true }
+    ]
+  },
+  {
+    id: 'porcelanosa',
+    name: 'Porcelanosa',
+    category: 'Porcelain',
+    description: 'Spanish luxury porcelain tiles and surfaces',
+    enabled: true,
+    colours: [
+      { id: 'por-cg', name: 'XTONE Calacatta Green', sku: 'POR-CG', finish: 'Polished', texture: 'marble', enabled: true },
+      { id: 'por-bc', name: 'XTONE Bottega Caliza', sku: 'POR-BC', finish: 'Polished', texture: 'slate', enabled: true }
+    ]
+  }
+];
+
 async function getBrands() {
   if (supabaseClient) {
     try {
-      const fetchPromise = Promise.all([
+      const [bRes, cRes] = await Promise.all([
         supabaseClient.from('brands').select('*'),
         supabaseClient.from('colours').select('*')
-      ]);
-      const timeoutPromise = new Promise(res => setTimeout(() => res([{ data: null }, { data: null }]), 2500));
-      const [bRes, cRes] = await Promise.race([fetchPromise, timeoutPromise]);
+      ]).catch(() => [{ data: null }, { data: null }]);
 
-      if (bRes && !bRes.error && bRes.data) {
+      if (bRes && !bRes.error && bRes.data && bRes.data.length > 0) {
         const dbBrands = bRes.data.filter(b => b && b.enabled !== false);
         const dbColours = (cRes && !cRes.error && cRes.data) ? cRes.data.filter(c => c && c.enabled !== false) : [];
 
@@ -1222,19 +1270,21 @@ async function getBrands() {
           }
         });
 
-        return Array.from(brandMap.values());
+        const resultBrands = Array.from(brandMap.values());
+        if (resultBrands.length > 0) return resultBrands;
       }
     } catch(e) {
       console.warn('[App Brands] Supabase fetch notice:', e);
     }
   }
 
-  // Fallback to local brands if offline
+  // Fallback to local storage or DEFAULT_BRANDS
   try {
-    return JSON.parse(localStorage.getItem('rw_brands') || '[]');
-  } catch(e) {
-    return [];
-  }
+    const local = JSON.parse(localStorage.getItem('rw_brands') || '[]');
+    if (local && local.length > 0) return local;
+  } catch(e) {}
+
+  return DEFAULT_BRANDS;
 }
 
 async function getAllStones() {

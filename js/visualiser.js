@@ -675,16 +675,30 @@ async function loadFiltersAndStones() {
 }
 
 function renderStones() {
+  if (!stoneListEl) return;
   stoneListEl.innerHTML = '';
-  const selCat = filterCategory.value;
-  const selBrand = filterBrand.value;
+  const selCat = filterCategory ? filterCategory.value : 'all';
+  const selBrand = filterBrand ? filterBrand.value : 'all';
   const searchInput = document.getElementById('search-stone');
-  const query = searchInput ? searchInput.value.toLowerCase() : '';
+  const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+  const isCatAll = !selCat || selCat.toLowerCase().trim() === 'all';
+  const isBrandAll = !selBrand || selBrand.toLowerCase().trim() === 'all';
 
   const filtered = allStones.filter(s => {
-    if (selCat !== 'all' && s.categoryName && s.categoryName.toLowerCase().trim() !== selCat.toLowerCase().trim()) return false;
-    if (selBrand !== 'all' && s.brandName && s.brandName.toLowerCase().trim() !== selBrand.toLowerCase().trim()) return false;
-    if (query && !s.name.toLowerCase().includes(query)) return false;
+    if (!isCatAll) {
+      const sCat = (s.categoryName || s.category || '').toLowerCase().trim();
+      if (sCat !== selCat.toLowerCase().trim()) return false;
+    }
+    if (!isBrandAll) {
+      const sBrand = (s.brandName || s.brand || s.brand_name || '').toLowerCase().trim();
+      if (sBrand !== selBrand.toLowerCase().trim()) return false;
+    }
+    if (query) {
+      const sName = (s.name || '').toLowerCase();
+      const sSku = (s.sku || '').toLowerCase();
+      if (!sName.includes(query) && !sSku.includes(query)) return false;
+    }
     return true;
   });
 
