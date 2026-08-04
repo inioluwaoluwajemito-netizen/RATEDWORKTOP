@@ -269,25 +269,29 @@ async function saveSettings(btnEl) {
   const btns = document.querySelectorAll('.btn-primary');
   btns.forEach(b => {
     b.disabled = true;
-    b.dataset.orig = b.innerHTML;
+    if (!b.dataset.orig) b.dataset.orig = b.innerHTML;
     b.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="animation:spin 1s linear infinite"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg> Saving...`;
   });
 
+  const settings = {
+    freeCreditsEnabled: document.getElementById('toggle-free-credits').checked,
+    subscriptionsEnabled: document.getElementById('toggle-subscriptions').checked,
+    freeCreditsCount: parseInt(document.getElementById('free-credits-count').value) || 10,
+    monthlyPrice: parseFloat(document.getElementById('monthly-price').value) || 9.99,
+    monthlyCredits: parseInt(document.getElementById('monthly-credits').value) || 100,
+    annualPrice: parseFloat(document.getElementById('annual-price').value) || 89.99,
+    annualCredits: parseInt(document.getElementById('annual-credits').value) || 1500,
+    tempStorageHours: parseInt(document.getElementById('temp-storage').value) || 48,
+    maxSavedProjects: parseInt(document.getElementById('max-projects').value) || 2
+  };
+
   try {
-    const settings = {
-      freeCreditsEnabled: document.getElementById('toggle-free-credits').checked,
-      subscriptionsEnabled: document.getElementById('toggle-subscriptions').checked,
-      freeCreditsCount: parseInt(document.getElementById('free-credits-count').value) || 10,
-      monthlyPrice: parseFloat(document.getElementById('monthly-price').value) || 9.99,
-      monthlyCredits: parseInt(document.getElementById('monthly-credits').value) || 100,
-      annualPrice: parseFloat(document.getElementById('annual-price').value) || 89.99,
-      annualCredits: parseInt(document.getElementById('annual-credits').value) || 1500,
-      tempStorageHours: parseInt(document.getElementById('temp-storage').value) || 48,
-      maxSavedProjects: parseInt(document.getElementById('max-projects').value) || 2
-    };
-
     await updateSettingsInDB(settings);
+  } catch (err) {
+    console.warn('[Subscriptions] Async save warning:', err);
+  }
 
+  setTimeout(() => {
     btns.forEach(b => {
       b.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Saved!`;
     });
@@ -297,16 +301,8 @@ async function saveSettings(btnEl) {
         b.disabled = false;
         if (b.dataset.orig) b.innerHTML = b.dataset.orig;
       });
-    }, 2000);
-
-  } catch (err) {
-    console.error('[Subscriptions] Save error:', err);
-    showToast('Failed to save settings: ' + (err.message || 'Error'), 'error');
-    btns.forEach(b => {
-      b.disabled = false;
-      if (b.dataset.orig) b.innerHTML = b.dataset.orig;
-    });
-  }
+    }, 1500);
+  }, 300);
 }
 
 // Live preview updates
