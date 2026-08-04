@@ -1150,15 +1150,15 @@ async function getBrands() {
   if (supabaseClient) {
     try {
       const fetchPromise = Promise.all([
-        supabaseClient.from('brands').select('*').eq('enabled', true),
+        supabaseClient.from('brands').select('*'),
         supabaseClient.from('colours').select('*')
       ]);
       const timeoutPromise = new Promise(res => setTimeout(() => res([{ data: null }, { data: null }]), 2500));
       const [bRes, cRes] = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (bRes && !bRes.error && bRes.data) {
-        const dbBrands = bRes.data;
-        const dbColours = (cRes && !cRes.error && cRes.data) ? cRes.data : [];
+        const dbBrands = bRes.data.filter(b => b && b.enabled !== false);
+        const dbColours = (cRes && !cRes.error && cRes.data) ? cRes.data.filter(c => c && c.enabled !== false) : [];
 
         const brandMap = new Map();
         dbBrands.forEach(b => {
@@ -1174,7 +1174,7 @@ async function getBrands() {
         });
 
         dbColours.forEach(c => {
-          if (!c || !c.name || c.enabled === false) return;
+          if (!c || !c.name) return;
           const rawBrandId = String(c.brand_id || '').toLowerCase().trim();
           const rawBrandName = String(c.brand_name || '').toLowerCase().trim();
 
@@ -1190,6 +1190,19 @@ async function getBrands() {
               targetBrand = b;
               break;
             }
+          }
+
+          if (!targetBrand && (c.brand_name || c.brand_id)) {
+            const bName = c.brand_name || c.brand_id;
+            targetBrand = {
+              id: c.brand_id || bName,
+              name: bName,
+              category: c.category || 'Quartz',
+              description: '',
+              enabled: true,
+              colours: []
+            };
+            brandMap.set(String(targetBrand.id), targetBrand);
           }
 
           if (targetBrand) {
@@ -1234,8 +1247,8 @@ async function getAllStones() {
           ...c,
           brand: b.name,
           brandName: b.name,
-          category: b.category || 'Quartz',
-          categoryName: b.category || 'Quartz'
+          category: b.category || c.category || 'Quartz',
+          categoryName: b.category || c.category || 'Quartz'
         });
       });
     }
