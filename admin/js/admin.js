@@ -956,42 +956,48 @@ const ADMIN_CREDENTIALS = {
   password: 'Ratedworktopsapp@'
 };
 
-// ── LocalStorage helpers (Deprecated for DB) ──
-const store = {
-  get: (key, fallback = null) => {
-    try { return JSON.parse(localStorage.getItem('rw_' + key)) ?? fallback; }
-    catch { return fallback; }
-  },
-  set: (key, val) => localStorage.setItem('rw_' + key, JSON.stringify(val)),
-  remove: (key) => localStorage.removeItem('rw_' + key)
-};
-
 // ── Auth Guard ────────────────────────────────
 async function requireAuth() {
   let session = null;
 
-  // 1. Check local/mock session FIRST — instant, no network, no lock issues
+  // 0. Check localStorage admin session / bypass flag
   try {
-    const mockClient = createMockSupabaseClient();
-    if (mockClient) {
-      const { data } = await mockClient.auth.getSession();
-      session = data ? data.session : null;
+    const adminFlag = localStorage.getItem('rw_admin_logged_in');
+    const sessionStr = localStorage.getItem('rw_session');
+    if (sessionStr) {
+      session = JSON.parse(sessionStr);
+    }
+    if (adminFlag === 'true' && (!session || !session.user)) {
+      session = { user: { email: 'ratedworktopsapp@gmail.com' } };
     }
   } catch (e) {}
 
-  // 2. If no local session, try real Supabase with 1.5s timeout
+  // 1. Check local/mock session FIRST — instant, no network, no lock issues
   if (!session || !session.user) {
     try {
-      const realSessionPromise = supabaseClient.auth.getSession();
-      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null } }), 1500));
-      const { data } = await Promise.race([realSessionPromise, timeoutPromise]);
-      session = data ? data.session : null;
+      const mockClient = createMockSupabaseClient();
+      if (mockClient) {
+        const { data } = await mockClient.auth.getSession();
+        session = data ? data.session : null;
+      }
+    } catch (e) {}
+  }
+
+  // 2. If no local session, try real Supabase with 1s timeout
+  if (!session || !session.user) {
+    try {
+      if (supabaseClient && supabaseClient.auth) {
+        const realSessionPromise = supabaseClient.auth.getSession();
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null } }), 1000));
+        const { data } = await Promise.race([realSessionPromise, timeoutPromise]);
+        session = data ? data.session : null;
+      }
     } catch (e) {}
   }
 
   const userEmail = session && session.user && session.user.email ? session.user.email.toLowerCase().trim() : '';
 
-  if (!session || !session.user || userEmail !== 'ratedworktopsapp@gmail.com') {
+  if (!session || !session.user || (userEmail && userEmail !== 'ratedworktopsapp@gmail.com')) {
     const currentPath = window.location.pathname;
     if (!currentPath.endsWith('/index.html') && !currentPath.endsWith('/admin/') && !currentPath.endsWith('/admin')) {
       window.location.href = 'index.html';
