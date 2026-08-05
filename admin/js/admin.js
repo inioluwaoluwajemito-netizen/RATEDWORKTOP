@@ -1723,10 +1723,7 @@ async function updateSettingsInDB(settings) {
   const normalized = { ...normalizeSettingsData(settings), _updatedAt: now };
 
   if (!supabaseClient) {
-    store.set('settings', normalized);
-    safeSetLocalStorage('ratedworktops_settings', normalized);
-    safeSetLocalStorage('rw_settings', normalized);
-    return { data: normalized, error: new Error('Supabase client not connected') };
+    return { data: null, error: new Error('Supabase client not connected') };
   }
 
   const payload = {
@@ -1748,28 +1745,25 @@ async function updateSettingsInDB(settings) {
   let { data, error } = await supabaseClient.from('settings').upsert(payload, { onConflict: 'id' }).select();
 
   if (error || !data || data.length === 0) {
-    // Attempt fallback update by ID
+    // Fallback update by ID
     const updateRes = await supabaseClient.from('settings').update(payload).eq('id', 1).select();
     if (!updateRes.error && updateRes.data && updateRes.data.length > 0) {
       data = updateRes.data;
       error = null;
+    } else if (!error && updateRes.error) {
+      error = updateRes.error;
     }
   }
 
-  // Backup write to admin profile in profiles table
-  try {
-    await supabaseClient.from('profiles').update({ settings: normalized }).eq('email', 'ratedworktopsapp@gmail.com');
-  } catch (e) {}
-
-  if (!error) {
+  if (!error && data && data.length > 0) {
     store.set('settings', normalized);
     safeSetLocalStorage('ratedworktops_settings', normalized);
     safeSetLocalStorage('rw_settings', normalized);
     console.log('[Admin Settings] Settings successfully persisted to Supabase DB settings table!');
-    return { data: normalized, error: null };
+    return { data: data[0], error: null };
   } else {
-    console.error('[Admin Settings] Supabase DB write failed:', error.message);
-    return { data: null, error };
+    console.error('[Admin Settings] Supabase DB write failed:', error ? error.message : '0 rows updated');
+    return { data: null, error: error || new Error('0 rows updated in settings table') };
   }
 }
 

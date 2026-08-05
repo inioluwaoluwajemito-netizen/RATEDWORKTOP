@@ -292,13 +292,30 @@ async function saveSettings(btnEl) {
   try {
     const res = await updateSettingsInDB(settings);
     if (res && res.error) {
-      showToast('Settings saved locally & published!', 'success');
-    } else {
-      showToast('Settings saved & published to live platform!', 'success');
+      showToast('Failed to save settings: ' + (res.error.message || 'Database error'), 'error');
+      btns.forEach(b => {
+        b.disabled = false;
+        if (b.dataset.orig) b.innerHTML = b.dataset.orig;
+      });
+      return;
+    } else if (!res || !res.data) {
+      showToast('Failed to save settings: 0 rows affected in database.', 'error');
+      btns.forEach(b => {
+        b.disabled = false;
+        if (b.dataset.orig) b.innerHTML = b.dataset.orig;
+      });
+      return;
     }
+
+    showToast('Settings saved', 'success');
   } catch (err) {
-    console.warn('[Subscriptions] Save notice:', err);
-    showToast('Settings saved to platform cache!', 'success');
+    console.error('[Subscriptions] Save error:', err);
+    showToast('Failed to save settings: ' + (err.message || 'Network error'), 'error');
+    btns.forEach(b => {
+      b.disabled = false;
+      if (b.dataset.orig) b.innerHTML = b.dataset.orig;
+    });
+    return;
   }
 
   setTimeout(() => {
