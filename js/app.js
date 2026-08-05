@@ -727,13 +727,13 @@ if (!useRealSupabase) {
 }
 
 // ── LocalStorage helpers (Deprecated for DB) ──
+const memoryStore = new Map();
 const store = {
   get: (key, fallback = null) => {
-    try { return JSON.parse(localStorage.getItem('rw_' + key)) ?? fallback; }
-    catch { return fallback; }
+    return memoryStore.has(key) ? memoryStore.get(key) : fallback;
   },
-  set: (key, val) => localStorage.setItem('rw_' + key, JSON.stringify(val)),
-  remove: (key) => localStorage.removeItem('rw_' + key)
+  set: (key, val) => memoryStore.set(key, val),
+  remove: (key) => memoryStore.delete(key)
 };
 
 // ── Auth helpers ──────────────────────────────
@@ -744,10 +744,13 @@ async function getCurrentUser() {
   
   // Fetch full profile from public.profiles
   const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).single();
-  if (profile) {
-    return { ...profile, email: session.user.email };
+  const user = profile ? { ...profile, email: session.user.email } : session.user;
+
+  if (typeof migrateLocalStorageToSupabase === 'function') {
+    migrateLocalStorageToSupabase(user).catch(() => {});
   }
-  return session.user;
+
+  return user;
 }
 
 async function requireAuth(redirect = 'login.html') {
@@ -773,7 +776,9 @@ async function requireAuth(redirect = 'login.html') {
 }
 
 async function logout() {
-  localStorage.removeItem('openai_api_key');
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('openai_api_key');
+  }
   if (supabaseClient) await supabaseClient.auth.signOut();
   window.location.href = 'index.html';
 }
@@ -815,7 +820,6 @@ async function fetchAppSettings() {
         const normalized = normalizeSettingsData(data);
         const merged = { ...defaultSettings, ...normalized };
         store.set('settings', merged);
-        try { localStorage.setItem('ratedworktops_settings', JSON.stringify(merged)); } catch(e) {}
         return merged;
       }
     } catch (err) {
@@ -829,7 +833,6 @@ async function fetchAppSettings() {
         const normalized = normalizeSettingsData(data.settings);
         const merged = { ...defaultSettings, ...normalized };
         store.set('settings', merged);
-        try { localStorage.setItem('ratedworktops_settings', JSON.stringify(merged)); } catch(e) {}
         return merged;
       }
     } catch (err) {
@@ -837,7 +840,7 @@ async function fetchAppSettings() {
     }
   }
 
-  const cached = store.get('settings') || (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('ratedworktops_settings') || 'null') : null);
+  const cached = store.get('settings');
   return cached ? { ...defaultSettings, ...normalizeSettingsData(cached) } : defaultSettings;
 }
 

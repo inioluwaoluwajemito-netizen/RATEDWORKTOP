@@ -1266,24 +1266,24 @@ function setupActionListeners() {
     btn.disabled = true;
 
     let dbCount = 0;
-    try {
-      const { data: existing } = await supabaseClient
-        .from('projects')
-        .select('id')
-        .eq('user_id', currentUser.id);
-      if (existing) dbCount = existing.length;
-    } catch(e) {}
+    if (supabaseClient && currentUser && currentUser.id) {
+      try {
+        const { count, data: existing, error: fetchErr } = await supabaseClient
+          .from('projects')
+          .select('id', { count: 'exact' })
+          .eq('user_id', currentUser.id);
+        if (!fetchErr && typeof count === 'number') {
+          dbCount = count;
+        } else if (existing) {
+          dbCount = existing.length;
+        }
+      } catch(e) {}
+    }
 
-    let localProjects = [];
-    try {
-      localProjects = JSON.parse(localStorage.getItem('rw_local_projects_' + currentUser.id) || '[]');
-    } catch(e) {}
-
-    const totalCount = Math.max(dbCount, localProjects.length);
     const settings = typeof fetchAppSettings === 'function' ? await fetchAppSettings() : {};
     const maxLimit = settings.maxSavedProjects || 2;
 
-    if (totalCount >= maxLimit) {
+    if (dbCount >= maxLimit) {
       showToast(`Save limit reached (${maxLimit} max)! Please delete a project in "My Projects" first.`, 'error');
       resetSaveBtn(btn);
       return;
@@ -1296,7 +1296,7 @@ function setupActionListeners() {
         return;
       }
 
-      showToast('Saving design file...', 'info');
+      showToast('Saving design file to cloud...', 'info');
       const uuid = Math.random().toString(36).substring(2, 15);
       const path = `outputs/${currentUser.id}/${uuid}.jpg`;
       const uploadRes = await uploadFileToStorage('ratedworktops', path, blob);
@@ -1305,49 +1305,53 @@ function setupActionListeners() {
       if (uploadRes.ok) {
         imageUrl = uploadRes.url;
       } else {
-        console.warn('[Save Project] Cloud upload notice:', uploadRes.error, 'Falling back to canvas data URL...');
+        console.warn('[Save Project] Cloud upload notice:', uploadRes.error, 'Using data URL fallback...');
         imageUrl = renderCanvas ? renderCanvas.toDataURL('image/jpeg', 0.85) : '';
       }
 
       const stoneName = selectedStone ? (selectedStone.name || selectedStone.title || 'Custom Stone') : 'Stone Worktop';
       const brandName = selectedStone ? (selectedStone.brandName || selectedStone.brand || 'RatedWorktops') : 'RatedWorktops';
 
-      const projectRecord = {
-        id: Math.random().toString(36).substring(2, 15) + Date.now().toString(36),
-        user_id: currentUser.id,
-        stone_name: stoneName,
-        brand_name: brandName,
-        image_url: imageUrl,
-        created_at: new Date().toISOString()
-      };
+      if (!supabaseClient || !currentUser || !currentUser.id) {
+        showToast('Database connection missing. Please sign in.', 'error');
+        resetSaveBtn(btn);
+        return;
+      }
 
-      // 1. Try Supabase Database Insert
       try {
-        const { error: insertErr } = await supabaseClient
+        const { data: inserted, error: insertErr } = await supabaseClient
           .from('projects')
           .insert([{
             user_id: currentUser.id,
             stone_name: stoneName,
             brand_name: brandName,
-            image_url: imageUrl
-          }]);
+            image_url: imageUrl,
+            title: `${stoneName} Render`,
+            rendered_image: imageUrl,
+            created_at: new Date().toISOString()
+          }])
+          .select();
+
         if (insertErr) {
-          console.warn('[Save Project] Supabase RLS/DB notice:', insertErr.message);
+          console.error('[Save Project] Supabase insert error:', insertErr);
+          showToast('Failed to save project to database: ' + insertErr.message, 'error');
+          resetSaveBtn(btn);
+          return;
         }
+
+        showToast('Project saved successfully to database!', 'success');
+        btn.innerHTML = `<i data-lucide="check" style="width:16px;height:16px"></i> Saved`;
+        btn.style.background = '#4ade80';
+        btn.style.borderColor = '#4ade80';
+        btn.style.color = '#000';
+        lucide.createIcons();
       } catch (err) {
-        console.warn('[Save Project] Supabase DB exception:', err);
+        console.error('[Save Project] Supabase DB exception:', err);
+        showToast('Failed to save project: ' + err.message, 'error');
+        resetSaveBtn(btn);
       }
-
-      // 2. Always persist locally as fail-safe guarantee
-      localProjects.unshift(projectRecord);
-      try { localStorage.setItem('rw_local_projects_' + currentUser.id, JSON.stringify(localProjects)); } catch(e) {}
-
-      showToast('Project saved successfully!', 'success');
-      btn.innerHTML = `<i data-lucide="check" style="width:16px;height:16px"></i> Saved`;
-      btn.style.background = '#4ade80';
-      btn.style.borderColor = '#4ade80';
-      btn.style.color = '#000';
-      lucide.createIcons();
+    });
+  });
     });
   });
 

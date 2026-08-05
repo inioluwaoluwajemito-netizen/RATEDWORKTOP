@@ -230,6 +230,7 @@
   <!-- Scripts -->
   <script src="js/supabase.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/migration.js"></script>
   <script>
     let currentUser = null;
 
@@ -253,35 +254,35 @@
       const emptyView = document.getElementById('empty-projects-view');
       const upgradeBanner = document.getElementById('project-upgrade-banner');
       
-      const settings = typeof fetchAppSettings === 'function' ? await fetchAppSettings() : store.get('settings', {});
+      grid.style.display = 'grid';
+      emptyView.style.display = 'none';
+      grid.innerHTML = `<div style="color:var(--text-muted); grid-column: 1 / -1; padding: 40px; text-align: center;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+        <div style="margin-top:12px; font-size:13.5px">Loading saved projects from Supabase...</div>
+      </div>`;
+
+      const settings = typeof fetchAppSettings === 'function' ? await fetchAppSettings() : {};
       const maxLimit = settings.maxSavedProjects || 2;
       
-      let dbProjects = [];
-      try {
-        const { data, error } = await supabaseClient
-          .from('projects')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .order('created_at', { ascending: false });
-        if (data && !error) dbProjects = data;
-      } catch (err) {
-        console.warn('[My Projects] Fetch notice:', err);
-      }
-
-      let localProjects = [];
-      try {
-        localProjects = JSON.parse(localStorage.getItem('rw_local_projects_' + currentUser.id) || '[]');
-      } catch (err) {}
-
-      // Combine and deduplicate by image_url or id
-      const combined = [...dbProjects];
-      for (const lp of localProjects) {
-        if (!combined.some(p => p.id === lp.id || (p.image_url && p.image_url === lp.image_url))) {
-          combined.push(lp);
+      let projects = [];
+      if (supabaseClient && currentUser && currentUser.id) {
+        try {
+          const { data, error } = await supabaseClient
+            .from('projects')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
+          if (error) {
+            console.error('[My Projects] Supabase fetch error:', error);
+            showToast('Failed to load projects: ' + error.message, 'error');
+          } else if (data) {
+            projects = data;
+          }
+        } catch (err) {
+          console.error('[My Projects] Fetch exception:', err);
+          showToast('Failed to load projects from database', 'error');
         }
       }
-
-      const projects = combined;
 
       // 1. Quota calculations
       const usedPercent = Math.min((projects.length / maxLimit) * 100, 100);
@@ -305,25 +306,29 @@
 
       let html = '';
       for (const proj of projects) {
+        const title = proj.title || proj.stone_name || 'Kitchen Render';
+        const imgUrl = proj.rendered_image || proj.image_url || 'images/placeholder-kitchen.jpg';
+        const brandName = proj.stone_brand || proj.brand_name || 'Stone Surface';
+
         html += `
           <div class="project-card" id="project-card-${proj.id}">
             <div class="project-thumb-wrap">
-              <img src="${proj.image_url}" class="project-thumb" alt="${proj.stone_name}"/>
+              <img src="${imgUrl}" class="project-thumb" alt="${title}"/>
             </div>
             <div class="project-card-body">
-              <div class="project-title">${proj.stone_name} Render</div>
+              <div class="project-title">${title}</div>
               <div class="project-date">Saved on ${formatDate(proj.created_at)}</div>
               
               <div class="project-spec-pill">
                 <div class="project-spec-thumb" style="background:var(--border)"></div>
                 <div style="min-width:0; flex:1">
-                  <div style="font-weight:700; color:var(--text-primary); font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${proj.stone_name}</div>
-                  <div style="color:var(--text-muted); font-size:9.5px; margin-top:1px">${proj.brand_name}</div>
+                  <div style="font-weight:700; color:var(--text-primary); font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${title}</div>
+                  <div style="color:var(--text-muted); font-size:9.5px; margin-top:1px">${brandName}</div>
                 </div>
               </div>
 
               <div class="project-actions">
-                <button class="btn btn-ghost btn-sm btn-icon flex-1" style="justify-content:center" onclick="downloadProject('${proj.image_url}', '${proj.stone_name}')" title="Download Image">
+                <button class="btn btn-ghost btn-sm btn-icon flex-1" style="justify-content:center" onclick="downloadProject('${imgUrl}', '${title}')" title="Download Image">
                   <i data-lucide="download" style="width:13px;height:13px"></i> Download
                 </button>
                 <button class="btn btn-danger btn-sm btn-icon" onclick="deleteProject('${proj.id}')" title="Delete Design">
@@ -342,21 +347,25 @@
     async function deleteProject(id) {
       if (!confirm("Are you sure you want to permanently delete this project?")) return;
 
-      try {
-        await supabaseClient
-          .from('projects')
-          .delete()
-          .eq('id', id);
-      } catch (err) {}
+      if (supabaseClient) {
+        try {
+          const { error } = await supabaseClient
+            .from('projects')
+            .delete()
+            .eq('id', id);
 
-      try {
-        let localProjects = JSON.parse(localStorage.getItem('rw_local_projects_' + currentUser.id) || '[]');
-        localProjects = localProjects.filter(p => p.id !== id);
-        localStorage.setItem('rw_local_projects_' + currentUser.id, JSON.stringify(localProjects));
-      } catch (err) {}
-
-      showToast("Project deleted successfully", 'success');
-      renderProjects();
+          if (error) {
+            showToast("Failed to delete project: " + error.message, 'error');
+            return;
+          }
+          showToast("Project deleted successfully", 'success');
+          renderProjects();
+        } catch (err) {
+          showToast("Failed to delete project: " + err.message, 'error');
+        }
+      } else {
+        showToast("Database connection missing", 'error');
+      }
     }
 
     function downloadProject(url, stoneName) {
