@@ -600,12 +600,10 @@ function fetchBrandsSync() {
 async function fetchBrands() {
   if (supabaseClient) {
     try {
-      const fetchPromise = Promise.all([
+      const [bRes, cRes] = await Promise.all([
         supabaseClient.from('brands').select('*'),
         supabaseClient.from('colours').select('*')
       ]);
-      const timeoutPromise = new Promise(res => setTimeout(() => res([{ data: null }, { data: null }]), 2500));
-      const [bRes, cRes] = await Promise.race([fetchPromise, timeoutPromise]);
       
       if (bRes && !bRes.error && bRes.data) {
         const dbBrands = bRes.data;

@@ -1013,69 +1013,7 @@ function seedAppData() {
     store.set('app_users', users);
   }
 
-  // Seed brands / stones (shared with admin)
-  if (!store.get('brands')) {
-    store.set('brands', [
-      {
-        id: 1, name: 'Silestone', category: 'Quartz', enabled: true,
-        description: 'Premium quartz surfaces by Cosentino',
-        colours: [
-          { id: 101, name: 'Eternal Calacatta Gold', sku: 'SIL-ECG', enabled: true, texture: 'marble' },
-          { id: 102, name: 'Nebula Pearl', sku: 'SIL-NP', enabled: true, texture: 'quartz' },
-          { id: 103, name: 'Iconic Black', sku: 'SIL-IB', enabled: true, texture: 'black' },
-          { id: 104, name: 'Miami White', sku: 'SIL-MW', enabled: true, texture: 'marble' },
-          { id: 105, name: 'Lunar Smoke', sku: 'SIL-LS', enabled: true, texture: 'slate' },
-        ]
-      },
-      {
-        id: 2, name: 'Dekton', category: 'Sintered Stone', enabled: true,
-        description: 'Ultra-compact surface by Cosentino',
-        colours: [
-          { id: 201, name: 'Kreta', sku: 'DEK-KR', enabled: true, texture: 'slate' },
-          { id: 202, name: 'Opera', sku: 'DEK-OP', enabled: true, texture: 'marble' },
-          { id: 203, name: 'Laurent', sku: 'DEK-LR', enabled: true, texture: 'black' },
-          { id: 204, name: 'Vera', sku: 'DEK-VR', enabled: true, texture: 'quartz' },
-        ]
-      },
-      {
-        id: 3, name: 'Caesarstone', category: 'Quartz', enabled: true,
-        description: 'Global leader in quartz surfaces',
-        colours: [
-          { id: 301, name: 'Statuario Nuvo', sku: 'CAE-SN', enabled: true, texture: 'marble' },
-          { id: 302, name: 'Vanilla Noir', sku: 'CAE-VN', enabled: true, texture: 'granite' },
-          { id: 303, name: 'Cloudburst Concrete', sku: 'CAE-CC', enabled: true, texture: 'slate' },
-          { id: 304, name: 'Pure White', sku: 'CAE-PW', enabled: true, texture: 'marble' },
-        ]
-      },
-      {
-        id: 4, name: 'Calacatta Premium', category: 'Marble', enabled: true,
-        description: 'Natural marble from Carrara quarries',
-        colours: [
-          { id: 401, name: 'Calacatta Gold', sku: 'CAL-GD', enabled: true, texture: 'marble' },
-          { id: 402, name: 'Calacatta Extra', sku: 'CAL-EX', enabled: true, texture: 'marble' },
-          { id: 403, name: 'Calacatta Viola', sku: 'CAL-VI', enabled: true, texture: 'marble' },
-        ]
-      },
-      {
-        id: 5, name: 'Neolith', category: 'Sintered Stone', enabled: true,
-        description: 'The most advanced sintered stone',
-        colours: [
-          { id: 501, name: 'Arctic White', sku: 'NEO-AW', enabled: true, texture: 'marble' },
-          { id: 502, name: 'Iron Grey', sku: 'NEO-IG', enabled: true, texture: 'slate' },
-          { id: 503, name: 'Nero Zimbabwe', sku: 'NEO-NZ', enabled: true, texture: 'black' },
-        ]
-      },
-      {
-        id: 6, name: 'Porcelanosa', category: 'Porcelain', enabled: true,
-        description: 'Spanish luxury porcelain tiles and surfaces',
-        colours: [
-          { id: 601, name: 'Toscana Stone', sku: 'POR-TS', enabled: true, texture: 'quartz' },
-          { id: 602, name: 'Natural Grey', sku: 'POR-NG', enabled: true, texture: 'slate' },
-        ]
-      }
-    ]);
-  }
-
+  // Seed categories if missing
   if (!store.get('categories')) {
     store.set('categories', [
       { id: 1, name: 'Marble', icon: '🤍', enabled: true, order: 1 },
@@ -1084,9 +1022,7 @@ function seedAppData() {
       { id: 4, name: 'Quartzite', icon: '🪨', enabled: true, order: 4 },
       { id: 5, name: 'Porcelain', icon: '⬜', enabled: true, order: 5 },
       { id: 6, name: 'Sintered Stone', icon: '🔷', enabled: true, order: 6 },
-      { id: 7, name: 'Limestone', icon: '🟤', enabled: true, order: 7 },
-      { id: 8, name: 'Onyx', icon: '💜', enabled: false, order: 8 },
-      { id: 9, name: 'Travertine', icon: '🪵', enabled: false, order: 9 }
+      { id: 7, name: 'Limestone', icon: '🟤', enabled: true, order: 7 }
     ]);
   }
 }
@@ -1128,42 +1064,6 @@ async function getStoneById(id) {
 
 const DEFAULT_BRANDS = [
   {
-    id: 'silestone',
-    name: 'Silestone',
-    category: 'Quartz',
-    description: 'Leading brand of quartz surfaces for kitchens and bathrooms',
-    enabled: true,
-    colours: [
-      { id: 'sil-ecg', name: 'Eternal Calacatta Gold', sku: 'SIL-ECG', finish: 'Polished', texture: 'marble', enabled: true },
-      { id: 'sil-sd', name: 'Suede Desert', sku: 'SIL-SD', finish: 'Suede', texture: 'quartz', enabled: true },
-      { id: 'sil-en', name: 'Eternal Noir', sku: 'SIL-EN', finish: 'Polished', texture: 'black', enabled: true }
-    ]
-  },
-  {
-    id: 'caesarstone',
-    name: 'Caesarstone',
-    category: 'Quartz',
-    description: 'Premium quartz surfaces designed for high durability and timeless beauty',
-    enabled: true,
-    colours: [
-      { id: 'cae-4011', name: 'Cloudburst Concrete', sku: 'CAE-4011', finish: 'Rough Matt', texture: 'granite', enabled: true },
-      { id: 'cae-5131', name: 'Calacatta Nuvo', sku: 'CAE-5131', finish: 'Polished', texture: 'marble', enabled: true },
-      { id: 'cae-5003', name: 'Piatra Grey', sku: 'CAE-5003', finish: 'Polished', texture: 'slate', enabled: true }
-    ]
-  },
-  {
-    id: 'dekton',
-    name: 'Dekton',
-    category: 'Sintered Stone',
-    description: 'Ultra-compact porcelain surface with high resistance to heat, UV, and scratches',
-    enabled: true,
-    colours: [
-      { id: 'dek-laurent', name: 'Laurent', sku: 'DEK-LAU', finish: 'Velvet', texture: 'black', enabled: true },
-      { id: 'dek-entzo', name: 'Entzo', sku: 'DEK-ENT', finish: 'Smooth', texture: 'marble', enabled: true },
-      { id: 'dek-kremanya', name: 'Kremanya', sku: 'DEK-KRM', finish: 'Matte', texture: 'quartz', enabled: true }
-    ]
-  },
-  {
     id: 'porcelanosa',
     name: 'Porcelanosa',
     category: 'Porcelain',
@@ -1204,10 +1104,10 @@ async function getBrands() {
         supabaseClient.from('colours').select('*')
       ]).catch(() => [{ data: null }, { data: null }]);
 
-      if (bRes && !bRes.error && bRes.data && bRes.data.length > 0) {
-        const dbBrands = bRes.data.filter(b => b && b.enabled !== false);
-        const dbColours = (cRes && !cRes.error && cRes.data) ? cRes.data.filter(c => c && c.enabled !== false) : [];
+      const dbBrands = (bRes && !bRes.error && bRes.data) ? bRes.data.filter(b => b && b.enabled !== false) : [];
+      const dbColours = (cRes && !cRes.error && cRes.data) ? cRes.data.filter(c => c && c.enabled !== false) : [];
 
+      if (dbBrands.length > 0 || dbColours.length > 0) {
         const brandMap = new Map();
         dbBrands.forEach(b => {
           if (!b || !b.name) return;
@@ -1281,7 +1181,14 @@ async function getBrands() {
   // Fallback to local storage or DEFAULT_BRANDS
   try {
     const local = JSON.parse(localStorage.getItem('rw_brands') || '[]');
-    if (local && local.length > 0) return local;
+    if (local && local.length > 0) {
+      const mockNames = ['nebula pearl', 'iconic black', 'miami white', 'lunar smoke', 'arctic white', 'iron grey'];
+      const cleaned = local.map(b => ({
+        ...b,
+        colours: (b.colours || []).filter(c => c && !mockNames.includes((c.name || '').toLowerCase().trim()))
+      })).filter(b => b.colours.length > 0 || (b.name && b.name.toLowerCase() === 'porcelanosa'));
+      if (cleaned.length > 0) return cleaned;
+    }
   } catch(e) {}
 
   return DEFAULT_BRANDS;
