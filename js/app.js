@@ -1121,8 +1121,18 @@ async function getBrands() {
         supabaseClient.from('colours').select('*')
       ]).catch(() => [{ data: null }, { data: null }]);
 
-      const dbBrands = (bRes && !bRes.error && bRes.data) ? bRes.data.filter(b => b && b.enabled !== false) : [];
-      const dbColours = (cRes && !cRes.error && cRes.data) ? cRes.data.filter(c => c && c.enabled !== false) : [];
+      const removedBrandNames = ['silestone', 'neolith', 'topstone', 'top stone', 'dekton', 'caesarstone', 'calacatta premium'];
+      let deletedBrands = [];
+      try { deletedBrands = JSON.parse(localStorage.getItem('rw_deleted_brands') || '[]'); } catch(e) {}
+      let deletedColours = [];
+      try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
+
+      const dbBrands = (bRes && !bRes.error && bRes.data) 
+        ? bRes.data.filter(b => b && b.enabled !== false && !removedBrandNames.includes((b.name || '').toLowerCase().trim()) && !deletedBrands.some(db => db == b.id || String(db) === String(b.id) || String(db).toLowerCase().trim() === b.name.toLowerCase().trim())) 
+        : [];
+      const dbColours = (cRes && !cRes.error && cRes.data) 
+        ? cRes.data.filter(c => c && c.enabled !== false && !deletedColours.some(dc => dc == c.id || String(dc) === String(c.id) || (c.name && String(dc).toLowerCase().trim() === c.name.toLowerCase().trim()))) 
+        : [];
 
       if (dbBrands.length > 0 || dbColours.length > 0) {
         const brandMap = new Map();
