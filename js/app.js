@@ -977,7 +977,43 @@ async function emptyStorageFolder(bucket, folderPath) {
 }
 
 // ── Seed demo data ────────────────────────────
+function purgeLegacyMockStorage() {
+  try {
+    const legacyMockColours = [
+      'eternal calacatta gold', 'nebula pearl', 'iconic black', 'miami white', 
+      'lunar smoke', 'kreta', 'opera', 'laurent', 'vera', 'statuario nuvo', 
+      'vanilla noir', 'cloudburst concrete', 'pure white', 'calacatta gold', 
+      'calacatta extra', 'calacatta viola', 'arctic white', 'iron grey', 
+      'nero zimbabwe', 'toscana stone', 'natural grey'
+    ];
+
+    const legacyMockBrands = ['silestone', 'neolith', 'topstone', 'top stone', 'dekton', 'caesarstone', 'calacatta premium'];
+
+    ['rw_brands', 'rw_local_brands', 'rw_colours', 'rw_local_colours'].forEach(key => {
+      try {
+        let items = JSON.parse(localStorage.getItem(key) || '[]');
+        if (Array.isArray(items) && items.length > 0) {
+          let cleaned = items.filter(item => {
+            const name = (item.name || '').toLowerCase().trim();
+            if (legacyMockBrands.includes(name) || legacyMockColours.includes(name)) return false;
+            if (item.colours && Array.isArray(item.colours)) {
+              item.colours = item.colours.filter(c => c && !legacyMockColours.includes((c.name || '').toLowerCase().trim()));
+            }
+            return true;
+          });
+          localStorage.setItem(key, JSON.stringify(cleaned));
+        }
+      } catch(e) {}
+    });
+
+    if (typeof store !== 'undefined' && store.remove) {
+      store.remove('brands');
+    }
+  } catch(e) {}
+}
+
 function seedAppData() {
+  purgeLegacyMockStorage();
   // Seed settings from admin (or defaults)
   if (!store.get('settings')) {
     store.set('settings', {
