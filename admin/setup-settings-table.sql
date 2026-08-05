@@ -1,8 +1,8 @@
 -- =========================================================================
--- RatedWorktops — Settings Table Setup Script (Supabase SQL)
+-- RatedWorktops — Settings Table Setup & Schema Migration Script (Supabase SQL)
 -- =========================================================================
 -- Run this script in Supabase Dashboard -> SQL Editor to ensure the
--- settings table exists with all standard snake_case and camelCase columns,
+-- settings table exists with all required columns, updated_at auto-trigger,
 -- RLS policies, and instant PostgREST schema cache reload.
 -- =========================================================================
 
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS public.settings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Ensure missing columns are added if table existed previously
+-- 1. Ensure missing columns are added if settings table existed previously
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS free_credits_enabled BOOLEAN DEFAULT true;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS subscriptions_enabled BOOLEAN DEFAULT true;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS free_credits_count INT DEFAULT 10;
@@ -55,13 +55,30 @@ ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS "annualCredits" INT DEFAULT
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS "tempStorageHours" INT DEFAULT 48;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS "maxSavedProjects" INT DEFAULT 2;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS data JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
--- Ensure default row 1 exists
+-- 2. Ensure default row 1 exists
 INSERT INTO public.settings (id)
 VALUES (1)
 ON CONFLICT (id) DO NOTHING;
 
--- Enable Row Level Security with full access policy
+-- 3. Setup trigger function for auto-updating updated_at timestamp on updates
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_settings_updated_at ON public.settings;
+CREATE TRIGGER update_settings_updated_at
+    BEFORE UPDATE ON public.settings
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- 4. Enable Row Level Security with full access policy
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow all access to settings" ON public.settings;
@@ -71,5 +88,5 @@ CREATE POLICY "Allow all access to settings" ON public.settings
     USING (true)
     WITH CHECK (true);
 
--- Force PostgREST schema cache reload immediately
+-- 5. Force PostgREST schema cache reload immediately
 NOTIFY pgrst, 'reload schema';

@@ -1744,6 +1744,17 @@ async function updateSettingsInDB(settings) {
   // Direct write to Supabase settings table (id=1)
   let { data, error } = await supabaseClient.from('settings').upsert(payload, { onConflict: 'id' }).select();
 
+  // If error relates to missing updated_at column in schema, retry without updated_at
+  if (error && error.message && error.message.toLowerCase().includes('updated_at')) {
+    const payloadNoUpdatedAt = { ...payload };
+    delete payloadNoUpdatedAt.updated_at;
+    const retryRes = await supabaseClient.from('settings').upsert(payloadNoUpdatedAt, { onConflict: 'id' }).select();
+    if (!retryRes.error && retryRes.data && retryRes.data.length > 0) {
+      data = retryRes.data;
+      error = null;
+    }
+  }
+
   if (error || !data || data.length === 0) {
     // Fallback update by ID
     const updateRes = await supabaseClient.from('settings').update(payload).eq('id', 1).select();
