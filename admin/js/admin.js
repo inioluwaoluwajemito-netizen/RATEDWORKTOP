@@ -899,7 +899,7 @@ if (typeof window !== 'undefined') {
 // Instantiate real Supabase client — always use real Supabase when the library is loaded
 const useRealSupabase = !!(typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
 const supabaseClient = useRealSupabase 
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { lock: false } }) 
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
   : createMockSupabaseClient();
 
 // Seed initial mock data to ensure localStorage is always populated
@@ -1756,9 +1756,9 @@ async function updateSettingsInDB(settings) {
   }
 
   if (!error && data && data.length > 0) {
-    store.set('settings', normalized);
-    safeSetLocalStorage('ratedworktops_settings', normalized);
-    safeSetLocalStorage('rw_settings', normalized);
+    if (typeof store !== 'undefined' && store.set) {
+      store.set('settings', normalized);
+    }
     console.log('[Admin Settings] Settings successfully persisted to Supabase DB settings table!');
     return { data: data[0], error: null };
   } else {
