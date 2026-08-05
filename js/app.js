@@ -1064,6 +1064,23 @@ async function getStoneById(id) {
 
 const DEFAULT_BRANDS = [
   {
+    id: 'top-stone-centre',
+    name: 'Top Stone Centre',
+    category: 'Marble',
+    description: 'Luxury marble, quartzite & onyx surfaces',
+    enabled: true,
+    colours: [
+      { id: 'tsc-np', name: 'Nero Picasso', sku: 'TSC-NP', finish: 'Polished', texture: 'marble', enabled: true },
+      { id: 'tsc-br', name: 'Blue Roma Quartzite', sku: 'TSC-BR', finish: 'Polished', texture: 'quartz', enabled: true },
+      { id: 'tsc-rl', name: 'Italian Rosso Levanto', sku: 'TSC-RL', finish: 'Polished', texture: 'marble', enabled: true },
+      { id: 'tsc-vb', name: 'Volga Blue', sku: 'TSC-VB', finish: 'Polished', texture: 'black', enabled: true },
+      { id: 'tsc-po', name: 'Pink Onyx', sku: 'TSC-PO', finish: 'Polished', texture: 'marble', enabled: true },
+      { id: 'tsc-ml', name: 'Monet Light', sku: 'TSC-ML', finish: 'Polished', texture: 'marble', enabled: true },
+      { id: 'tsc-v3', name: 'Viola 3cm', sku: 'TSC-V3', finish: 'Polished', texture: 'marble', enabled: true },
+      { id: 'tsc-sa', name: 'Silver Armani', sku: 'TSC-SA', finish: 'Polished', texture: 'slate', enabled: true }
+    ]
+  },
+  {
     id: 'porcelanosa',
     name: 'Porcelanosa',
     category: 'Porcelain',
@@ -1182,11 +1199,8 @@ async function getBrands() {
   try {
     const local = JSON.parse(localStorage.getItem('rw_brands') || '[]');
     if (local && local.length > 0) {
-      const mockNames = ['nebula pearl', 'iconic black', 'miami white', 'lunar smoke', 'arctic white', 'iron grey'];
-      const cleaned = local.map(b => ({
-        ...b,
-        colours: (b.colours || []).filter(c => c && !mockNames.includes((c.name || '').toLowerCase().trim()))
-      })).filter(b => b.colours.length > 0 || (b.name && b.name.toLowerCase() === 'porcelanosa'));
+      const removedBrandNames = ['silestone', 'neolith', 'topstone', 'top stone', 'dekton', 'caesarstone', 'calacatta premium'];
+      const cleaned = local.filter(b => b && b.name && !removedBrandNames.includes(b.name.toLowerCase().trim()));
       if (cleaned.length > 0) return cleaned;
     }
   } catch(e) {}
