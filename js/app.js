@@ -1133,26 +1133,6 @@ const DEFAULT_BRANDS = [
 ];
 
 async function getBrands() {
-  if (typeof fetchBrands === 'function') {
-    try {
-      const adminBrands = await fetchBrands();
-      if (adminBrands && Array.isArray(adminBrands) && adminBrands.length > 0) {
-        let deletedBrands = [];
-        try { deletedBrands = JSON.parse(localStorage.getItem('rw_deleted_brands') || '[]'); } catch(e) {}
-        let deletedColours = [];
-        try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
-
-        const filtered = adminBrands
-          .filter(b => b && b.enabled !== false && !deletedBrands.some(db => db == b.id || String(db) === String(b.id) || String(db).toLowerCase().trim() === b.name.toLowerCase().trim()))
-          .map(b => ({
-            ...b,
-            colours: (b.colours || []).filter(c => c && c.enabled !== false && !deletedColours.some(dc => dc == c.id || String(dc) === String(c.id) || (c.name && String(dc).toLowerCase().trim() === c.name.toLowerCase().trim())))
-          }));
-        if (filtered.length > 0) return filtered;
-      }
-    } catch(e) {}
-  }
-
   if (supabaseClient) {
     try {
       const [bRes, cRes] = await Promise.all([
@@ -1161,16 +1141,12 @@ async function getBrands() {
       ]).catch(() => [{ data: null }, { data: null }]);
 
       const removedBrandNames = ['silestone', 'neolith', 'topstone', 'top stone', 'dekton', 'caesarstone', 'calacatta premium'];
-      let deletedBrands = [];
-      try { deletedBrands = JSON.parse(localStorage.getItem('rw_deleted_brands') || '[]'); } catch(e) {}
-      let deletedColours = [];
-      try { deletedColours = JSON.parse(localStorage.getItem('rw_deleted_colours') || '[]'); } catch(e) {}
 
       const dbBrands = (bRes && !bRes.error && bRes.data) 
-        ? bRes.data.filter(b => b && b.enabled !== false && !removedBrandNames.includes((b.name || '').toLowerCase().trim()) && !deletedBrands.some(db => db == b.id || String(db) === String(b.id) || String(db).toLowerCase().trim() === b.name.toLowerCase().trim())) 
+        ? bRes.data.filter(b => b && b.name && b.enabled !== false && !removedBrandNames.includes((b.name || '').toLowerCase().trim())) 
         : [];
       const dbColours = (cRes && !cRes.error && cRes.data) 
-        ? cRes.data.filter(c => c && c.enabled !== false && !deletedColours.some(dc => dc == c.id || String(dc) === String(c.id) || (c.name && String(dc).toLowerCase().trim() === c.name.toLowerCase().trim()))) 
+        ? cRes.data.filter(c => c && c.name && c.enabled !== false) 
         : [];
 
       if (dbBrands.length > 0 || dbColours.length > 0) {
@@ -1243,16 +1219,6 @@ async function getBrands() {
       console.warn('[App Brands] Supabase fetch notice:', e);
     }
   }
-
-  // Fallback to local storage or DEFAULT_BRANDS
-  try {
-    const local = JSON.parse(localStorage.getItem('rw_brands') || '[]');
-    if (local && local.length > 0) {
-      const removedBrandNames = ['silestone', 'neolith', 'topstone', 'top stone', 'dekton', 'caesarstone', 'calacatta premium'];
-      const cleaned = local.filter(b => b && b.name && !removedBrandNames.includes(b.name.toLowerCase().trim()));
-      if (cleaned.length > 0) return cleaned;
-    }
-  } catch(e) {}
 
   return DEFAULT_BRANDS;
 }
