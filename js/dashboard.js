@@ -172,7 +172,14 @@ async function generateRender() {
           });
           if (error) {
             console.error('[Render] Functions invoke error:', error);
-            throw new Error(error.message || 'AI inpainting failed via Supabase Function.');
+            let detail = null;
+            try {
+              if (error.context && typeof error.context.json === 'function') {
+                const ctxJson = await error.context.json();
+                detail = ctxJson?.error?.message || ctxJson?.message || (typeof ctxJson?.error === 'string' ? ctxJson.error : null);
+              }
+            } catch (e) {}
+            throw new Error(detail || error.message || 'AI inpainting failed via Supabase Function.');
           }
           if (data && data.error) {
             console.error('[Render] Proxy returned error payload:', data.error);
@@ -203,7 +210,7 @@ async function generateRender() {
             }
             aiImageUrl = resData.data?.[0]?.url || resData.url || null;
           } else {
-            throw new Error(resData?.error?.message || `Server error (status ${proxyResponse.status})`);
+            throw new Error(resData?.error?.message || resData?.message || `Server error (status ${proxyResponse.status})`);
           }
         }
       } catch (proxyErr) {
