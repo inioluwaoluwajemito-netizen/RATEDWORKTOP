@@ -73,10 +73,10 @@ serve(async (req: Request) => {
 
     // ── 2. Parse request body ─────────────────────────────────────────────────
     const body = await req.json();
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || body.openai_key || body.api_key;
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
     if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: { message: "OpenAI API Key not set. Please add OPENAI_API_KEY to Supabase Edge Function Secrets." } }), {
+      return new Response(JSON.stringify({ error: { message: "OpenAI API Key not set in Supabase Secrets. Please add OPENAI_API_KEY secret in Supabase Edge Functions." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }

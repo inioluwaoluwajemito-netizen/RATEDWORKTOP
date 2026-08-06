@@ -162,14 +162,12 @@ async function generateRender() {
 
     if (supabaseClient && useRealSupabase) {
       try {
-        const userOpenAiKey = localStorage.getItem('openai_api_key') || localStorage.getItem('rw_openai_key') || '';
         if (typeof supabaseClient.functions?.invoke === 'function') {
           const { data, error } = await supabaseClient.functions.invoke('openai-proxy', {
             body: {
               image: imageUri,
               mask: maskUri,
-              prompt: prompt,
-              openai_key: userOpenAiKey
+              prompt: prompt
             }
           });
           if (error) {
@@ -194,8 +192,7 @@ async function generateRender() {
             body: JSON.stringify({
               image: imageUri,
               mask: maskUri,
-              prompt: prompt,
-              openai_key: userOpenAiKey
+              prompt: prompt
             })
           });
 
