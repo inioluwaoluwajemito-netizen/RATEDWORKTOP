@@ -136,7 +136,7 @@ async function generateRender() {
     const colorDetails = getStoneColorDetails(selectedStone);
     const { imageCanvas, maskCanvas } = createInpaintingMask(previewImage, isAutoMode, points, selectedStone);
 
-    const imageUri = imageCanvas.toDataURL('image/jpeg', 0.90);
+    const imageUri = imageCanvas.toDataURL('image/png');
     const maskUri = maskCanvas.toDataURL('image/png');
 
     // ── 1b. Resolve the stone texture image URL to send as reference ─────────

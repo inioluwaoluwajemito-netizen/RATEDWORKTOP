@@ -103,7 +103,7 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log(`[OpenAI Proxy] User: ${user.id} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length}`);
+    console.log(`[OpenAI Proxy] User: ${userId} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length}`);
 
     // ── 3. Build OpenAI Image Edit request (v1/images/edits) ──────────────────
     const formData = new FormData();
@@ -130,7 +130,7 @@ serve(async (req: Request) => {
       body: formData
     });
 
-    let resData = await openAiRes.json();
+    let resData = await openAiRes.json().catch(() => ({}));
     console.log("[OpenAI Proxy] OpenAI Response Status:", openAiRes.status);
 
     // ── 4. Fallback to DALL-E 3 Generation if Image Edit is unavailable ────────
@@ -152,7 +152,7 @@ serve(async (req: Request) => {
         },
         body: JSON.stringify(dallePayload)
       });
-      resData = await openAiRes.json();
+      resData = await openAiRes.json().catch(() => ({}));
       console.log("[OpenAI Proxy] DALL-E 3 Fallback Status:", openAiRes.status);
     }
 
@@ -160,7 +160,7 @@ serve(async (req: Request) => {
       const errMsg = resData?.error?.message || JSON.stringify(resData);
       console.error("[OpenAI Proxy] OpenAI API Error:", errMsg);
       return new Response(JSON.stringify({ error: { message: "OpenAI Error: " + errMsg } }), {
-        status: openAiRes.status,
+        status: 200,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
@@ -168,7 +168,7 @@ serve(async (req: Request) => {
     const b64Data = resData.data?.[0]?.b64_json;
     if (!b64Data) {
       return new Response(JSON.stringify({ error: { message: "OpenAI returned no image data." } }), {
-        status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+        status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
@@ -183,7 +183,7 @@ serve(async (req: Request) => {
   } catch (err: any) {
     console.error("[OpenAI Proxy] Unhandled error:", err);
     return new Response(JSON.stringify({ error: { message: String(err?.message ?? err) } }), {
-      status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   }
 });
