@@ -1257,43 +1257,32 @@ async function fetchCategories() {
 }
 
 async function fetchUsers() {
-  const localUsers = store.get('users', []);
-  if (!supabaseClient) return localUsers;
+  if (!supabaseClient) return store.get('users', []);
 
-  const dbPromise = (async () => {
-    try {
-      const { data } = await supabaseClient.from('profiles').select('*');
-      if (data && data.length > 0) {
-        return data.map(p => ({
-          id: p.id,
-          name: p.name || p.full_name || 'Unknown',
-          email: p.email,
-          plan: p.plan || 'Free',
-          credits: p.credits !== undefined ? p.credits : 10,
-          visualisations: p.visualisations || 0,
-          downloads: p.downloads || 0,
-          shares: p.shares || 0,
-          status: p.status || 'active',
-          joined: p.created_at || new Date().toISOString(),
-          lastLogin: p.updated_at || p.created_at || new Date().toISOString()
-        }));
-      }
-    } catch(e) {}
-    return null;
-  })();
-
-  const timeoutPromise = new Promise(res => setTimeout(() => res(null), 2000));
-  const remoteUsers = await Promise.race([dbPromise, timeoutPromise]);
-
-  if (!remoteUsers || remoteUsers.length === 0) return localUsers;
-
-  const merged = [...remoteUsers];
-  for (const lu of localUsers) {
-    if (!merged.some(u => u.id == lu.id || (u.email && u.email.toLowerCase() === lu.email.toLowerCase()))) {
-      merged.push(lu);
+  try {
+    const { data, error } = await supabaseClient.from('profiles').select('*');
+    if (!error && data && Array.isArray(data)) {
+      const dbUsers = data.map(p => ({
+        id: p.id,
+        name: p.name || p.full_name || (p.email ? p.email.split('@')[0] : 'Unknown'),
+        email: p.email,
+        plan: p.plan || 'Free',
+        credits: p.credits !== undefined ? p.credits : 10,
+        visualisations: p.visualisations || 0,
+        downloads: p.downloads || 0,
+        shares: p.shares || 0,
+        status: p.status || 'active',
+        joined: p.created_at || new Date().toISOString(),
+        lastLogin: p.updated_at || p.created_at || new Date().toISOString()
+      }));
+      store.set('users', dbUsers);
+      return dbUsers;
     }
+  } catch(e) {
+    console.warn('[Admin fetchUsers] DB fetch notice:', e);
   }
-  return merged;
+
+  return store.get('users', []);
 }
 
 const DEFAULT_SETTINGS = {
@@ -1644,42 +1633,51 @@ async function fetchSettings() {
 // ── Async Admin Write Helpers ─────────────────
 
 async function deleteProfileFromDB(id) {
-  if (!id) return { error: 'No user ID provided' };
+  if (!id) return { error: new Error('No user ID provided') };
 
-  // 1. Delete from local cache
+  // 1. Delete from memory store & local cache
   try {
     let localUsers = store.get('users', []);
-    localUsers = localUsers.filter(u => u.id !== id);
+    localUsers = localUsers.filter(u => String(u.id) !== String(id) && (u.email && String(u.email).toLowerCase() !== String(id).toLowerCase()));
     store.set('users', localUsers);
   } catch(e) {}
 
   if (typeof localStorage !== 'undefined') {
     try {
-      let cached = JSON.parse(localStorage.getItem('rw_local_users') || '[]');
-      cached = cached.filter(u => u.id !== id);
-      localStorage.setItem('rw_local_users', JSON.stringify(cached));
+      ['rw_users', 'rw_local_users', 'rw_profiles', 'rw_app_users'].forEach(key => {
+        let cached = JSON.parse(localStorage.getItem(key) || '[]');
+        if (Array.isArray(cached)) {
+          cached = cached.filter(u => String(u.id) !== String(id) && (u.email && String(u.email).toLowerCase() !== String(id).toLowerCase()));
+          localStorage.setItem(key, JSON.stringify(cached));
+        }
+      });
     } catch(e) {}
   }
 
-  // 2. Delete from Supabase DB safely
   if (!supabaseClient) return { error: null };
 
+  let rpcSuccess = false;
   try {
     if (typeof supabaseClient.rpc === 'function') {
-      const res = await supabaseClient.rpc('delete_user_completely', { user_id: id });
-      if (res && !res.error) return { error: null };
+      const res = await supabaseClient.rpc('delete_user_completely', { target_user_id: id });
+      if (res && !res.error) rpcSuccess = true;
     }
   } catch (rpcErr) {
     console.warn('[deleteProfileFromDB] RPC delete notice:', rpcErr);
   }
 
+  let dbError = null;
   try {
-    if (typeof supabaseClient.from === 'function') {
-      await supabaseClient.from('profiles').delete().eq('id', id);
+    const deleteRes = await supabaseClient.from('profiles').delete().eq('id', id);
+    if (deleteRes && deleteRes.error) {
+      dbError = deleteRes.error;
     }
   } catch (dbErr) {
-    console.warn('[deleteProfileFromDB] DB profiles delete notice:', dbErr);
+    dbError = dbErr;
   }
+
+  if (rpcSuccess) return { error: null };
+  if (dbError) return { error: dbError };
 
   return { error: null };
 }
