@@ -210,11 +210,11 @@ async function generateRender() {
           }
         }
       } catch (proxyErr) {
-        console.warn('[Render] Supabase proxy notice, using client blend fallback:', proxyErr.message);
-        aiImageUrl = createClientSideBlendRender(previewImage, points, colorDetails);
+        console.error('[Render] AI proxy error:', proxyErr);
+        throw new Error(proxyErr.message || 'AI inpainting service failed.');
       }
     } else {
-      aiImageUrl = createClientSideBlendRender(previewImage, points, colorDetails);
+      throw new Error('Not connected to the server. Please check your connection.');
     }
 
     // ── 4. Display the brand-new AI-generated image ──────────────────────────
@@ -491,18 +491,18 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     imgCtx.drawImage(previewImg, 0, 0, TARGET_SIZE, TARGET_SIZE);
   }
 
-  // 2. Create 512x512 binary mask canvas (Black = KEEP ORIGINAL KITCHEN, White = REPLACE WORKTOP SURFACE ONLY)
+  // 2. Create 512x512 mask canvas (Opaque Black = KEEP ORIGINAL KITCHEN, Transparent Alpha 0 = REPLACE WORKTOP SURFACE ONLY)
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = TARGET_SIZE;
   maskCanvas.height = TARGET_SIZE;
   const maskCtx = maskCanvas.getContext('2d');
 
-  // Fill entire canvas with BLACK (keep original kitchen context intact)
-  maskCtx.fillStyle = 'black';
+  // Fill entire canvas with OPAQUE BLACK (keep original kitchen context intact)
+  maskCtx.fillStyle = 'rgba(0, 0, 0, 1)';
   maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
 
-  // Fill targeted worktop area with WHITE (inpaint ONLY the worktop)
-  maskCtx.fillStyle = 'white';
+  // Clear targeted worktop area to TRANSPARENT (inpaint ONLY the worktop for OpenAI v1/images/edits)
+  maskCtx.globalCompositeOperation = 'destination-out';
 
   const SCALE = TARGET_SIZE / 100; // 5.12 scale factor
 
@@ -531,6 +531,8 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     maskCtx.closePath();
     maskCtx.fill();
   }
+
+  maskCtx.globalCompositeOperation = 'source-over';
 
   return { imageCanvas, maskCanvas, colorDetails };
 }

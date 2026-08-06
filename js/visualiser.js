@@ -260,8 +260,8 @@ async function generateRender() {
           }
         }
       } catch (aiErr) {
-        console.warn('[Render] AI proxy notice, using client blend fallback:', aiErr.message);
-        aiImageUrl = createClientSideBlendRender(previewImage, points, colorDetails);
+        console.error('[Render] AI proxy error:', aiErr);
+        throw new Error(aiErr.message || 'AI inpainting service failed.');
       } finally {
         stopProgressTicker();
       }
@@ -382,6 +382,7 @@ async function generateRender() {
     stopProgressTicker();
     setTimeout(() => setProgress(1), 100);
   }
+
 function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
   const TARGET_SIZE = 512;
   const colorDetails = getStoneColorDetails(stone);
@@ -404,12 +405,12 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
   maskCanvas.height = TARGET_SIZE;
   const maskCtx = maskCanvas.getContext('2d');
 
-  // Fill entire canvas with BLACK (keep original kitchen context intact)
-  maskCtx.fillStyle = 'black';
+  // Fill entire canvas with OPAQUE BLACK (keep original kitchen context intact)
+  maskCtx.fillStyle = 'rgba(0, 0, 0, 1)';
   maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
 
-  // Fill targeted worktop area with WHITE (inpaint ONLY the worktop)
-  maskCtx.fillStyle = 'white';
+  // Clear targeted worktop area to TRANSPARENT (inpaint ONLY the worktop for OpenAI v1/images/edits)
+  maskCtx.globalCompositeOperation = 'destination-out';
 
   const SCALE = TARGET_SIZE / 100;
 
@@ -437,6 +438,10 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     }
     maskCtx.closePath();
     maskCtx.fill();
+  }
+
+  maskCtx.globalCompositeOperation = 'source-over';
+
   return { imageCanvas, maskCanvas, colorDetails };
 }
 
