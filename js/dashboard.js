@@ -652,6 +652,8 @@ async function loadProfile() {
 
   // Fallback: If no profile exists yet (e.g. first-time Google Sign-In user), create one
   if (!data) {
+    const settings = (typeof fetchAppSettings === 'function') ? await fetchAppSettings() : null;
+    const starterCredits = (settings && settings.freeCreditsEnabled !== false) ? Number(settings.freeCreditsCount ?? 0) : 0;
     const defaultName = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || 'Google User';
     const { data: newProfile, error: insertErr } = await supabaseClient
       .from('profiles')
@@ -660,7 +662,7 @@ async function loadProfile() {
         name: defaultName,
         email: currentUser.email,
         plan: 'Free',
-        credits: 10,
+        credits: starterCredits,
         visualisations: 0,
         downloads: 0,
         shares: 0,

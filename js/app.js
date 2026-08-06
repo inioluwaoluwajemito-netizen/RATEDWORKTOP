@@ -869,7 +869,7 @@ async function registerUser({ name, email, password }) {
   if (!supabaseClient) return { ok: false, error: 'Database disconnected' };
 
   const settings = await fetchAppSettings();
-  const starterCredits = (settings.freeCreditsEnabled !== false) ? (settings.freeCreditsCount ?? 10) : 0;
+  const starterCredits = (settings && settings.freeCreditsEnabled !== false) ? Number(settings.freeCreditsCount ?? 0) : 0;
 
   const { data, error } = await supabaseClient.auth.signUp({
     email,
@@ -879,14 +879,14 @@ async function registerUser({ name, email, password }) {
   if (error) return { ok: false, error: error.message };
   
   if (data.user) {
-    // Attempt to create a profile with exact starter credits configured by Admin
-    const { error: profileError } = await supabaseClient.from('profiles').insert([{
+    // Attempt to upsert profile with exact starter credits configured by Admin
+    const { error: profileError } = await supabaseClient.from('profiles').upsert([{
       id: data.user.id,
       name,
       email,
       plan: 'Free',
       credits: starterCredits
-    }]);
+    }], { onConflict: 'id' });
     if (profileError) console.error('Profile creation error:', profileError);
   }
   return { ok: true, user: data.user };

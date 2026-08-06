@@ -36,7 +36,27 @@ CREATE POLICY "Allow all access on profiles" ON public.profiles FOR ALL USING (t
 -- 2. Trigger function to automatically insert a profile when a new user signs up in auth.users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  default_credits INT := 0;
+  credits_enabled BOOLEAN := true;
 BEGIN
+  -- Read current admin-configured credit settings from public.settings (id=1)
+  SELECT 
+    COALESCE(free_credits_count, (data->>'free_credits_count')::int, (data->>'freeCreditsCount')::int, 0),
+    COALESCE(free_credits_enabled, (data->>'free_credits_enabled')::boolean, (data->>'freeCreditsEnabled')::boolean, true)
+  INTO default_credits, credits_enabled
+  FROM public.settings
+  WHERE id = 1
+  LIMIT 1;
+
+  IF credits_enabled IS FALSE THEN
+    default_credits := 0;
+  END IF;
+
+  IF default_credits IS NULL THEN
+    default_credits := 0;
+  END IF;
+
   INSERT INTO public.profiles (id, email, name, full_name, plan, credits, status, created_at, updated_at)
   VALUES (
     NEW.id,
@@ -44,7 +64,7 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
     'Free',
-    10,
+    default_credits,
     'active',
     NOW(),
     NOW()
