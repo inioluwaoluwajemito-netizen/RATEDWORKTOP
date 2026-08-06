@@ -73,7 +73,11 @@ serve(async (req: Request) => {
 
     // ── 2. Parse request body & fetch OPENAI_API_KEY from Supabase ──────────
     const body = await req.json();
-    let OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    let OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || 
+                         Deno.env.get("Open ai aki key") || 
+                         Deno.env.get("Open AI API Key") || 
+                         Deno.env.get("OpenAI API Key") || 
+                         Deno.env.get("OPENAI_KEY");
 
     // Fallback: If not set in Edge Function secrets, fetch from Supabase public.settings table
     if (!OPENAI_API_KEY) {
@@ -92,7 +96,7 @@ serve(async (req: Request) => {
     }
 
     if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: { message: "OpenAI API Key not found in Supabase. Please add OPENAI_API_KEY to Supabase Secrets or the settings table." } }), {
+      return new Response(JSON.stringify({ error: { message: "OpenAI API Key not found in Supabase. Please ensure your secret is named OPENAI_API_KEY in Supabase Edge Function Secrets." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
