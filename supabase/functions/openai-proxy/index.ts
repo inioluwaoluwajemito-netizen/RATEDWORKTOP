@@ -71,12 +71,28 @@ serve(async (req: Request) => {
       }
     }
 
-    // ── 2. Parse request body ─────────────────────────────────────────────────
+    // ── 2. Parse request body & fetch OPENAI_API_KEY from Supabase ──────────
     const body = await req.json();
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    let OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+
+    // Fallback: If not set in Edge Function secrets, fetch from Supabase public.settings table
+    if (!OPENAI_API_KEY) {
+      try {
+        const supabaseAdmin = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+        );
+        const { data: settings } = await supabaseAdmin.from('settings').select('*').eq('id', 1).maybeSingle();
+        if (settings) {
+          OPENAI_API_KEY = settings.openai_api_key || settings.data?.openai_api_key || settings.data?.openaiApiKey;
+        }
+      } catch (e) {
+        console.warn("[OpenAI Proxy] Could not read key from settings table:", e);
+      }
+    }
 
     if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: { message: "OpenAI API Key not set in Supabase Secrets. Please add OPENAI_API_KEY secret in Supabase Edge Functions." } }), {
+      return new Response(JSON.stringify({ error: { message: "OpenAI API Key not found in Supabase. Please add OPENAI_API_KEY to Supabase Secrets or the settings table." } }), {
         status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }

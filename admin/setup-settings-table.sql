@@ -48,6 +48,7 @@ ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS max_saved_projects INT DEFA
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS "freeCreditsEnabled" BOOLEAN DEFAULT true;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS "subscriptionsEnabled" BOOLEAN DEFAULT true;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS "freeCreditsCount" INT DEFAULT 10;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS openai_api_key TEXT;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS "monthlyPrice" NUMERIC(10,2) DEFAULT 9.99;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS "monthlyCredits" INT DEFAULT 100;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS "annualPrice" NUMERIC(10,2) DEFAULT 89.99;
