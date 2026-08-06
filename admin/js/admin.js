@@ -1389,12 +1389,16 @@ async function saveBrandToDB(brand) {
       enabled: brand.enabled !== false
     }]);
     if (err) {
-      console.warn('[Admin saveBrandToDB] DB write notice:', err);
+      console.error('[Admin saveBrandToDB] DB write error:', err);
+      if (typeof showToast === 'function') showToast('Failed to save brand to Supabase: ' + err.message, 'error');
+      throw new Error('Supabase brand save failed: ' + err.message);
     } else {
       console.log('[Admin saveBrandToDB] Successfully persisted brand to Supabase:', brandId, brand.name);
     }
   } catch(e) {
-    console.warn('[Admin saveBrandToDB] DB write notice:', e);
+    console.error('[Admin saveBrandToDB] DB write exception:', e);
+    if (typeof showToast === 'function') showToast('Error saving brand: ' + e.message, 'error');
+    throw e;
   }
   return fullBrandRecord;
 }
@@ -1432,10 +1436,14 @@ async function deleteBrandFromDB(id, brandName) {
     const numericId = Number(id);
     if (!isNaN(numericId)) {
       const { error: cErr } = await supabaseClient.from('colours').delete().eq('brand_id', numericId);
-      if (cErr) console.warn('[deleteBrandFromDB] colours delete notice:', cErr);
+      if (cErr) console.error('[deleteBrandFromDB] colours delete error:', cErr);
 
       const { error: bErr } = await supabaseClient.from('brands').delete().eq('id', numericId);
-      if (bErr) console.warn('[deleteBrandFromDB] brands delete notice:', bErr);
+      if (bErr) {
+        console.error('[deleteBrandFromDB] brands delete error:', bErr);
+        if (typeof showToast === 'function') showToast('Failed to delete brand from Supabase: ' + bErr.message, 'error');
+        throw new Error('Supabase brand delete failed: ' + bErr.message);
+      }
     }
     if (brandName) {
       await supabaseClient.from('colours').delete().eq('brand_name', brandName);
@@ -1443,7 +1451,9 @@ async function deleteBrandFromDB(id, brandName) {
     }
     console.log('[deleteBrandFromDB] Successfully deleted brand from Supabase:', id, brandName);
   } catch(e) {
-    console.warn('[deleteBrandFromDB] DB delete notice:', e);
+    console.error('[deleteBrandFromDB] DB delete exception:', e);
+    if (typeof showToast === 'function') showToast('Error deleting brand: ' + e.message, 'error');
+    throw e;
   }
 }
 
@@ -1510,12 +1520,16 @@ async function saveColourToDB(colour) {
       enabled: colour.enabled !== false
     }]);
     if (err) {
-      console.warn('[Admin saveColourToDB] DB write notice:', err);
+      console.error('[Admin saveColourToDB] DB write error:', err);
+      if (typeof showToast === 'function') showToast('Failed to save stone colour to Supabase: ' + err.message, 'error');
+      throw new Error('Supabase colour save failed: ' + err.message);
     } else {
       console.log('[Admin saveColourToDB] Successfully persisted colour to Supabase:', colId, colour.name);
     }
   } catch (dbErr) {
-    console.warn('[Admin saveColourToDB] DB write notice:', dbErr);
+    console.error('[Admin saveColourToDB] DB write exception:', dbErr);
+    if (typeof showToast === 'function') showToast('Error saving stone colour: ' + dbErr.message, 'error');
+    throw dbErr;
   }
 
   return fullColourRecord;

@@ -1138,7 +1138,14 @@ async function getBrands() {
       const [bRes, cRes] = await Promise.all([
         supabaseClient.from('brands').select('*'),
         supabaseClient.from('colours').select('*')
-      ]).catch(() => [{ data: null }, { data: null }]);
+      ]);
+
+      if (bRes.error) {
+        console.error('[getBrands] Supabase brands query error:', bRes.error);
+      }
+      if (cRes.error) {
+        console.error('[getBrands] Supabase colours query error:', cRes.error);
+      }
 
       const dbBrands = (bRes && !bRes.error && bRes.data) 
         ? bRes.data.filter(b => b && b.name && b.enabled !== false) 
@@ -1147,78 +1154,76 @@ async function getBrands() {
         ? cRes.data.filter(c => c && c.name && c.enabled !== false) 
         : [];
 
-      if (dbBrands.length > 0 || dbColours.length > 0) {
-        const brandMap = new Map();
-        dbBrands.forEach(b => {
-          if (!b || !b.name) return;
-          brandMap.set(String(b.id), {
-            id: b.id,
-            name: b.name,
-            category: b.category || 'Quartz',
-            description: b.description || '',
+      const brandMap = new Map();
+      dbBrands.forEach(b => {
+        if (!b || !b.name) return;
+        brandMap.set(String(b.id), {
+          id: b.id,
+          name: b.name,
+          category: b.category || 'Quartz',
+          description: b.description || '',
+          enabled: true,
+          colours: []
+        });
+      });
+
+      dbColours.forEach(c => {
+        if (!c || !c.name) return;
+        const rawBrandId = String(c.brand_id || '').toLowerCase().trim();
+        const rawBrandName = String(c.brand_name || '').toLowerCase().trim();
+
+        let targetBrand = null;
+        for (const b of brandMap.values()) {
+          const bId = String(b.id || '').toLowerCase().trim();
+          const bName = String(b.name || '').toLowerCase().trim();
+
+          if (
+            (rawBrandId && (rawBrandId === bId || rawBrandId === bName)) ||
+            (rawBrandName && (rawBrandName === bName || rawBrandName === bId))
+          ) {
+            targetBrand = b;
+            break;
+          }
+        }
+
+        if (!targetBrand && (c.brand_name || c.brand_id)) {
+          const bName = c.brand_name || c.brand_id;
+          targetBrand = {
+            id: c.brand_id || bName,
+            name: bName,
+            category: c.category || 'Quartz',
+            description: '',
             enabled: true,
             colours: []
+          };
+          brandMap.set(String(targetBrand.id), targetBrand);
+        }
+
+        if (targetBrand) {
+          targetBrand.colours.push({
+            id: c.id,
+            brand_id: c.brand_id,
+            name: c.name,
+            sku: c.sku || '',
+            finish: c.finish || 'Polished',
+            thickness: c.thickness || '20mm',
+            price_tier: c.price_tier || 'Standard',
+            price_per_m2: c.price_per_m2 || 150,
+            image_url: c.image_url || 'images/placeholder-kitchen.jpg',
+            texture: c.texture || 'marble',
+            enabled: true
           });
-        });
+        }
+      });
 
-        dbColours.forEach(c => {
-          if (!c || !c.name) return;
-          const rawBrandId = String(c.brand_id || '').toLowerCase().trim();
-          const rawBrandName = String(c.brand_name || '').toLowerCase().trim();
-
-          let targetBrand = null;
-          for (const b of brandMap.values()) {
-            const bId = String(b.id || '').toLowerCase().trim();
-            const bName = String(b.name || '').toLowerCase().trim();
-
-            if (
-              (rawBrandId && (rawBrandId === bId || rawBrandId === bName)) ||
-              (rawBrandName && (rawBrandName === bName || rawBrandName === bId))
-            ) {
-              targetBrand = b;
-              break;
-            }
-          }
-
-          if (!targetBrand && (c.brand_name || c.brand_id)) {
-            const bName = c.brand_name || c.brand_id;
-            targetBrand = {
-              id: c.brand_id || bName,
-              name: bName,
-              category: c.category || 'Quartz',
-              description: '',
-              enabled: true,
-              colours: []
-            };
-            brandMap.set(String(targetBrand.id), targetBrand);
-          }
-
-          if (targetBrand) {
-            targetBrand.colours.push({
-              id: c.id,
-              brand_id: c.brand_id,
-              name: c.name,
-              sku: c.sku || '',
-              finish: c.finish || 'Polished',
-              thickness: c.thickness || '20mm',
-              price_tier: c.price_tier || 'Standard',
-              price_per_m2: c.price_per_m2 || 150,
-              image_url: c.image_url || 'images/placeholder-kitchen.jpg',
-              texture: c.texture || 'marble',
-              enabled: true
-            });
-          }
-        });
-
-        const resultBrands = Array.from(brandMap.values());
-        if (resultBrands.length > 0) return resultBrands;
-      }
+      return Array.from(brandMap.values());
     } catch(e) {
-      console.warn('[App Brands] Supabase fetch notice:', e);
+      console.error('[App Brands] Supabase fetch error:', e);
+      return [];
     }
   }
 
-  return DEFAULT_BRANDS;
+  return [];
 }
 
 async function getAllStones() {
