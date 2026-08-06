@@ -9,7 +9,7 @@
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 
 // @ts-ignore
 declare const Deno: any;
@@ -119,6 +119,7 @@ serve(async (req: Request) => {
       formData.append('mask', maskBlob, 'mask.png');
     }
 
+    formData.append('model', body.model || 'dall-e-2');
     formData.append('prompt', body.prompt);
     formData.append('n', '1');
     formData.append('size', '1024x1024');
@@ -136,11 +137,11 @@ serve(async (req: Request) => {
     let resData = await openAiRes.json().catch(() => ({}));
     console.log("[OpenAI Proxy] OpenAI Response Status:", openAiRes.status);
 
-    // ── 4. Fallback to DALL-E 3 Generation if Image Edit is unavailable ────────
+    // ── 4. Fallback to DALL-E 2 Generation if Image Edit is unavailable ────────
     if (!openAiRes.ok) {
-      console.warn("[OpenAI Proxy] v1/images/edits failed, falling back to DALL-E 3 generation:", JSON.stringify(resData));
+      console.warn("[OpenAI Proxy] v1/images/edits failed, falling back to DALL-E 2 generation:", JSON.stringify(resData));
       const dallePayload = {
-        model: "dall-e-3",
+        model: body.fallback_model || "dall-e-2",
         prompt: body.prompt,
         n: 1,
         size: "1024x1024"
@@ -155,7 +156,7 @@ serve(async (req: Request) => {
         body: JSON.stringify(dallePayload)
       });
       resData = await openAiRes.json().catch(() => ({}));
-      console.log("[OpenAI Proxy] DALL-E 3 Fallback Status:", openAiRes.status);
+      console.log("[OpenAI Proxy] DALL-E 2 Fallback Status:", openAiRes.status);
     }
 
     if (!openAiRes.ok) {
