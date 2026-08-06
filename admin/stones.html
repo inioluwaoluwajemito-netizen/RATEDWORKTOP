@@ -460,7 +460,8 @@ async function renderBrands(customBrands = null) {
       </div>
       <div class="colours-grid" id="colours-${brand.id}">
         ${brand.colours.map(c => {
-          const swatchStyle = c.image_url ? `background-image:url('${c.image_url}');background-size:cover;background-position:center;` : `background:${textures[c.texture] || textures.marble}`;
+          const imgUrl = (typeof getStoneImage === 'function') ? getStoneImage(c.sku, c) : (c.image_url || 'images/stones/eternal_calacatta_gold.png');
+          const swatchStyle = `background-image:url('${imgUrl}');background-size:cover;background-position:center;`;
           return `
           <div class="colour-chip ${c.enabled ? '' : 'disabled'}">
             <div class="colour-swatch" style="${swatchStyle}"></div>

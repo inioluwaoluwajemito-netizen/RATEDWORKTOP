@@ -1140,10 +1140,8 @@ async function getBrands() {
         supabaseClient.from('colours').select('*')
       ]).catch(() => [{ data: null }, { data: null }]);
 
-      const removedBrandNames = ['silestone', 'neolith', 'topstone', 'top stone', 'dekton', 'caesarstone', 'calacatta premium'];
-
       const dbBrands = (bRes && !bRes.error && bRes.data) 
-        ? bRes.data.filter(b => b && b.name && b.enabled !== false && !removedBrandNames.includes((b.name || '').toLowerCase().trim())) 
+        ? bRes.data.filter(b => b && b.name && b.enabled !== false) 
         : [];
       const dbColours = (cRes && !cRes.error && cRes.data) 
         ? cRes.data.filter(c => c && c.name && c.enabled !== false) 

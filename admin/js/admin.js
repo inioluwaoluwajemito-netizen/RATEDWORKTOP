@@ -606,8 +606,7 @@ async function fetchBrands() {
       ]);
       
       if (bRes && !bRes.error && bRes.data) {
-        const removedBrandNames = ['silestone', 'neolith', 'topstone', 'top stone', 'dekton', 'caesarstone', 'calacatta premium'];
-        const dbBrands = bRes.data.filter(b => b && b.name && !removedBrandNames.includes(b.name.toLowerCase().trim()));
+        const dbBrands = bRes.data.filter(b => b && b.name);
         const dbColours = (cRes && !cRes.error && cRes.data) ? cRes.data : [];
 
         const brandMap = new Map();
