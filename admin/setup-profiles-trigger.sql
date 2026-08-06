@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     full_name TEXT,
     name TEXT,
     plan TEXT DEFAULT 'Free',
-    credits INT DEFAULT 10,
+    credits INT DEFAULT 0,
     visualisations INT DEFAULT 0,
     downloads INT DEFAULT 0,
     shares INT DEFAULT 0,
@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure existing table column default for credits is set to 0
+ALTER TABLE public.profiles ALTER COLUMN credits SET DEFAULT 0;
 
 -- Enable RLS on profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
