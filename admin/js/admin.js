@@ -1337,6 +1337,36 @@ async function saveBrandToDB(brand) {
   try { localStorage.setItem('rw_local_brands', JSON.stringify(localBrands)); } catch(e) {}
 
   // Sync brand record into rw_brands
+async function saveBrandToDB(brand) {
+  let brandId = brand.id;
+  if (!brandId || isNaN(Number(brandId))) {
+    try {
+      if (supabaseClient) {
+        const { data } = await supabaseClient.from('brands').select('id').order('id', { ascending: false }).limit(1);
+        if (data && data[0] && typeof data[0].id === 'number') {
+          brandId = data[0].id + 1;
+        } else {
+          brandId = Math.floor(Date.now() / 1000);
+        }
+      } else {
+        brandId = Math.floor(Date.now() / 1000);
+      }
+    } catch(e) {
+      brandId = Math.floor(Date.now() / 1000);
+    }
+  } else {
+    brandId = Number(brandId);
+  }
+
+  const fullBrandRecord = {
+    id: brandId,
+    name: brand.name,
+    category: brand.category || 'Quartz',
+    description: brand.description || '',
+    enabled: brand.enabled !== false,
+    colours: brand.colours || []
+  };
+
   let rwBrands = safeGetLocalStorage('rw_brands');
   const bIdx = rwBrands.findIndex(b => b.id == brandId || (b.name && b.name.toLowerCase() === brand.name.toLowerCase()));
   if (bIdx >= 0) {
@@ -1360,6 +1390,8 @@ async function saveBrandToDB(brand) {
     }]);
     if (err) {
       console.warn('[Admin saveBrandToDB] DB write notice:', err);
+    } else {
+      console.log('[Admin saveBrandToDB] Successfully persisted brand to Supabase:', brandId, brand.name);
     }
   } catch(e) {
     console.warn('[Admin saveBrandToDB] DB write notice:', e);
@@ -1397,8 +1429,19 @@ async function deleteBrandFromDB(id, brandName) {
   // 2. Remove from Supabase DB
   if (!supabaseClient) return;
   try {
-    await supabaseClient.from('colours').delete().eq('brand_id', id);
-    await supabaseClient.from('brands').delete().eq('id', id);
+    const numericId = Number(id);
+    if (!isNaN(numericId)) {
+      const { error: cErr } = await supabaseClient.from('colours').delete().eq('brand_id', numericId);
+      if (cErr) console.warn('[deleteBrandFromDB] colours delete notice:', cErr);
+
+      const { error: bErr } = await supabaseClient.from('brands').delete().eq('id', numericId);
+      if (bErr) console.warn('[deleteBrandFromDB] brands delete notice:', bErr);
+    }
+    if (brandName) {
+      await supabaseClient.from('colours').delete().eq('brand_name', brandName);
+      await supabaseClient.from('brands').delete().eq('name', brandName);
+    }
+    console.log('[deleteBrandFromDB] Successfully deleted brand from Supabase:', id, brandName);
   } catch(e) {
     console.warn('[deleteBrandFromDB] DB delete notice:', e);
   }
@@ -1408,10 +1451,31 @@ async function saveColourToDB(colour) {
   let localColours = [];
   try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
 
-  const colId = colour.id || ('col_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36));
+  let colId = colour.id;
+  if (!colId || isNaN(Number(colId))) {
+    try {
+      if (supabaseClient) {
+        const { data } = await supabaseClient.from('colours').select('id').order('id', { ascending: false }).limit(1);
+        if (data && data[0] && typeof data[0].id === 'number') {
+          colId = data[0].id + 1;
+        } else {
+          colId = Math.floor(Date.now() / 1000);
+        }
+      } else {
+        colId = Math.floor(Date.now() / 1000);
+      }
+    } catch(e) {
+      colId = Math.floor(Date.now() / 1000);
+    }
+  } else {
+    colId = Number(colId);
+  }
+
+  const numericBrandId = Number(colour.brand_id) || colour.brand_id;
+
   const fullColourRecord = {
     id: colId,
-    brand_id: colour.brand_id,
+    brand_id: numericBrandId,
     brand_name: colour.brand_name || '',
     name: colour.name,
     sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
@@ -1429,7 +1493,6 @@ async function saveColourToDB(colour) {
   }
   try { localStorage.setItem('rw_local_colours', JSON.stringify(localColours)); } catch(e) { console.warn('[saveColourToDB] Local storage notice:', e); }
 
-  // Instantly merge into rw_brands so brand objects in localStorage carry the new colour
   try { syncColoursToBrands([fullColourRecord]); } catch(e) {}
 
   if (!supabaseClient) return fullColourRecord;
@@ -1437,7 +1500,7 @@ async function saveColourToDB(colour) {
   try {
     const { error: err } = await supabaseClient.from('colours').upsert([{
       id: colId,
-      brand_id: colour.brand_id,
+      brand_id: numericBrandId,
       brand_name: colour.brand_name || '',
       name: colour.name,
       sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
@@ -1446,7 +1509,11 @@ async function saveColourToDB(colour) {
       image_url: colour.image_url || '',
       enabled: colour.enabled !== false
     }]);
-    if (err) console.warn('[Admin saveColourToDB] DB write notice:', err);
+    if (err) {
+      console.warn('[Admin saveColourToDB] DB write notice:', err);
+    } else {
+      console.log('[Admin saveColourToDB] Successfully persisted colour to Supabase:', colId, colour.name);
+    }
   } catch (dbErr) {
     console.warn('[Admin saveColourToDB] DB write notice:', dbErr);
   }
@@ -1455,14 +1522,12 @@ async function saveColourToDB(colour) {
 }
 
 async function deleteColourFromDB(id, brandId, colourName) {
-  // 1. Remove from rw_local_colours
   try {
     let localCols = safeGetLocalStorage('rw_local_colours');
     localCols = localCols.filter(c => c.id != id && String(c.id) !== String(id));
     localStorage.setItem('rw_local_colours', JSON.stringify(localCols));
   } catch(e) {}
 
-  // 2. Remove colour from embedded array inside rw_brands and rw_local_brands
   function purgeColourFromBrands(key) {
     try {
       let brands = safeGetLocalStorage(key);
@@ -1490,10 +1555,17 @@ async function deleteColourFromDB(id, brandId, colourName) {
     } catch(e) {}
   }
 
-  // 3. Remove from Supabase DB
   if (!supabaseClient) return;
   try {
-    await supabaseClient.from('colours').delete().eq('id', id);
+    const numericId = Number(id);
+    if (!isNaN(numericId)) {
+      const { error: err } = await supabaseClient.from('colours').delete().eq('id', numericId);
+      if (err) console.warn('[deleteColourFromDB] DB delete notice:', err);
+    }
+    if (colourName) {
+      await supabaseClient.from('colours').delete().eq('name', colourName);
+    }
+    console.log('[deleteColourFromDB] Successfully deleted colour from Supabase:', id, colourName);
   } catch(e) {
     console.warn('[deleteColourFromDB] DB delete notice:', e);
   }
