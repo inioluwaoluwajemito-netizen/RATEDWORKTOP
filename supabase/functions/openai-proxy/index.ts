@@ -119,7 +119,7 @@ serve(async (req: Request) => {
       formData.append('mask', maskBlob, 'mask.png');
     }
 
-    formData.append('model', body.model || 'dall-e-2');
+    formData.append('model', body.model || 'gpt-image-1');
     formData.append('prompt', body.prompt);
     formData.append('n', '1');
     formData.append('size', '1024x1024');
@@ -137,11 +137,11 @@ serve(async (req: Request) => {
     let resData = await openAiRes.json().catch(() => ({}));
     console.log("[OpenAI Proxy] OpenAI Response Status:", openAiRes.status);
 
-    // ── 4. Fallback to DALL-E 2 Generation if Image Edit is unavailable ────────
+    // ── 4. Fallback to GPT Image Generation if Image Edit is unavailable ────────
     if (!openAiRes.ok) {
-      console.warn("[OpenAI Proxy] v1/images/edits failed, falling back to DALL-E 2 generation:", JSON.stringify(resData));
+      console.warn("[OpenAI Proxy] v1/images/edits failed, falling back to gpt-image-1 generation:", JSON.stringify(resData));
       const dallePayload = {
-        model: body.fallback_model || "dall-e-2",
+        model: body.fallback_model || "gpt-image-1",
         prompt: body.prompt,
         n: 1,
         size: "1024x1024"
@@ -156,7 +156,7 @@ serve(async (req: Request) => {
         body: JSON.stringify(dallePayload)
       });
       resData = await openAiRes.json().catch(() => ({}));
-      console.log("[OpenAI Proxy] DALL-E 2 Fallback Status:", openAiRes.status);
+      console.log("[OpenAI Proxy] GPT Image Fallback Status:", openAiRes.status);
     }
 
     if (!openAiRes.ok) {
