@@ -122,7 +122,6 @@ serve(async (req: Request) => {
     formData.append('prompt', body.prompt);
     formData.append('n', '1');
     formData.append('size', '1024x1024');
-    formData.append('response_format', 'b64_json');
 
     console.log("[OpenAI Proxy] Sending request to OpenAI v1/images/edits ...");
 
@@ -144,8 +143,7 @@ serve(async (req: Request) => {
         model: "dall-e-3",
         prompt: body.prompt,
         n: 1,
-        size: "1024x1024",
-        response_format: "b64_json"
+        size: "1024x1024"
       };
 
       openAiRes = await fetch("https://api.openai.com/v1/images/generations", {
@@ -169,17 +167,16 @@ serve(async (req: Request) => {
       });
     }
 
-    const b64Data = resData.data?.[0]?.b64_json;
-    if (!b64Data) {
+    const imageUrl = resData.data?.[0]?.url || (resData.data?.[0]?.b64_json ? `data:image/png;base64,${resData.data[0].b64_json}` : null);
+    if (!imageUrl) {
       return new Response(JSON.stringify({ error: { message: "OpenAI returned no image data." } }), {
         status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    const finalUrl = `data:image/png;base64,${b64Data}`;
-    console.log("[OpenAI Proxy] OpenAI Inpainting generated successfully, data URI length:", finalUrl.length);
+    console.log("[OpenAI Proxy] OpenAI Inpainting generated successfully");
 
-    return new Response(JSON.stringify({ data: [{ url: finalUrl }] }), {
+    return new Response(JSON.stringify({ data: [{ url: imageUrl }] }), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
