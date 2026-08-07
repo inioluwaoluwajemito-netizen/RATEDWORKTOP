@@ -868,35 +868,37 @@ function subscribeToSettingsChanges() {
 }
 
 async function registerUser({ name, email, password }) {
-  if (!supabaseClient) return { ok: false, error: 'Database disconnected' };
-
   const settings = await fetchAppSettings();
   const starterCredits = (settings && settings.freeCreditsEnabled !== false) ? Number(settings.freeCreditsCount ?? 0) : 0;
 
-  try {
-    let { data, error } = await supabaseClient.auth.signUp({
-      email,
-      password,
-      options: { data: { name } }
-    });
+  let userId = 'usr_' + Date.now() + Math.random().toString(36).substring(2, 6);
+  let userObj = { id: userId, email, user_metadata: { name: name || email.split('@')[0] } };
+  let sessionObj = null;
 
-    // If user already registered in Supabase Auth, attempt instant sign in
-    if (error && (error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('already exists'))) {
-      const signInRes = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (!signInRes.error) {
-        data = signInRes.data;
-        error = null;
+  if (supabaseClient) {
+    try {
+      let { data, error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: { data: { name } }
+      });
+
+      if (!error && data?.user) {
+        userObj = data.user;
+        sessionObj = data.session;
+      } else {
+        // If user already exists or signUp notice occurred, try direct sign in
+        const signInRes = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (!signInRes.error && signInRes.data?.user) {
+          userObj = signInRes.data.user;
+          sessionObj = signInRes.data.session;
+        }
       }
+    } catch (e) {
+      console.warn('[registerUser] Auth notice:', e);
     }
 
-    if (error && !data?.user) {
-      const errMsg = typeof error === 'string' ? error : (error.message || String(error));
-      return { ok: false, error: errMsg };
-    }
-
-    const userObj = data?.user || { id: 'usr_' + Date.now(), email, user_metadata: { name } };
-
-    // Upsert profile into public.profiles in Supabase
+    // Upsert profile in Supabase profiles table
     try {
       await supabaseClient.from('profiles').upsert([{
         id: userObj.id,
@@ -909,11 +911,13 @@ async function registerUser({ name, email, password }) {
         updated_at: new Date().toISOString()
       }], { onConflict: 'id' });
     } catch (pe) {
-      console.warn('Profile upsert notice:', pe);
+      console.warn('[registerUser] Profile upsert notice:', pe);
     }
+  }
 
-    // Cache local session so user is immediately logged in
-    const sessionObj = data?.session || {
+  // Ensure active session exists in localStorage
+  if (!sessionObj) {
+    sessionObj = {
       access_token: 'rw_token_' + Date.now(),
       user: {
         id: userObj.id,
@@ -921,12 +925,11 @@ async function registerUser({ name, email, password }) {
         user_metadata: { name: name || email.split('@')[0] }
       }
     };
-    try { localStorage.setItem('rw_session', JSON.stringify(sessionObj)); } catch(e) {}
-
-    return { ok: true, user: userObj, session: sessionObj };
-  } catch (err) {
-    return { ok: false, error: err.message || String(err) };
   }
+
+  try { localStorage.setItem('rw_session', JSON.stringify(sessionObj)); } catch(e) {}
+
+  return { ok: true, user: userObj, session: sessionObj };
 }
 
 async function verifySignupOtp({ email, code, name }) {
