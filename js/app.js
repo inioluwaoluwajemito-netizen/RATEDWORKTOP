@@ -739,18 +739,32 @@ const store = {
 // ── Auth helpers ──────────────────────────────
 async function getCurrentUser() {
   if (!supabaseClient) return null;
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session) return null;
-  
-  // Fetch full profile from public.profiles
-  const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).single();
-  const user = profile ? { ...profile, email: session.user.email } : session.user;
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session && session.user) {
+      const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+      const user = profile ? { ...profile, email: session.user.email } : session.user;
 
-  if (typeof migrateLocalStorageToSupabase === 'function') {
-    migrateLocalStorageToSupabase(user).catch(() => {});
+      if (typeof migrateLocalStorageToSupabase === 'function') {
+        migrateLocalStorageToSupabase(user).catch(() => {});
+      }
+      return user;
+    }
+  } catch (e) {
+    console.warn('Get current session notice:', e);
   }
 
-  return user;
+  // Fallback to local session storage
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const localSess = JSON.parse(localStorage.getItem('rw_session') || 'null');
+      if (localSess && localSess.user) {
+        return localSess.user;
+      }
+    } catch(e) {}
+  }
+
+  return null;
 }
 
 async function requireAuth(redirect = 'login.html') {
@@ -758,19 +772,6 @@ async function requireAuth(redirect = 'login.html') {
   if (!user) {
     window.location.href = redirect;
     return null;
-  }
-  // Fetch active session user details to inspect confirmation status
-  if (supabaseClient && typeof supabaseClient.auth !== 'undefined' && useRealSupabase) {
-    try {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session && session.user && !session.user.email_confirmed_at) {
-        await logout();
-        window.location.href = redirect + '?unverified=true';
-        return null;
-      }
-    } catch (e) {
-      console.error('Session guard check failed:', e);
-    }
   }
   return user;
 }
