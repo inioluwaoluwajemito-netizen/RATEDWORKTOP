@@ -20,6 +20,14 @@ function safeGetLocalStorage(key, fallback = []) {
   }
 }
 
+function safeSetLocalStorage(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn('[safeSetLocalStorage] Storage write failed:', e);
+  }
+}
+
 function safeToISOString(dateStr) {
   if (!dateStr) return new Date().toISOString();
   try {
@@ -972,6 +980,9 @@ async function logout() {
       await mockClient.auth.signOut();
     }
   } catch (e) {}
+  // Clear ALL auth state so requireAuth() doesn't bypass
+  localStorage.removeItem('rw_admin_logged_in');
+  localStorage.removeItem('rw_session');
   window.location.href = 'index.html';
 }
 
@@ -1272,7 +1283,7 @@ async function fetchUsers() {
         shares: p.shares || 0,
         status: p.status || 'active',
         joined: p.created_at || new Date().toISOString(),
-        lastLogin: p.updated_at || p.created_at || new Date().toISOString()
+        lastActive: p.updated_at || p.created_at || new Date().toISOString()
       }));
       store.set('users', dbUsers);
       return dbUsers;
@@ -1315,29 +1326,6 @@ function normalizeSettingsData(data) {
 
 // ── Async Admin Write Helpers ─────────────────
 async function saveBrandToDB(brand) {
-  let localBrands = [];
-  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
-
-  const brandId = brand.id || ('brand_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36));
-  const fullBrandRecord = {
-    id: brandId,
-    name: brand.name,
-    category: brand.category || 'Quartz',
-    description: brand.description || '',
-    enabled: brand.enabled !== false,
-    colours: brand.colours || []
-  };
-
-  const existingIdx = localBrands.findIndex(b => b.id == brandId || (b.name && b.name.toLowerCase() === brand.name.toLowerCase()));
-  if (existingIdx >= 0) {
-    localBrands[existingIdx] = fullBrandRecord;
-  } else {
-    localBrands.unshift(fullBrandRecord);
-  }
-  try { localStorage.setItem('rw_local_brands', JSON.stringify(localBrands)); } catch(e) {}
-
-  // Sync brand record into rw_brands
-async function saveBrandToDB(brand) {
   let brandId = brand.id;
   if (!brandId || isNaN(Number(brandId))) {
     try {
@@ -1367,6 +1355,18 @@ async function saveBrandToDB(brand) {
     colours: brand.colours || []
   };
 
+  // Sync to local brands cache
+  let localBrands = [];
+  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
+  const localIdx = localBrands.findIndex(b => b.id == brandId || (b.name && b.name.toLowerCase() === brand.name.toLowerCase()));
+  if (localIdx >= 0) {
+    localBrands[localIdx] = fullBrandRecord;
+  } else {
+    localBrands.unshift(fullBrandRecord);
+  }
+  try { localStorage.setItem('rw_local_brands', JSON.stringify(localBrands)); } catch(e) {}
+
+  // Sync to rw_brands
   let rwBrands = safeGetLocalStorage('rw_brands');
   const bIdx = rwBrands.findIndex(b => b.id == brandId || (b.name && b.name.toLowerCase() === brand.name.toLowerCase()));
   if (bIdx >= 0) {
@@ -1849,6 +1849,164 @@ function drawMiniBarChart(canvas, data, color = '#c9a96e') {
   });
 }
 
+// ── Notification System ───────────────────────
+const _adminNotifications = [];
+
+function getNotifIcon(type) {
+  const icons = {
+    user: `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`,
+    subscription: `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>`,
+    credit: `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
+    settings: `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
+    warning: `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    stone: `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`
+  };
+  return icons[type] || icons.user;
+}
+
+function getNotifStyle(type) {
+  const styles = {
+    user: { bg: 'rgba(201,169,110,0.15)', color: 'var(--gold)' },
+    subscription: { bg: 'rgba(74,222,128,0.15)', color: '#4ade80' },
+    credit: { bg: 'rgba(96,165,250,0.15)', color: '#60a5fa' },
+    settings: { bg: 'rgba(251,191,36,0.15)', color: '#fbbf24' },
+    warning: { bg: 'rgba(248,113,113,0.15)', color: 'var(--danger)' },
+    stone: { bg: 'rgba(167,139,250,0.15)', color: '#a78bfa' }
+  };
+  return styles[type] || styles.user;
+}
+
+function formatTimeAgo(date) {
+  const now = new Date();
+  const diff = Math.floor((now - new Date(date)) / 1000);
+  if (diff < 60) return 'Just now';
+  if (diff < 3600) return Math.floor(diff / 60) + ' mins ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + ' hours ago';
+  return Math.floor(diff / 86400) + ' days ago';
+}
+
+function addNotification(text, type = 'user', timestamp = null) {
+  const notif = {
+    id: Date.now() + Math.random(),
+    text,
+    type,
+    timestamp: timestamp || new Date().toISOString(),
+    unread: true
+  };
+  _adminNotifications.unshift(notif);
+  // Keep max 50 notifications
+  if (_adminNotifications.length > 50) _adminNotifications.pop();
+  renderNotifications();
+  // Show notification dot
+  const dot = document.getElementById('notif-dot');
+  if (dot) dot.style.display = 'block';
+  // Show toast for live events
+  if (typeof showToast === 'function') {
+    showToast(text, 'info');
+  }
+}
+
+function renderNotifications() {
+  const list = document.querySelector('.notif-list');
+  if (!list) return;
+
+  if (_adminNotifications.length === 0) {
+    list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No notifications yet</div>`;
+    return;
+  }
+
+  list.innerHTML = _adminNotifications.slice(0, 20).map(n => {
+    const style = getNotifStyle(n.type);
+    const icon = getNotifIcon(n.type);
+    return `
+      <div class="notif-item${n.unread ? ' unread' : ''}">
+        <div class="notif-icon-circle" style="background:${style.bg};color:${style.color}">${icon}</div>
+        <div class="notif-content">
+          <div class="notif-text">${n.text}</div>
+          <div class="notif-time">${formatTimeAgo(n.timestamp)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function setupRealtimeNotifications() {
+  if (!supabaseClient || !useRealSupabase) return;
+
+  try {
+    // Listen for new user registrations
+    supabaseClient
+      .channel('admin-profiles')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'profiles' }, (payload) => {
+        const p = payload.new;
+        const name = p.name || p.full_name || (p.email ? p.email.split('@')[0] : 'Unknown');
+        addNotification(`New user registered: <strong>${name}</strong> (${p.email || 'unknown'})`, 'user', p.created_at);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+        const p = payload.new;
+        const old = payload.old;
+        const name = p.name || p.full_name || (p.email ? p.email.split('@')[0] : 'Unknown');
+        // Plan change
+        if (old && old.plan !== p.plan) {
+          addNotification(`<strong>${name}</strong> changed plan: ${old.plan} → ${p.plan}`, 'subscription', p.updated_at);
+        }
+        // Credit change
+        if (old && old.credits !== undefined && p.credits !== undefined && old.credits !== p.credits) {
+          const diff = p.credits - old.credits;
+          const direction = diff > 0 ? 'gained' : 'used';
+          addNotification(`<strong>${name}</strong> ${direction} ${Math.abs(diff)} credits (now ${p.credits})`, 'credit', p.updated_at);
+        }
+        // Status change
+        if (old && old.status !== p.status) {
+          addNotification(`<strong>${name}</strong> status changed to <strong>${p.status}</strong>`, 'warning', p.updated_at);
+        }
+      })
+      .subscribe();
+
+    // Listen for settings changes
+    supabaseClient
+      .channel('admin-settings')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'settings' }, (payload) => {
+        addNotification('Platform settings were updated', 'settings');
+      })
+      .subscribe();
+
+    // Listen for brand/colour changes
+    supabaseClient
+      .channel('admin-brands')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'brands' }, (payload) => {
+        const b = payload.new;
+        addNotification(`New brand added: <strong>${b.name || 'Unknown'}</strong>`, 'stone');
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'colours' }, (payload) => {
+        const c = payload.new;
+        addNotification(`New stone colour added: <strong>${c.name || 'Unknown'}</strong>`, 'stone');
+      })
+      .subscribe();
+
+    console.log('[Admin] Realtime notifications connected');
+  } catch (e) {
+    console.warn('[Admin] Realtime setup notice:', e);
+  }
+}
+
+// Load saved notifications from localStorage on startup
+function loadSavedNotifications() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('rw_admin_notifications') || '[]');
+    if (Array.isArray(saved) && saved.length > 0) {
+      saved.forEach(n => _adminNotifications.push(n));
+    }
+  } catch (e) {}
+}
+
+// Save notifications to localStorage periodically
+function saveNotifications() {
+  try {
+    localStorage.setItem('rw_admin_notifications', JSON.stringify(_adminNotifications.slice(0, 50)));
+  } catch (e) {}
+}
+
 // ── On DOM ready ──────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   seedData();
@@ -1860,6 +2018,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (menuBtn && sidebar) {
     menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
   }
+
+  // Load saved notifications and render
+  loadSavedNotifications();
+  renderNotifications();
+
+  // Setup Supabase Realtime listeners for live notifications
+  setupRealtimeNotifications();
+
+  // Save notifications every 30 seconds
+  setInterval(saveNotifications, 30000);
 
   // Notifications dropdown toggle
   const notifBtn = document.getElementById('notif-btn');
@@ -1884,9 +2052,9 @@ document.addEventListener('DOMContentLoaded', () => {
       markReadBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (notifDot) notifDot.style.display = 'none';
-        document.querySelectorAll('.notif-item.unread').forEach(item => {
-          item.classList.remove('unread');
-        });
+        _adminNotifications.forEach(n => n.unread = false);
+        renderNotifications();
+        saveNotifications();
         showToast('All notifications marked as read', 'success');
       });
     }
