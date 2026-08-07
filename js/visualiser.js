@@ -498,12 +498,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   localStorage.removeItem('openai_api_key');
 
   // 1. Check Authentication
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session) {
+  const user = await getCurrentUser();
+  if (!user) {
     window.location.href = 'login.html' + window.location.search;
     return;
   }
-  currentUser = session.user;
+  currentUser = user;
 
   // Using custom HTML header markup for the visualiser view to prevent dropdown overlap
 
