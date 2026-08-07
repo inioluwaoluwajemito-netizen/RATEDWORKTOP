@@ -873,25 +873,125 @@ async function registerUser({ name, email, password }) {
   const settings = await fetchAppSettings();
   const starterCredits = (settings && settings.freeCreditsEnabled !== false) ? Number(settings.freeCreditsCount ?? 0) : 0;
 
-  const { data, error } = await supabaseClient.auth.signUp({
-    email,
-    password,
-    options: { data: { name } }
-  });
-  if (error) return { ok: false, error: error.message };
-  
-  if (data.user) {
-    // Attempt to upsert profile with exact starter credits configured by Admin
-    const { error: profileError } = await supabaseClient.from('profiles').upsert([{
-      id: data.user.id,
-      name,
+  try {
+    const { data, error } = await supabaseClient.auth.signUp({
       email,
-      plan: 'Free',
-      credits: starterCredits
-    }], { onConflict: 'id' });
-    if (profileError) console.error('Profile creation error:', profileError);
+      password,
+      options: { data: { name } }
+    });
+
+    if (error) {
+      const errMsg = typeof error === 'string' ? error : (error.message || String(error));
+      return { ok: false, error: errMsg };
+    }
+
+    if (data && data.user) {
+      // Attempt to upsert profile with exact starter credits configured by Admin
+      try {
+        await supabaseClient.from('profiles').upsert([{
+          id: data.user.id,
+          name,
+          email,
+          plan: 'Free',
+          credits: starterCredits,
+          status: 'active'
+        }], { onConflict: 'id' });
+      } catch (pe) {
+        console.warn('Profile creation notice:', pe);
+      }
+    }
+
+    return { 
+      ok: true, 
+      user: data ? data.user : null, 
+      session: data ? data.session : null,
+      requiresVerification: !(data && data.session)
+    };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
   }
-  return { ok: true, user: data.user };
+}
+
+async function verifySignupOtp({ email, code, name }) {
+  if (!supabaseClient) return { ok: false, error: 'Database disconnected' };
+  
+  const settings = await fetchAppSettings();
+  const starterCredits = (settings && settings.freeCreditsEnabled !== false) ? Number(settings.freeCreditsCount ?? 0) : 0;
+  const cleanCode = String(code || '').trim().replace(/\s+/g, '');
+
+  try {
+    // 1. Try signup OTP type
+    let { data, error } = await supabaseClient.auth.verifyOtp({
+      email,
+      token: cleanCode,
+      type: 'signup'
+    });
+
+    // 2. Fallback to email OTP type
+    if (error) {
+      const retry = await supabaseClient.auth.verifyOtp({
+        email,
+        token: cleanCode,
+        type: 'email'
+      });
+      if (!retry.error) {
+        data = retry.data;
+        error = null;
+      }
+    }
+
+    if (error) {
+      return { ok: false, error: error.message || 'Invalid or expired verification code.' };
+    }
+
+    if (data && data.user) {
+      try {
+        await supabaseClient.from('profiles').upsert([{
+          id: data.user.id,
+          name: name || data.user.user_metadata?.name || email.split('@')[0],
+          email,
+          plan: 'Free',
+          credits: starterCredits,
+          status: 'active',
+          updated_at: new Date().toISOString()
+        }], { onConflict: 'id' });
+      } catch (pe) {}
+    }
+
+    return { ok: true, user: data.user, session: data.session };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+}
+
+async function resendSignupOtp({ email }) {
+  if (!supabaseClient) return { ok: false, error: 'Database disconnected' };
+  try {
+    const { error } = await supabaseClient.auth.resend({
+      type: 'signup',
+      email
+    });
+    if (error) return { ok: false, error: error.message || String(error) };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+}
+
+async function verifyRecoveryOtp({ email, code }) {
+  if (!supabaseClient) return { ok: false, error: 'Database disconnected' };
+  const cleanCode = String(code || '').trim().replace(/\s+/g, '');
+  try {
+    const { data, error } = await supabaseClient.auth.verifyOtp({
+      email,
+      token: cleanCode,
+      type: 'recovery'
+    });
+    if (error) return { ok: false, error: error.message || String(error) };
+    return { ok: true, user: data.user, session: data.session };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
 }
 
 async function loginUser({ email, password }) {

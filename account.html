@@ -556,7 +556,7 @@
           return;
         }
 
-        // Now update the password
+        // Now update the password on Supabase Auth
         const { error } = await supabaseClient.auth.updateUser({ password: newPass });
         if (error) {
           showToast(error.message, "error");
@@ -564,6 +564,11 @@
           btn.textContent = "Update Password";
           return;
         }
+
+        // Touch updated_at in profiles table so Admin Realtime is notified
+        try {
+          await updateCurrentUser({ updated_at: new Date().toISOString() });
+        } catch(e) {}
       }
       
       document.getElementById('sec-cur-pass').value = '';
@@ -572,7 +577,7 @@
 
       btn.disabled = false;
       btn.textContent = "Update Password";
-      showToast("Password updated successfully!");
+      showToast("Password updated successfully on Supabase!");
     }
 
     async function deleteAccount() {
