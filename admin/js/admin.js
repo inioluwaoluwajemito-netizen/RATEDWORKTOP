@@ -878,12 +878,15 @@ class MockSupabaseClient {
   }
 
   async rpc(functionName, params) {
-    if (functionName === 'delete_user_completely' && params && params.user_id) {
-      try {
-        let profiles = JSON.parse(localStorage.getItem('rw_profiles') || '[]');
-        profiles = profiles.filter(p => p.id != params.user_id && String(p.id) !== String(params.user_id));
-        localStorage.setItem('rw_profiles', JSON.stringify(profiles));
-      } catch(e) {}
+    if (functionName === 'delete_user_completely' && params) {
+      const targetId = params.target_user_id || params.user_id;
+      if (targetId) {
+        try {
+          let profiles = JSON.parse(localStorage.getItem('rw_profiles') || '[]');
+          profiles = profiles.filter(p => p.id != targetId && String(p.id) !== String(targetId));
+          localStorage.setItem('rw_profiles', JSON.stringify(profiles));
+        } catch(e) {}
+      }
     }
     return { data: true, error: null };
   }
@@ -1433,22 +1436,31 @@ async function deleteBrandFromDB(id, brandName) {
   // 2. Remove from Supabase DB
   if (!supabaseClient) return;
   try {
+    const strId = String(id);
     const numericId = Number(id);
-    if (!isNaN(numericId)) {
-      const { error: cErr } = await supabaseClient.from('colours').delete().eq('brand_id', numericId);
-      if (cErr) console.error('[deleteBrandFromDB] colours delete error:', cErr);
 
-      const { error: bErr } = await supabaseClient.from('brands').delete().eq('id', numericId);
-      if (bErr) {
-        console.error('[deleteBrandFromDB] brands delete error:', bErr);
-        if (typeof showToast === 'function') showToast('Failed to delete brand from Supabase: ' + bErr.message, 'error');
-        throw new Error('Supabase brand delete failed: ' + bErr.message);
-      }
+    // Delete associated colours first
+    await supabaseClient.from('colours').delete().eq('brand_id', strId);
+    if (!isNaN(numericId)) {
+      await supabaseClient.from('colours').delete().eq('brand_id', numericId);
+    }
+
+    // Delete brand
+    const { error: bErr } = await supabaseClient.from('brands').delete().eq('id', strId);
+    if (!isNaN(numericId)) {
+      await supabaseClient.from('brands').delete().eq('id', numericId);
     }
     if (brandName) {
       await supabaseClient.from('colours').delete().eq('brand_name', brandName);
       await supabaseClient.from('brands').delete().eq('name', brandName);
     }
+
+    if (bErr && isNaN(numericId)) {
+      console.error('[deleteBrandFromDB] brands delete error:', bErr);
+      if (typeof showToast === 'function') showToast('Failed to delete brand from Supabase: ' + bErr.message, 'error');
+      throw new Error('Supabase brand delete failed: ' + bErr.message);
+    }
+
     console.log('[deleteBrandFromDB] Successfully deleted brand from Supabase:', id, brandName);
   } catch(e) {
     console.error('[deleteBrandFromDB] DB delete exception:', e);
@@ -1571,10 +1583,14 @@ async function deleteColourFromDB(id, brandId, colourName) {
 
   if (!supabaseClient) return;
   try {
+    const strId = String(id);
     const numericId = Number(id);
+
+    const { error: err } = await supabaseClient.from('colours').delete().eq('id', strId);
+    if (err) console.warn('[deleteColourFromDB] DB delete notice:', err);
+
     if (!isNaN(numericId)) {
-      const { error: err } = await supabaseClient.from('colours').delete().eq('id', numericId);
-      if (err) console.warn('[deleteColourFromDB] DB delete notice:', err);
+      await supabaseClient.from('colours').delete().eq('id', numericId);
     }
     if (colourName) {
       await supabaseClient.from('colours').delete().eq('name', colourName);
@@ -1618,7 +1634,7 @@ async function saveCategoryToDB(cat) {
   if (!supabaseClient) return fullCatRecord;
   try {
     const { error: err } = await supabaseClient.from('categories').upsert([{
-      id: catId,
+      id: String(catId),
       name: cat.name,
       icon: cat.icon || '🪨',
       enabled: cat.enabled !== false,
@@ -1640,7 +1656,12 @@ async function deleteCategoryFromDB(id) {
 
   if (!supabaseClient) return;
   try {
-    await supabaseClient.from('categories').delete().eq('id', id);
+    const strId = String(id);
+    const numericId = Number(id);
+    await supabaseClient.from('categories').delete().eq('id', strId);
+    if (!isNaN(numericId)) {
+      await supabaseClient.from('categories').delete().eq('id', numericId);
+    }
   } catch(e) {
     console.warn('[deleteCategoryFromDB] DB delete notice:', e);
   }
