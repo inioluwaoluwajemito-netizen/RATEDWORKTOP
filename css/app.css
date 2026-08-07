@@ -329,13 +329,15 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 /* ── AUTH PAGES ──────────────────────────────── */
 .auth-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
-  background: transparent;
   position: relative;
-  overflow: hidden;
+  z-index: 1;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .auth-bg {
@@ -343,7 +345,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-image: linear-gradient(rgba(9, 9, 15, 0.45), rgba(9, 9, 15, 0.8)), url('../images/login-bg.png');
+  background-image: linear-gradient(rgba(9, 9, 15, 0.65), rgba(9, 9, 15, 0.85)), url('../images/login-bg.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -361,15 +363,18 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 
 .auth-card {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: 100%;
-  max-width: 460px;
-  background: rgba(15,15,24,0.9);
+  max-width: 480px;
+  margin: 0 auto;
+  background: rgba(15,15,24,0.92);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: 40px;
   backdrop-filter: blur(24px);
-  box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 32px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.05);
+  box-sizing: border-box;
 }
 
 .auth-logo {
