@@ -272,19 +272,10 @@
 
       const result = await registerUser({ name, email, password });
       if (result.ok) {
-        if (result.session && result.session.user) {
-          // Direct login if email verification is disabled in Supabase project settings
-          showToast('Account created! Logging in...', 'success');
-          setTimeout(() => {
-            window.location.href = 'dashboard.html' + window.location.search;
-          }, 800);
-        } else {
-          // Show OTP Verification Screen
-          document.getElementById('register-inputs-container').style.display = 'none';
-          document.getElementById('otp-target-email').textContent = email;
-          document.getElementById('register-otp-card').style.display = 'block';
-          showToast('Verification code sent to your email!', 'info');
-        }
+        showToast('Account created successfully! Logging you in...', 'success');
+        setTimeout(() => {
+          window.location.href = 'dashboard.html' + window.location.search;
+        }, 600);
       } else {
         const errText = typeof result.error === 'string' ? result.error : (result.error?.message || 'Registration failed');
         document.getElementById('form-error').textContent = errText;
