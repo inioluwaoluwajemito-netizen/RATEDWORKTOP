@@ -361,10 +361,15 @@
 
       grid.innerHTML = filtered.map(stone => {
         const imgUrl = getStoneImage(stone.sku, stone);
+        // Determine if the return is a CSS gradient or an image URL
+        const isGradient = imgUrl.startsWith('linear-gradient') || imgUrl.startsWith('radial-gradient');
+        const bgStyle = isGradient 
+          ? `background: ${imgUrl};` 
+          : `background-image: url('${imgUrl}'); background-size: cover; background-position: center;`;
         return `
           <div class="stone-card">
             <!-- Normal view state -->
-            <div class="stone-img" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
+            <div class="stone-img" style="${bgStyle}"></div>
             <div class="stone-card-body">
               <div class="stone-card-name">${stone.name}</div>
               <div class="stone-card-brand">${stone.brand}</div>

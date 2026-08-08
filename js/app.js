@@ -1179,39 +1179,7 @@ function seedAppData() {
 }
 
 // ── Stone helpers ─────────────────────────────
-async function getAllStones() {
-  const brands = await getBrands();
-  const stones = [];
-  brands.forEach(brand => {
-    if (brand && brand.colours && Array.isArray(brand.colours)) {
-      brand.colours.forEach(colour => {
-        if (colour && colour.enabled !== false) {
-          stones.push({
-            id: `${brand.id}-${colour.id}`,
-            brandId: brand.id,
-            colourId: colour.id,
-            name: colour.name,
-            brand: brand.name,
-            brandName: brand.name,
-            category: brand.category || 'Quartz',
-            categoryName: brand.category || 'Quartz',
-            sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
-            texture: colour.texture || 'marble',
-            finish: colour.finish || 'Polished',
-            image_url: colour.image_url || '',
-            description: brand.description || ''
-          });
-        }
-      });
-    }
-  });
-  return stones;
-}
-
-async function getStoneById(id) {
-  const stones = await getAllStones();
-  return stones.find(s => s.id === id);
-}
+// (Single getAllStones + getStoneById defined after getBrands below)
 
 const DEFAULT_BRANDS = [
   {
@@ -1344,17 +1312,38 @@ async function getAllStones() {
   brands.forEach(b => {
     if (b.colours && b.colours.length > 0) {
       b.colours.forEach(c => {
-        stones.push({
-          ...c,
-          brand: b.name,
-          brandName: b.name,
-          category: b.category || c.category || 'Quartz',
-          categoryName: b.category || c.category || 'Quartz'
-        });
+        if (c && c.enabled !== false) {
+          stones.push({
+            ...c,
+            brand: b.name,
+            brandName: b.name,
+            brandId: b.id,
+            category: b.category || c.category || 'Quartz',
+            categoryName: b.category || c.category || 'Quartz',
+            sku: c.sku || (c.name ? c.name.replace(/\s+/g, '-').toUpperCase() : ''),
+            description: b.description || ''
+          });
+        }
       });
     }
   });
   return stones;
+}
+
+async function getStoneById(id) {
+  const stones = await getAllStones();
+  // Support both numeric DB ids and string composite ids
+  const idStr = String(id).trim();
+  const idNum = Number(id);
+  return stones.find(s => {
+    const sId = s.id;
+    // Direct match (string or number)
+    if (String(sId) === idStr) return true;
+    if (typeof sId === 'number' && !isNaN(idNum) && sId === idNum) return true;
+    // Composite id match (e.g. "brand-id-colour-id")
+    if (s.colourId && String(s.colourId) === idStr) return true;
+    return false;
+  });
 }
 
 const DEFAULT_CATEGORIES = [
@@ -1444,12 +1433,17 @@ function getStoneImage(skuOrStone, stoneObj = null) {
   const stone = (typeof skuOrStone === 'object' && skuOrStone !== null) ? skuOrStone : stoneObj;
   const sku = (typeof skuOrStone === 'string') ? skuOrStone : (stone ? stone.sku : '');
 
-  if (stone && stone.image_url) {
+  // Check stone object's image_url (skip empty strings and placeholder paths)
+  if (stone && stone.image_url && 
+      stone.image_url.trim() !== '' && 
+      !stone.image_url.includes('placeholder')) {
     return stone.image_url;
   }
+  // Check hardcoded SKU image map
   if (sku && STONE_IMAGES[sku]) {
     return STONE_IMAGES[sku];
   }
+  // Check localStorage for custom images
   if (sku) {
     const localImg = localStorage.getItem('rw_stone_img_' + sku.toLowerCase());
     if (localImg) {
@@ -1458,11 +1452,13 @@ function getStoneImage(skuOrStone, stoneObj = null) {
     try {
       const localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]');
       const match = localColours.find(c => c.sku && c.sku.toLowerCase() === sku.toLowerCase());
-      if (match && match.image_url) return match.image_url;
+      if (match && match.image_url && match.image_url.trim() !== '' && !match.image_url.includes('placeholder')) return match.image_url;
     } catch(e) {}
-    return `${SUPABASE_URL}/storage/v1/object/public/ratedworktops/stones/${sku.toLowerCase()}.png`;
   }
-  return 'images/photoreal-kitchen.png';
+  // Use texture-based CSS gradient as a visual fallback
+  const textureKey = (stone && stone.texture) ? stone.texture : 'default';
+  const gradient = TEXTURES[textureKey] || TEXTURES.default;
+  return gradient;
 }
 
 // ── Navigation build ──────────────────────────

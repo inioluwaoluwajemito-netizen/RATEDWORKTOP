@@ -190,7 +190,9 @@ async function generateRender() {
     // ── 1b. Resolve the stone texture image URL to send as reference ─────────
     let stoneImageUrl = getStoneImage(selectedStone.sku, selectedStone);
     // Convert relative paths to absolute URLs so Fal.ai can fetch them
-    if (stoneImageUrl && !stoneImageUrl.startsWith('http') && !stoneImageUrl.startsWith('data:')) {
+    // Skip conversion for CSS gradients (which aren't real image URLs)
+    const isGradientRef = stoneImageUrl && (stoneImageUrl.startsWith('linear-gradient') || stoneImageUrl.startsWith('radial-gradient'));
+    if (stoneImageUrl && !isGradientRef && !stoneImageUrl.startsWith('http') && !stoneImageUrl.startsWith('data:')) {
       stoneImageUrl = new URL(stoneImageUrl, window.location.href).href;
     }
     console.log('[Render] Stone texture reference URL:', stoneImageUrl);
@@ -723,12 +725,14 @@ function renderStones() {
     el.className = 'stone-item';
     if (selectedStone && selectedStone.id === stone.id) el.classList.add('selected');
 
-    const imgUrl = getStoneImage(stone.sku);
+    const imgUrl = getStoneImage(stone.sku, stone);
 
     const categoryLabel = (stone.categoryName || stone.category || 'Marble').toUpperCase();
     const finishLabel = (stone.texture === 'granite' || stone.texture === 'slate') ? 'HONED' : 'POLISHED';
+    const isGrad = imgUrl.startsWith('linear-gradient') || imgUrl.startsWith('radial-gradient');
+    const thumbBg = isGrad ? `background: ${imgUrl};` : `background-image: url('${imgUrl}'), ${getTexture(stone.texture || 'default')}; background-size: cover; background-position: center;`;
     el.innerHTML = `
-      <div class="stone-thumb" style="background-image: url('${imgUrl}'), ${getTexture(stone.texture || 'default')}; background-size: cover; background-position: center;"></div>
+      <div class="stone-thumb" style="${thumbBg}"></div>
       <div class="stone-info">
         <div class="stone-name" title="${stone.name}">${stone.name}</div>
         <div class="stone-brand">${categoryLabel} · ${finishLabel}</div>
@@ -769,11 +773,13 @@ function updateSelectedMaterialCard(stone) {
       </div>
     `;
   } else {
-    const imgUrl = getStoneImage(stone.sku);
+    const imgUrl = getStoneImage(stone.sku, stone);
+    const isGrad = imgUrl.startsWith('linear-gradient') || imgUrl.startsWith('radial-gradient');
+    const thumbStyle = isGrad ? `background: ${imgUrl};` : `background-image: url('${imgUrl}'), ${getTexture(stone.texture || 'default')};`;
     container.innerHTML = `
       <div id="selected-material-card" class="material-card-selected fade-up" style="animation-duration: 0.3s;">
         <div class="material-card-header">
-          <div class="material-card-thumb" style="background-image: url('${imgUrl}'), ${getTexture(stone.texture || 'default')};"></div>
+          <div class="material-card-thumb" style="${thumbStyle}"></div>
           <div class="material-card-details">
             <div class="material-card-name" title="${stone.name}">${stone.name}</div>
             <div class="material-card-brand">${stone.brandName}</div>
@@ -1669,7 +1675,7 @@ function updateRenderInstantly() {
     }
     return;
   }
-  const imgUrl = getStoneImage(selectedStone.sku);
+  const imgUrl = getStoneImage(selectedStone.sku, selectedStone);
   let polygonPoints = "10,60 90,60 95,75 5,75";
   if (points.length >= 3) {
     polygonPoints = points.map(p => `${p.x},${p.y}`).join(" ");

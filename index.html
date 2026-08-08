@@ -903,18 +903,18 @@
         return;
       }
       
-      // Select 4 popular stones (Eternal Calacatta Gold, Nebula Pearl, Opera, Statuario Nuvo)
-      const popularIds = ['1-1', '1-2', '2-5', '3-6'];
-      const filtered = stones.filter(s => popularIds.includes(s.id));
-      
-      // If we don't find exactly those, just take the first 4
-      const displayStones = filtered.length > 0 ? filtered : stones.slice(0, 4);
+      // Show up to 4 featured stones from the database
+      const displayStones = stones.slice(0, 4);
       
       grid.innerHTML = displayStones.map(stone => {
-        const imgUrl = getStoneImage(stone.sku);
+        const imgUrl = getStoneImage(stone.sku, stone);
+        const isGradient = imgUrl.startsWith('linear-gradient') || imgUrl.startsWith('radial-gradient');
+        const bgStyle = isGradient 
+          ? `background: ${imgUrl};` 
+          : `background-image: url('${imgUrl}'); background-size: cover; background-position: center;`;
         return `
           <a href="stone-detail.html?id=${stone.id}" class="stone-card">
-            <div class="stone-img" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>
+            <div class="stone-img" style="${bgStyle}"></div>
             <div class="stone-card-body">
               <div class="stone-card-name">${stone.name}</div>
               <div class="stone-card-brand">${stone.brand}</div>
