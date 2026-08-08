@@ -43,6 +43,62 @@ let autoCountertopPoints = null; // array of {x,y} from Gemini
 let autoSplashbackPoints = null; // array of {x,y} from Gemini
 let cacheImageSrc = ''; // tracks which image is cached
 
+// ── Progress Bar & Loading Feedback Controller ─────────────────
+const PROGRESS_STAGES = [
+  { pct: 15, title: 'AI Analysing Kitchen Photo...', detail: 'Encoding image and mask boundaries' },
+  { pct: 35, title: 'Analyzing Surface Layout...', detail: 'Detecting worktop and splashback areas' },
+  { pct: 60, title: 'Rendering Stone Surface...', detail: 'Synthesizing stone texture, veining & reflections' },
+  { pct: 95, title: 'Finalising Render...', detail: 'Applying lighting and polished finish' }
+];
+
+let _progressTicker = null;
+let _progressCurrentPct = 0;
+
+function setProgress(stageIndex) { // 1-4
+  const s = PROGRESS_STAGES[stageIndex - 1];
+  if (!s) return;
+  _progressCurrentPct = s.pct;
+
+  const fill = document.getElementById('progress-fill');
+  const pctEl = document.getElementById('progress-pct');
+  const title = document.getElementById('processing-title');
+  const detail = document.getElementById('processing-text');
+  if (fill) fill.style.width = s.pct + '%';
+  if (pctEl) pctEl.textContent = Math.round(s.pct) + '%';
+  if (title) title.textContent = s.title;
+  if (detail) detail.textContent = s.detail;
+
+  // Update step dots and lines
+  for (let i = 1; i <= 4; i++) {
+    const dot = document.getElementById(`step-dot-${i}`);
+    const lbl = document.getElementById(`step-lbl-${i}`);
+    const line = document.getElementById(`step-line-${i}`);
+    if (!dot) continue;
+    dot.className = 'progress-step-dot' + (i < stageIndex ? ' done' : (i === stageIndex ? ' active' : ''));
+    if (lbl) lbl.className = 'progress-step-text' + (i < stageIndex ? ' done' : (i === stageIndex ? ' active' : ''));
+    if (line) line.className = 'progress-step-line' + (i < stageIndex ? ' done' : '');
+  }
+}
+
+function startProgressTicker() {
+  if (_progressTicker) clearInterval(_progressTicker);
+  let current = 60;
+  _progressTicker = setInterval(() => {
+    if (current >= 92) { clearInterval(_progressTicker); return; }
+    current += 0.5;
+    _progressCurrentPct = current;
+    const fill = document.getElementById('progress-fill');
+    const pctEl = document.getElementById('progress-pct');
+    if (fill) fill.style.width = Math.round(current) + '%';
+    if (pctEl) pctEl.textContent = Math.round(current) + '%';
+  }, 250);
+}
+
+function stopProgressTicker() {
+  if (_progressTicker) { clearInterval(_progressTicker); _progressTicker = null; }
+}
+// ──────────────────────────────────────────────────────────────
+
 function getStoneVisualDescription(stone) {
   if (!stone) return 'polished stone';
   const descMap = {
@@ -108,7 +164,7 @@ async function generateRender() {
     return;
   }
 
-  if (!previewImage.src) {
+  if (!previewImage || !previewImage.src || previewImage.src === window.location.href) {
     showToast('Please upload a kitchen image first.', 'error');
     return;
   }
@@ -116,21 +172,54 @@ async function generateRender() {
   const settings = store.get('settings', {});
   const isFreeMode = settings.subscriptionsEnabled === false;
 
-  if (!isFreeMode && currentProfile.credits <= 0) {
+  if (!isFreeMode && currentProfile && currentProfile.credits <= 0) {
     showToast('Not enough credits! Please upgrade your plan.', 'error');
     return;
   }
 
+  // Auto-switch to Canvas view on mobile so the user sees the progress overlay & output immediately
+  if (window.innerWidth <= 1024) {
+    const tabCanvas = document.getElementById('nav-tab-canvas');
+    const visMain = document.getElementById('vis-main');
+    if (tabCanvas && visMain) {
+      const tabCatalog = document.getElementById('nav-tab-catalog');
+      const tabControls = document.getElementById('nav-tab-controls');
+      const visSidebar = document.getElementById('vis-sidebar');
+      const visControlPanel = document.getElementById('vis-control-panel');
+      if (tabCatalog) tabCatalog.classList.remove('active');
+      if (tabControls) tabControls.classList.remove('active');
+      if (visSidebar) visSidebar.classList.remove('active-tab');
+      if (visControlPanel) visControlPanel.classList.remove('active-tab');
+      tabCanvas.classList.add('active');
+      visMain.classList.add('active-tab');
+    }
+  }
+
   isRendering = true;
   if (simulatedHighlight) simulatedHighlight.style.display = 'none';
+
+  // Disable generate button and show spinner state
+  if (generateBtn) {
+    generateBtn.disabled = true;
+    generateBtn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width:16px;height:16px;animation:spin 1s linear infinite"></i> Generating Render...`;
+    if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+  }
+
+  // Set badge stone name
+  const badgeStoneName = document.getElementById('processing-stone-name');
+  if (badgeStoneName && selectedStone) {
+    badgeStoneName.textContent = `Applying ${selectedStone.name} (${selectedStone.brandName || selectedStone.brand || 'Stone'})`;
+  }
+
   processingOverlay.style.display = 'flex';
+  setProgress(1); // 15%
 
   console.log('[Render] Starting AI image-to-image render...');
   console.log('[Render] Stone selected:', selectedStone?.name, selectedStone?.sku);
 
   try {
     // ── 1. Create Inpainting Mask and pre-tinted image data URIs ───────────────────────
-    processingText.textContent = 'Preparing stone color and inpainting mask...';
+    setProgress(2); // 35%
 
     const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
     const colorDetails = getStoneColorDetails(selectedStone);
@@ -158,7 +247,8 @@ async function generateRender() {
     console.log('[Render] Inpainting Prompt:', prompt);
 
     // ── 3. Call the Supabase proxy → Fal.ai inpainting ─────────────────────
-    processingText.textContent = 'Inpainting selected stone onto worktop...';
+    setProgress(3); // 60%
+    startProgressTicker(); // Ticks up smoothly towards 92%
 
     let aiImageUrl = null;
 
@@ -224,9 +314,8 @@ async function generateRender() {
     }
 
     // ── 4. Display the brand-new AI-generated image ──────────────────────────
-    // The proxy returns base64 data URI, so no CORS issues at all.
     if (aiImageUrl) {
-      processingText.textContent = 'Applying your new render...';
+      setProgress(4); // 95%
       console.log('[Render] Setting previewImage.src to AI result (length:', aiImageUrl.length, ')');
 
       // Directly set src — works for both URLs and base64 data URIs
@@ -249,7 +338,7 @@ async function generateRender() {
         };
         tempImg.onerror = () => {
           console.warn('[Render] Canvas draw failed (non-critical), image still displayed in <img> tag');
-          resolve(); // non-fatal — the <img> tag still shows the result
+          resolve();
         };
         tempImg.src = aiImageUrl;
       });
@@ -283,7 +372,6 @@ async function generateRender() {
     if (headerCredits) headerCredits.textContent = newCredits;
 
     // ── 6. Automatically Save to Storage & Generate Public URL ─────────────
-    processingText.textContent = 'Saving project & generating public share link...';
     try {
       const blob = await getRenderedCanvasBlob();
       if (blob) {
@@ -297,7 +385,6 @@ async function generateRender() {
           window._shareImageUrl = uploadRes.url;
           console.log('[Render] Public share URL generated:', uploadRes.url);
 
-          // Save project row to Supabase database if logged in
           if (supabaseClient && currentUser && selectedStone) {
             await supabaseClient
               .from('projects')
@@ -333,8 +420,14 @@ async function generateRender() {
     console.error('[Render] Error:', err);
     showToast('Render failed: ' + (err.message || 'Unknown error. Please try again.'), 'error');
   } finally {
+    stopProgressTicker();
     processingOverlay.style.display = 'none';
     isRendering = false;
+    if (generateBtn) {
+      generateBtn.disabled = false;
+      generateBtn.innerHTML = `<i data-lucide="wand-2" style="width:16px;height:16px"></i> Generate render`;
+      if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    }
   }
 }
 
@@ -976,45 +1069,19 @@ async function handleFile(file) {
     return;
   }
 
-  showToast('Optimizing image for upload...', 'info');
+  showToast('Optimizing image...', 'info');
   const optimizedFile = await compressImage(file);
 
-  showToast('Uploading to secure database storage...', 'info');
-
-  // Delete all former images in the user's directory to ensure no old files are left behind
-  await emptyStorageFolder('ratedworktops', `originals/${currentUser.id}`);
-
-  const path = `originals/${currentUser.id}/current_kitchen.jpg`;
-  const uploadRes = await uploadFileToStorage('ratedworktops', path, optimizedFile);
-
-  if (uploadRes.ok) {
-    // Append timestamp cache-buster so if URL is ever viewed, it breaks the cache
-    originalFileUrl = uploadRes.url + `?t=${Date.now()}`;
-    showToast('Image uploaded successfully!', 'success');
-    
-    // Log the upload in the database
-    if (supabaseClient) {
-      supabaseClient.from('kitchen_uploads').delete().eq('user_id', currentUser.id).then(() => {
-        supabaseClient.from('kitchen_uploads').insert([{
-          user_id: currentUser.id,
-          image_url: uploadRes.url
-        }]).then(({ error }) => {
-          if (error) console.error('Failed to log kitchen upload:', error);
-        });
-      });
-    }
-  } else {
-    console.warn('Storage upload failed, falling back to client-side:', uploadRes.error);
-  }
-  
+  // 1. Instantly display local image preview on screen for fast visual feedback (works on all devices including mobile)
   const reader = new FileReader();
   reader.onload = (e) => {
-    previewImage.src = e.target.result;
+    const dataUri = e.target.result;
+    previewImage.src = dataUri;
     previewImage.style.display = 'block';
 
     const origImg = new Image();
     origImg.crossOrigin = "Anonymous";
-    origImg.src = e.target.result;
+    origImg.src = dataUri;
     window._originalImageElement = origImg;
     window._isAIRendered = false;
     
@@ -1033,7 +1100,7 @@ async function handleFile(file) {
       if (upDesc) upDesc.style.display = 'none';
     }
     
-    drawingToolbar.style.display = 'flex';
+    if (drawingToolbar) drawingToolbar.style.display = 'flex';
     
     // Hide rendering canvas on new file load
     const renderCanvas = document.getElementById('render-canvas');
@@ -1047,10 +1114,48 @@ async function handleFile(file) {
     currentSegmentsCache = null;
     cacheImageSrc = '';
 
-    actionBar.classList.add('visible');
-    simulatedHighlight.style.display = 'none';
+    if (actionBar) actionBar.classList.add('visible');
+    if (simulatedHighlight) simulatedHighlight.style.display = 'none';
+
+    // Auto-switch to Canvas view on mobile screens after upload
+    if (window.innerWidth <= 1024) {
+      const tabCanvas = document.getElementById('nav-tab-canvas');
+      const visMain = document.getElementById('vis-main');
+      if (tabCanvas && visMain) {
+        const tabCatalog = document.getElementById('nav-tab-catalog');
+        const tabControls = document.getElementById('nav-tab-controls');
+        const visSidebar = document.getElementById('vis-sidebar');
+        const visControlPanel = document.getElementById('vis-control-panel');
+        if (tabCatalog) tabCatalog.classList.remove('active');
+        if (tabControls) tabControls.classList.remove('active');
+        if (visSidebar) visSidebar.classList.remove('active-tab');
+        if (visControlPanel) visControlPanel.classList.remove('active-tab');
+        tabCanvas.classList.add('active');
+        visMain.classList.add('active-tab');
+      }
+    }
   };
   reader.readAsDataURL(optimizedFile);
+
+  // 2. Perform background cloud storage upload without blocking preview/rendering
+  (async () => {
+    try {
+      const userId = currentUser?.id || 'guest';
+      await emptyStorageFolder('ratedworktops', `originals/${userId}`);
+      const path = `originals/${userId}/current_kitchen.jpg`;
+      const uploadRes = await uploadFileToStorage('ratedworktops', path, optimizedFile);
+
+      if (uploadRes.ok) {
+        originalFileUrl = uploadRes.url + `?t=${Date.now()}`;
+        if (supabaseClient && currentUser) {
+          await supabaseClient.from('kitchen_uploads').delete().eq('user_id', currentUser.id).catch(() => {});
+          await supabaseClient.from('kitchen_uploads').insert([{ user_id: currentUser.id, image_url: uploadRes.url }]).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('[HandleFile] Cloud storage background sync notice:', e);
+    }
+  })();
 }
 
 function setupDrawingListeners() {

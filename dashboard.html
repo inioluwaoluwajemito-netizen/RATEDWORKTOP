@@ -683,23 +683,133 @@
     .processing-overlay {
       position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(8px);
+      background: rgba(9, 9, 15, 0.92);
+      backdrop-filter: blur(12px);
       z-index: 40;
       display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      padding: 32px 20px;
     }
-    .spinner {
-      width: 44px;
-      height: 44px;
-      border: 3.5px solid rgba(255,255,255,0.06);
-      border-top-color: var(--gold);
+    .ai-orb {
+      width: 54px;
+      height: 54px;
       border-radius: 50%;
-      animation: spin 1s linear infinite;
+      background: radial-gradient(circle at 35% 35%, #f0d58e, #c9a96e 60%, #8a6a30);
+      box-shadow: 0 0 25px rgba(201,169,110,0.5);
+      animation: orb-pulse 2s ease-in-out infinite;
+      margin-bottom: 14px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    @keyframes orb-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(201,169,110,0.5), 0 0 20px rgba(201,169,110,0.3); transform: scale(1); }
+      50% { box-shadow: 0 0 0 16px rgba(201,169,110,0), 0 0 35px rgba(201,169,110,0.6); transform: scale(1.08); }
+    }
+    .processing-material-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(201, 169, 110, 0.12);
+      border: 1px solid rgba(201, 169, 110, 0.3);
+      border-radius: 99px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+    .progress-stage-label {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+    .progress-detail-label {
+      font-size: 12.5px;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 18px;
+      text-align: center;
+    }
+    .progress-track-wrapper {
+      width: 100%;
+      max-width: 280px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin-bottom: 16px;
     }
+    .progress-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #8a6a30, #c9a96e, #f0d58e);
+      transition: width 0.4s ease;
+      box-shadow: 0 0 10px rgba(201,169,110,0.6);
+    }
+    .progress-pct-counter {
+      font-size: 13px;
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--gold);
+      min-width: 38px;
+      text-align: right;
+    }
+    .progress-steps {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 280px;
+      width: 100%;
+      margin-bottom: 6px;
+    }
+    .progress-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+    }
+    .progress-step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+    .progress-step-dot.done { background: var(--gold); }
+    .progress-step-dot.active { background: #f0d58e; box-shadow: 0 0 8px rgba(240,213,142,0.9); animation: dot-blink 1s ease-in-out infinite; }
+    @keyframes dot-blink { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+    .progress-step-line { flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
+    .progress-step-line.done { background: rgba(201,169,110,0.4); }
+    .progress-step-labels {
+      display: flex;
+      justify-content: space-between;
+      max-width: 280px;
+      width: 100%;
+    }
+    .progress-step-text {
+      font-size: 10px;
+      color: rgba(255,255,255,0.35);
+      font-weight: 500;
+    }
+    .progress-step-text.active, .progress-step-text.done {
+      color: var(--gold);
+      font-weight: 600;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
 
     /* Modal Overlay & Share Modal styling */
     .modal-overlay {
@@ -877,9 +987,50 @@
         
         <!-- Render processing overlay -->
         <div class="processing-overlay" id="processing-overlay">
-          <div class="spinner"></div>
-          <div style="font-weight:600;font-size:16px;margin-bottom:8px;color:#fff;">Analysing countertop shape...</div>
-          <div style="color:var(--text-secondary);font-size:13px" id="processing-text">Mapping layout boundaries</div>
+          <div class="ai-orb" id="ai-orb">
+            <i data-lucide="sparkles" style="width:22px; height:22px; color:#000;"></i>
+          </div>
+
+          <div class="processing-material-badge" id="processing-material-badge">
+            <i data-lucide="layers" style="width:12px;height:12px"></i>
+            <span id="processing-stone-name">Applying Selected Stone</span>
+          </div>
+
+          <div class="progress-stage-label" id="processing-title">AI Analysing Kitchen Photo...</div>
+          <div class="progress-detail-label" id="processing-text">Mapping layout and surface boundaries</div>
+
+          <!-- Progress track & live percentage counter -->
+          <div class="progress-track-wrapper">
+            <div class="progress-track">
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="progress-pct-counter" id="progress-pct">0%</div>
+          </div>
+
+          <!-- 4 Step indicators -->
+          <div class="progress-steps">
+            <div class="progress-step">
+              <div class="progress-step-dot active" id="step-dot-1"></div>
+              <div class="progress-step-line" id="step-line-1"></div>
+            </div>
+            <div class="progress-step">
+              <div class="progress-step-dot" id="step-dot-2"></div>
+              <div class="progress-step-line" id="step-line-2"></div>
+            </div>
+            <div class="progress-step">
+              <div class="progress-step-dot" id="step-dot-3"></div>
+              <div class="progress-step-line" id="step-line-3"></div>
+            </div>
+            <div class="progress-step">
+              <div class="progress-step-dot" id="step-dot-4"></div>
+            </div>
+          </div>
+          <div class="progress-step-labels">
+            <span class="progress-step-text active" id="step-lbl-1">Upload</span>
+            <span class="progress-step-text" id="step-lbl-2">Analyse</span>
+            <span class="progress-step-text" id="step-lbl-3">Inpaint</span>
+            <span class="progress-step-text" id="step-lbl-4">Finalise</span>
+          </div>
         </div>
       </div>
     </main>

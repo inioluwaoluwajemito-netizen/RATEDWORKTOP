@@ -905,46 +905,19 @@ async function handleFile(file) {
     return;
   }
 
-  showToast('Optimizing image for upload...', 'info');
+  showToast('Optimizing image...', 'info');
   const optimizedFile = await compressImage(file);
 
-  showToast('Uploading to secure database storage...', 'info');
-
-  // Delete all former images in the user's directory to ensure no old files are left behind
-  const storageDir = `originals/${currentUser?.id || 'guest'}`;
-  await emptyStorageFolder('ratedworktops', storageDir);
-
-  const path = `${storageDir}/current_kitchen.jpg`;
-  const uploadRes = await uploadFileToStorage('ratedworktops', path, optimizedFile);
-
-  if (uploadRes.ok) {
-    // Append timestamp cache-buster so if URL is ever viewed, it breaks the cache
-    originalFileUrl = uploadRes.url + `?t=${Date.now()}`;
-    showToast('Image uploaded successfully!', 'success');
-
-    // Log the upload in the database
-    if (supabaseClient) {
-      supabaseClient.from('kitchen_uploads').delete().eq('user_id', currentUser?.id || 'guest').then(() => {
-        supabaseClient.from('kitchen_uploads').insert([{
-          user_id: currentUser?.id || 'guest',
-          image_url: uploadRes.url
-        }]).then(({ error }) => {
-          if (error) console.error('Failed to log kitchen upload:', error);
-        });
-      });
-    }
-  } else {
-    console.warn('Storage upload failed, falling back to client-side:', uploadRes.error);
-  }
-
+  // 1. Instantly display local image preview on screen for fast visual feedback (works on all devices including mobile)
   const reader = new FileReader();
   reader.onload = (e) => {
-    previewImage.src = e.target.result;
+    const dataUri = e.target.result;
+    previewImage.src = dataUri;
     previewImage.style.display = 'block';
 
     const origImg = new Image();
     origImg.crossOrigin = "Anonymous";
-    origImg.src = e.target.result;
+    origImg.src = dataUri;
     window._originalImageElement = origImg;
     window._isAIRendered = false;
 
@@ -963,11 +936,34 @@ async function handleFile(file) {
       if (upDesc) upDesc.style.display = 'none';
     }
 
-    drawingToolbar.style.display = 'flex';
+    if (drawingToolbar) drawingToolbar.style.display = 'flex';
 
-    actionBar.classList.add('visible');
-    simulatedHighlight.style.display = 'none';
+    if (actionBar) actionBar.classList.add('visible');
+    if (simulatedHighlight) simulatedHighlight.style.display = 'none';
   };
+  reader.readAsDataURL(optimizedFile);
+
+  // 2. Perform background cloud storage upload without blocking preview/rendering
+  (async () => {
+    try {
+      const userId = currentUser?.id || 'guest';
+      const storageDir = `originals/${userId}`;
+      await emptyStorageFolder('ratedworktops', storageDir);
+
+      const path = `${storageDir}/current_kitchen.jpg`;
+      const uploadRes = await uploadFileToStorage('ratedworktops', path, optimizedFile);
+
+      if (uploadRes.ok) {
+        originalFileUrl = uploadRes.url + `?t=${Date.now()}`;
+        if (supabaseClient) {
+          await supabaseClient.from('kitchen_uploads').delete().eq('user_id', userId).catch(() => {});
+          await supabaseClient.from('kitchen_uploads').insert([{ user_id: userId, image_url: uploadRes.url }]).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('[Visualiser] Cloud storage background sync notice:', e);
+    }
+  })();
   reader.readAsDataURL(optimizedFile);
 }
 
