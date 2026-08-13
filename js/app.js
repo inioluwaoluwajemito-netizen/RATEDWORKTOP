@@ -1213,6 +1213,35 @@ const DEFAULT_BRANDS = [
 ];
 
 async function getBrands() {
+  // Helper: read cached brands from localStorage (used as fallback)
+  function getLocalBrands() {
+    let baseBrands = safeGetLocalStorage('rw_brands');
+    let localBrands = safeGetLocalStorage('rw_local_brands');
+    let localColours = safeGetLocalStorage('rw_local_colours');
+
+    const allBrands = [...baseBrands];
+    for (const lb of localBrands) {
+      if (lb && lb.name && !allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
+        allBrands.push(lb);
+      }
+    }
+
+    return allBrands.map(brand => {
+      const locCols = localColours.filter(c =>
+        String(c.brand_id) === String(brand.id) ||
+        String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
+        (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
+      );
+      const combined = [...(brand.colours || [])];
+      for (const lc of locCols) {
+        if (!combined.some(c => c.id == lc.id || (c.name && c.name === lc.name))) {
+          combined.push(lc);
+        }
+      }
+      return { ...brand, colours: combined };
+    }).filter(b => b && b.name && b.enabled !== false);
+  }
+
   if (supabaseClient) {
     try {
       const [bRes, cRes] = await Promise.all([
@@ -1234,77 +1263,84 @@ async function getBrands() {
         ? cRes.data.filter(c => c && c.name && c.enabled !== false) 
         : [];
 
-      const brandMap = new Map();
-      dbBrands.forEach(b => {
-        if (!b || !b.name) return;
-        brandMap.set(String(b.id), {
-          id: b.id,
-          name: b.name,
-          category: b.category || 'Quartz',
-          description: b.description || '',
-          enabled: true,
-          colours: []
-        });
-      });
-
-      dbColours.forEach(c => {
-        if (!c || !c.name) return;
-        const rawBrandId = String(c.brand_id || '').toLowerCase().trim();
-        const rawBrandName = String(c.brand_name || '').toLowerCase().trim();
-
-        let targetBrand = null;
-        for (const b of brandMap.values()) {
-          const bId = String(b.id || '').toLowerCase().trim();
-          const bName = String(b.name || '').toLowerCase().trim();
-
-          if (
-            (rawBrandId && (rawBrandId === bId || rawBrandId === bName)) ||
-            (rawBrandName && (rawBrandName === bName || rawBrandName === bId))
-          ) {
-            targetBrand = b;
-            break;
-          }
-        }
-
-        if (!targetBrand && (c.brand_name || c.brand_id)) {
-          const bName = c.brand_name || c.brand_id;
-          targetBrand = {
-            id: c.brand_id || bName,
-            name: bName,
-            category: c.category || 'Quartz',
-            description: '',
+      // If Supabase returned data, use it
+      if (dbBrands.length > 0) {
+        const brandMap = new Map();
+        dbBrands.forEach(b => {
+          if (!b || !b.name) return;
+          brandMap.set(String(b.id), {
+            id: b.id,
+            name: b.name,
+            category: b.category || 'Quartz',
+            description: b.description || '',
             enabled: true,
             colours: []
-          };
-          brandMap.set(String(targetBrand.id), targetBrand);
-        }
-
-        if (targetBrand) {
-          targetBrand.colours.push({
-            id: c.id,
-            brand_id: c.brand_id,
-            name: c.name,
-            sku: c.sku || '',
-            finish: c.finish || 'Polished',
-            thickness: c.thickness || '20mm',
-            price_tier: c.price_tier || 'Standard',
-            price_per_m2: c.price_per_m2 || 150,
-            image_url: c.image_url || 'images/placeholder-kitchen.jpg',
-            texture: c.texture || 'marble',
-            enabled: true
           });
-        }
-      });
+        });
 
-      return Array.from(brandMap.values());
+        dbColours.forEach(c => {
+          if (!c || !c.name) return;
+          const rawBrandId = String(c.brand_id || '').toLowerCase().trim();
+          const rawBrandName = String(c.brand_name || '').toLowerCase().trim();
+
+          let targetBrand = null;
+          for (const b of brandMap.values()) {
+            const bId = String(b.id || '').toLowerCase().trim();
+            const bName = String(b.name || '').toLowerCase().trim();
+
+            if (
+              (rawBrandId && (rawBrandId === bId || rawBrandId === bName)) ||
+              (rawBrandName && (rawBrandName === bName || rawBrandName === bId))
+            ) {
+              targetBrand = b;
+              break;
+            }
+          }
+
+          if (!targetBrand && (c.brand_name || c.brand_id)) {
+            const bName = c.brand_name || c.brand_id;
+            targetBrand = {
+              id: c.brand_id || bName,
+              name: bName,
+              category: c.category || 'Quartz',
+              description: '',
+              enabled: true,
+              colours: []
+            };
+            brandMap.set(String(targetBrand.id), targetBrand);
+          }
+
+          if (targetBrand) {
+            targetBrand.colours.push({
+              id: c.id,
+              brand_id: c.brand_id,
+              name: c.name,
+              sku: c.sku || '',
+              finish: c.finish || 'Polished',
+              thickness: c.thickness || '20mm',
+              price_tier: c.price_tier || 'Standard',
+              price_per_m2: c.price_per_m2 || 150,
+              image_url: c.image_url || 'images/placeholder-kitchen.jpg',
+              texture: c.texture || 'marble',
+              enabled: true
+            });
+          }
+        });
+
+        return Array.from(brandMap.values());
+      }
+
+      // Supabase returned no brands — fall through to localStorage
+      console.warn('[getBrands] No brands found in Supabase, falling back to local cache');
     } catch(e) {
-      console.error('[App Brands] Supabase fetch error:', e);
-      return [];
+      console.error('[App Brands] Supabase fetch error, falling back to local cache:', e);
     }
   }
 
-  return [];
+  // Fallback: return brands from localStorage
+  return getLocalBrands();
 }
+
 
 async function getAllStones() {
   const brands = await getBrands();

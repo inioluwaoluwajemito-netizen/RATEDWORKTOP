@@ -738,7 +738,7 @@ async function saveColour() {
     const targetBrand = allBrands.find(b => String(b.id) === String(brandId) || b.name.toLowerCase() === String(brandId).toLowerCase());
 
     const payload = {
-      id: editId || ('col_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36)),
+      id: editId || null,
       isEdit: !!editId,
       brand_id: brandId,
       brand_name: targetBrand ? targetBrand.name : '',

@@ -63,5 +63,14 @@ DROP POLICY IF EXISTS "Allow authenticated access to colours" ON public.colours;
 CREATE POLICY "Allow authenticated access to colours" ON public.colours
     FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow anon access to brands" ON public.brands;
+CREATE POLICY "Allow anon access to brands" ON public.brands
+    FOR ALL TO anon USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow anon access to colours" ON public.colours;
+CREATE POLICY "Allow anon access to colours" ON public.colours
+    FOR ALL TO anon USING (true) WITH CHECK (true);
+
 -- Force PostgREST schema cache reload immediately
 NOTIFY pgrst, 'reload schema';
+

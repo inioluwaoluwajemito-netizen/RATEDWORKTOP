@@ -1329,24 +1329,13 @@ function normalizeSettingsData(data) {
 
 // ── Async Admin Write Helpers ─────────────────
 async function saveBrandToDB(brand) {
+  // ID must be TEXT to match the Supabase schema (TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text)
   let brandId = brand.id;
-  if (!brandId || isNaN(Number(brandId))) {
-    try {
-      if (supabaseClient) {
-        const { data } = await supabaseClient.from('brands').select('id').order('id', { ascending: false }).limit(1);
-        if (data && data[0] && typeof data[0].id === 'number') {
-          brandId = data[0].id + 1;
-        } else {
-          brandId = Math.floor(Date.now() / 1000);
-        }
-      } else {
-        brandId = Math.floor(Date.now() / 1000);
-      }
-    } catch(e) {
-      brandId = Math.floor(Date.now() / 1000);
-    }
+  if (!brandId) {
+    // Generate a unique string ID for new brands
+    brandId = 'brand_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
   } else {
-    brandId = Number(brandId);
+    brandId = String(brandId);
   }
 
   const fullBrandRecord = {
@@ -1437,25 +1426,20 @@ async function deleteBrandFromDB(id, brandName) {
   if (!supabaseClient) return;
   try {
     const strId = String(id);
-    const numericId = Number(id);
 
-    // Delete associated colours first
+    // Delete associated colours first (by brand_id and brand_name)
     await supabaseClient.from('colours').delete().eq('brand_id', strId);
-    if (!isNaN(numericId)) {
-      await supabaseClient.from('colours').delete().eq('brand_id', numericId);
-    }
-
-    // Delete brand
-    const { error: bErr } = await supabaseClient.from('brands').delete().eq('id', strId);
-    if (!isNaN(numericId)) {
-      await supabaseClient.from('brands').delete().eq('id', numericId);
-    }
     if (brandName) {
       await supabaseClient.from('colours').delete().eq('brand_name', brandName);
+    }
+
+    // Delete brand by ID
+    const { error: bErr } = await supabaseClient.from('brands').delete().eq('id', strId);
+    if (brandName) {
       await supabaseClient.from('brands').delete().eq('name', brandName);
     }
 
-    if (bErr && isNaN(numericId)) {
+    if (bErr) {
       console.error('[deleteBrandFromDB] brands delete error:', bErr);
       if (typeof showToast === 'function') showToast('Failed to delete brand from Supabase: ' + bErr.message, 'error');
       throw new Error('Supabase brand delete failed: ' + bErr.message);
@@ -1473,31 +1457,21 @@ async function saveColourToDB(colour) {
   let localColours = [];
   try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
 
+  // ID must be TEXT to match the Supabase schema (TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text)
   let colId = colour.id;
-  if (!colId || isNaN(Number(colId))) {
-    try {
-      if (supabaseClient) {
-        const { data } = await supabaseClient.from('colours').select('id').order('id', { ascending: false }).limit(1);
-        if (data && data[0] && typeof data[0].id === 'number') {
-          colId = data[0].id + 1;
-        } else {
-          colId = Math.floor(Date.now() / 1000);
-        }
-      } else {
-        colId = Math.floor(Date.now() / 1000);
-      }
-    } catch(e) {
-      colId = Math.floor(Date.now() / 1000);
-    }
+  if (!colId) {
+    // Generate a unique string ID for new colours
+    colId = 'col_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
   } else {
-    colId = Number(colId);
+    colId = String(colId);
   }
 
-  const numericBrandId = Number(colour.brand_id) || colour.brand_id;
+  // Keep brand_id as string — the brands table uses TEXT primary keys
+  const brandId = String(colour.brand_id || '');
 
   const fullColourRecord = {
     id: colId,
-    brand_id: numericBrandId,
+    brand_id: brandId,
     brand_name: colour.brand_name || '',
     name: colour.name,
     sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
@@ -1522,7 +1496,7 @@ async function saveColourToDB(colour) {
   try {
     const { error: err } = await supabaseClient.from('colours').upsert([{
       id: colId,
-      brand_id: numericBrandId,
+      brand_id: brandId,
       brand_name: colour.brand_name || '',
       name: colour.name,
       sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
@@ -1584,14 +1558,10 @@ async function deleteColourFromDB(id, brandId, colourName) {
   if (!supabaseClient) return;
   try {
     const strId = String(id);
-    const numericId = Number(id);
 
     const { error: err } = await supabaseClient.from('colours').delete().eq('id', strId);
     if (err) console.warn('[deleteColourFromDB] DB delete notice:', err);
 
-    if (!isNaN(numericId)) {
-      await supabaseClient.from('colours').delete().eq('id', numericId);
-    }
     if (colourName) {
       await supabaseClient.from('colours').delete().eq('name', colourName);
     }
@@ -1657,11 +1627,7 @@ async function deleteCategoryFromDB(id) {
   if (!supabaseClient) return;
   try {
     const strId = String(id);
-    const numericId = Number(id);
     await supabaseClient.from('categories').delete().eq('id', strId);
-    if (!isNaN(numericId)) {
-      await supabaseClient.from('categories').delete().eq('id', numericId);
-    }
   } catch(e) {
     console.warn('[deleteCategoryFromDB] DB delete notice:', e);
   }
