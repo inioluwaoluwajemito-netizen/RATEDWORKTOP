@@ -1329,13 +1329,19 @@ function normalizeSettingsData(data) {
 
 // ── Async Admin Write Helpers ─────────────────
 async function saveBrandToDB(brand) {
-  // ID must be TEXT to match the Supabase schema (TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text)
+  // ID must be a bigint to match the Supabase schema (BIGINT PRIMARY KEY)
   let brandId = brand.id;
   if (!brandId) {
-    // Generate a unique string ID for new brands
-    brandId = 'brand_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
+    // Generate a unique numeric ID for new brands
+    brandId = Date.now() + Math.floor(Math.random() * 1000);
   } else {
-    brandId = String(brandId);
+    // Ensure existing IDs are numeric; if it's a legacy string ID, generate a new numeric one
+    const parsed = Number(brandId);
+    if (isNaN(parsed)) {
+      brandId = Date.now() + Math.floor(Math.random() * 1000);
+    } else {
+      brandId = parsed;
+    }
   }
 
   const fullBrandRecord = {
@@ -1425,16 +1431,13 @@ async function deleteBrandFromDB(id, brandName) {
   // 2. Remove from Supabase DB
   if (!supabaseClient) return;
   try {
-    const strId = String(id);
+    const numId = Number(id);
 
-    // Delete associated colours first (by brand_id and brand_name)
-    await supabaseClient.from('colours').delete().eq('brand_id', strId);
-    if (brandName) {
-      await supabaseClient.from('colours').delete().eq('brand_name', brandName);
-    }
+    // Delete associated colours first (by brand_id only)
+    await supabaseClient.from('colours').delete().eq('brand_id', numId);
 
     // Delete brand by ID
-    const { error: bErr } = await supabaseClient.from('brands').delete().eq('id', strId);
+    const { error: bErr } = await supabaseClient.from('brands').delete().eq('id', numId);
     if (brandName) {
       await supabaseClient.from('brands').delete().eq('name', brandName);
     }
@@ -1457,17 +1460,18 @@ async function saveColourToDB(colour) {
   let localColours = [];
   try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
 
-  // ID must be TEXT to match the Supabase schema (TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text)
+  // Generate a numeric ID to match the Supabase schema
   let colId = colour.id;
   if (!colId) {
-    // Generate a unique string ID for new colours
-    colId = 'col_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
+    // Generate a unique numeric ID for new colours
+    colId = Date.now() + Math.floor(Math.random() * 1000);
   } else {
-    colId = String(colId);
+    const parsed = Number(colId);
+    colId = isNaN(parsed) ? (Date.now() + Math.floor(Math.random() * 1000)) : parsed;
   }
 
-  // Keep brand_id as string — the brands table uses TEXT primary keys
-  const brandId = String(colour.brand_id || '');
+  // Keep brand_id as numeric — the brands table uses BIGINT primary keys
+  const brandId = Number(colour.brand_id) || 0;
 
   const fullColourRecord = {
     id: colId,
@@ -1494,10 +1498,10 @@ async function saveColourToDB(colour) {
   if (!supabaseClient) return fullColourRecord;
 
   try {
+    // Note: brand_name is NOT a column in the Supabase colours table — only store it locally
     const { error: err } = await supabaseClient.from('colours').upsert([{
       id: colId,
       brand_id: brandId,
-      brand_name: colour.brand_name || '',
       name: colour.name,
       sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
       finish: colour.finish || 'Polished',
