@@ -331,14 +331,16 @@ async function generateRender() {
 
     // ── 2. Build the AI prompt ───────────────────────────────────────────────
     const stoneDesc = getStoneVisualDescription(selectedStone);
+    const stoneBrand = selectedStone.brandName || selectedStone.brand_name || selectedStone.brand || '';
+    const stoneName = selectedStone.name || 'natural stone';
     const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
     const refinementExtra = refinementText ? ` ADDITIONAL USER REFINEMENT INSTRUCTIONS: ${refinementText}.` : '';
-    const prompt = `${colorDetails.promptPrefix} Replace the countertop worktop and splashback surfaces with ${selectedStone.brandName || ''} ${selectedStone.name}. The worktop and splashback MUST use the EXACT same stone texture, color, pattern, and veining as shown in the reference stone image provided. Detailed ${stoneDesc} material with realistic veining, correct color tone, and polished finish. Match lighting and perspective of the kitchen. Both the worktop and splashback must display the identical stone material.${refinementExtra}`;
+    const prompt = `${colorDetails.promptPrefix} Modern luxury kitchen with all countertop worktop surfaces, kitchen island, waterfall side edges, and splashback wall slabs completely replaced with ${stoneBrand} ${stoneName}. The new stone surfaces must feature authentic ${stoneDesc} with realistic natural veining, correct polished finish, and consistent stone material across all slabs, island, and backsplash walls. Retain original cabinets, lighting, and kitchen structure.${refinementExtra}`;
 
     console.log('[Render] Inpainting Prompt:', prompt);
     setProgress(2); // Stage 2: Sending to AI
 
-    // ── 3. Call the Supabase proxy → Fal.ai inpainting ─────────────────────
+    // ── 3. Call the Supabase proxy → OpenAI inpainting ─────────────────────
     processingText.textContent = 'Inpainting selected stone onto worktop...';
 
     let aiImageUrl = null;
@@ -403,13 +405,12 @@ async function generateRender() {
         }
       } catch (aiErr) {
         console.error('[Render] AI proxy error:', aiErr);
-        console.log('[Render] Generating high-fidelity blend preview as fallback...');
-        aiImageUrl = createClientSideBlendRender(previewImage, points, colorDetails);
+        throw new Error(aiErr.message || 'AI generation failed. Please verify OpenAI API configuration.');
       } finally {
         stopProgressTicker();
       }
     } else {
-      aiImageUrl = createClientSideBlendRender(previewImage, points, colorDetails);
+      throw new Error('Not connected to the server. Please check your connection.');
     }
 
     setProgress(3); // Stage 3: Rendering
@@ -567,20 +568,11 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     maskCtx.closePath();
     maskCtx.fill();
   } else {
-    // Auto Mode: Target ONLY the worktop surface area (leaving upper cabinets, windows, walls & floor untouched)
-    const countertopPoints = [
-      { x: 12, y: 55 },
-      { x: 88, y: 55 },
-      { x: 92, y: 82 },
-      { x: 8, y: 82 }
-    ];
-    maskCtx.beginPath();
-    maskCtx.moveTo(countertopPoints[0].x * SCALE, countertopPoints[0].y * SCALE);
-    for (let i = 1; i < countertopPoints.length; i++) {
-      maskCtx.lineTo(countertopPoints[i].x * SCALE, countertopPoints[i].y * SCALE);
-    }
-    maskCtx.closePath();
-    maskCtx.fill();
+    // Auto Mode: Inpaint BOTH the splashback wall slabs AND all kitchen island / worktops / waterfall slabs
+    // 1. Splashback Wall Slab & Backsplash zone (mid-upper kitchen area)
+    maskCtx.fillRect(TARGET_SIZE * 0.04, TARGET_SIZE * 0.10, TARGET_SIZE * 0.92, TARGET_SIZE * 0.44);
+    // 2. Kitchen Island, Countertops, Front & Waterfall Slabs (worktop area)
+    maskCtx.fillRect(TARGET_SIZE * 0.04, TARGET_SIZE * 0.42, TARGET_SIZE * 0.92, TARGET_SIZE * 0.54);
   }
 
   maskCtx.globalCompositeOperation = 'source-over';
