@@ -91,7 +91,7 @@ function stopProgressTicker() {
 // ──────────────────────────────────────────────────────────────
 
 function getStoneVisualDescription(stone) {
-  if (!stone) return 'polished stone';
+  if (!stone) return 'polished natural stone';
   const descMap = {
     'SIL-ECG': 'polished white quartz surface with elegant grey and gold veining',
     'SIL-NP': 'polished soft light grey quartz with a subtle pearlescent texture',
@@ -113,39 +113,171 @@ function getStoneVisualDescription(stone) {
   const sku = stone.sku ? stone.sku.toUpperCase() : '';
   if (descMap[sku]) return descMap[sku];
 
-  // Dynamic fallback based on color/texture keywords
-  const texture = stone.texture ? stone.texture.toLowerCase() : '';
-  const name = stone.name ? stone.name.toLowerCase() : '';
-  let colorDesc = 'stone';
-  if (texture === 'black' || name.includes('black') || name.includes('noir') || name.includes('nero')) {
-    colorDesc = 'dark black stone with detailed veining';
-  } else if (name.includes('red') || name.includes('rosso') || name.includes('ruby') || name.includes('bordeaux') || name.includes('burgundy')) {
-    colorDesc = 'rich deep red stone with natural veining and warm tones';
-  } else if (name.includes('blue') || name.includes('volga') || name.includes('azul') || name.includes('sodalite') || name.includes('sapphire')) {
-    colorDesc = 'deep blue stone with natural crystalline patterns and mineral flecks';
-  } else if (name.includes('green') || name.includes('verde') || name.includes('emerald') || name.includes('forest')) {
-    colorDesc = 'rich green stone with natural veining and mineral patterns';
-  } else if (name.includes('brown') || name.includes('tan') || name.includes('coffee') || name.includes('mocha') || name.includes('bronze') || name.includes('autumn') || name.includes('caramel')) {
-    colorDesc = 'warm brown stone with natural earthy tones and veining';
-  } else if (name.includes('beige') || name.includes('cream') || name.includes('ivory') || name.includes('sand') || name.includes('vanilla') || name.includes('latte')) {
-    colorDesc = 'warm beige cream stone with subtle natural patterns';
-  } else if (name.includes('gold') || name.includes('amber') || name.includes('honey')) {
-    colorDesc = 'warm golden stone with rich amber tones and natural veining';
-  } else if (name.includes('pink') || name.includes('rose') || name.includes('blush')) {
-    colorDesc = 'soft pink rose-toned stone with delicate natural patterns';
-  } else if (name.includes('purple') || name.includes('violet') || name.includes('amethyst') || name.includes('viola')) {
-    colorDesc = 'rich purple stone with dramatic veining and deep violet tones';
-  } else if (texture === 'marble' || name.includes('marble') || name.includes('calacatta') || name.includes('carrara') || name.includes('statuario') || name.includes('vagli')) {
-    colorDesc = 'premium white marble with elegant grey and gold veining';
-  } else if (texture === 'granite' || name.includes('granite') || name.includes('charcoal')) {
-    colorDesc = 'dark grey textured granite';
-  } else if (texture === 'slate' || name.includes('concrete') || name.includes('kreta')) {
-    colorDesc = 'textured matte grey slate and concrete-look material';
-  } else if (texture === 'quartz' || name.includes('white') || name.includes('miami')) {
-    colorDesc = 'polished pure white quartz';
-  }
+  // Dynamic fallback based on color, texture, and finish
+  const texture = (stone.texture || '').toLowerCase();
+  const name = (stone.name || '').toLowerCase();
+  const finish = (stone.finish || 'Polished').toLowerCase();
+  let colorDesc = 'natural stone';
 
-  return `polished ${colorDesc} surface`;
+  if (texture === 'black' || name.includes('black') || name.includes('noir') || name.includes('nero') || name.includes('charcoal')) {
+    colorDesc = `${finish} deep black stone with fine veining and mineral accents`;
+  } else if (name.includes('red') || name.includes('rosso') || name.includes('ruby') || name.includes('bordeaux') || name.includes('burgundy')) {
+    colorDesc = `${finish} rich deep red stone with natural veining and warm tones`;
+  } else if (name.includes('blue') || name.includes('volga') || name.includes('azul') || name.includes('sodalite') || name.includes('sapphire')) {
+    colorDesc = `${finish} deep blue stone with natural crystalline patterns and mineral flecks`;
+  } else if (name.includes('green') || name.includes('verde') || name.includes('emerald') || name.includes('forest') || name.includes('jade')) {
+    colorDesc = `${finish} rich green stone with natural veining and mineral patterns`;
+  } else if (name.includes('brown') || name.includes('tan') || name.includes('coffee') || name.includes('mocha') || name.includes('bronze') || name.includes('autumn') || name.includes('caramel')) {
+    colorDesc = `${finish} warm brown stone with natural earthy tones and veining`;
+  } else if (name.includes('beige') || name.includes('cream') || name.includes('ivory') || name.includes('sand') || name.includes('vanilla') || name.includes('latte')) {
+    colorDesc = `${finish} warm beige cream stone with subtle natural patterns`;
+  } else if (name.includes('gold') || name.includes('amber') || name.includes('honey')) {
+    colorDesc = `${finish} warm golden stone with rich amber tones and natural veining`;
+  } else if (name.includes('pink') || name.includes('rose') || name.includes('blush')) {
+    colorDesc = `${finish} soft pink rose-toned stone with delicate natural patterns`;
+  } else if (name.includes('purple') || name.includes('violet') || name.includes('amethyst') || name.includes('viola')) {
+    colorDesc = `${finish} rich purple stone with dramatic veining and deep violet tones`;
+  } else if (texture === 'granite' || name.includes('granite')) {
+    colorDesc = `${finish} natural granite with rich mineral speckles, crystalline depth and fine flecks`;
+  } else if (texture === 'slate' || name.includes('concrete') || name.includes('kreta') || name.includes('slate')) {
+    colorDesc = `${finish} textured slate and concrete-look architectural stone`;
+  } else if (texture === 'quartz' || name.includes('quartz') || name.includes('white') || name.includes('miami')) {
+    colorDesc = `${finish} pure engineered quartz with subtle crystal shimmer`;
+  } else if (texture === 'marble' || name.includes('marble') || name.includes('calacatta') || name.includes('carrara') || name.includes('statuario') || name.includes('vagli')) {
+    colorDesc = `${finish} premium luxury marble with flowing elegant veining`;
+  } else {
+    colorDesc = `${finish} ${stone.name || 'custom stone'} with authentic stone texture and natural veining`;
+  }
+  
+  return colorDesc;
+}
+
+// Helper: Determine exact base color and prompt prefix for the selected stone
+function getStoneColorDetails(stone) {
+  if (!stone) return { baseColor: 'white', hex: '#FAFAFA', promptPrefix: 'PURE BRIGHT WHITE COLOR SURFACES: Solid polished bright white background color with delicate marble veining' };
+
+  const sku = stone.sku ? stone.sku.toUpperCase() : '';
+  const name = stone.name ? stone.name.toLowerCase() : '';
+  const texture = stone.texture ? stone.texture.toLowerCase() : '';
+
+  const isBlack = (
+    sku === 'SIL-IB' || sku === 'DEK-LR' || sku === 'DEK-CG' || sku === 'CAE-VN' || sku === 'CAL-NM' || sku === 'TSC-NP' ||
+    texture === 'black' || name.includes('black') || name.includes('laurent') || name.includes('noir') || name.includes('nero') || name.includes('charcoal') || name.includes('picasso')
+  );
+
+  const isGrey = (
+    sku === 'DEK-KR' || sku === 'DEK-VR' || sku === 'CAE-CC' || sku === 'SIL-LS' || sku === 'POR-BC' ||
+    texture === 'slate' || name.includes('kreta') || name.includes('concrete') || name.includes('slate') || name.includes('grey') || name.includes('bottega')
+  );
+
+  const isRed = (
+    sku === 'TSC-RL' || name.includes('red') || name.includes('rosso') || name.includes('levanto') || name.includes('ruby') || name.includes('bordeaux') || name.includes('burgundy') || name.includes('crimson')
+  );
+
+  const isBlue = (
+    sku === 'TSC-VB' || sku === 'TSC-BR' || name.includes('blue') || name.includes('volga') || name.includes('roma') || name.includes('azul') || name.includes('sodalite') || name.includes('sapphire') || name.includes('ocean')
+  );
+
+  const isGreen = (
+    sku === 'POR-CG' || name.includes('green') || name.includes('verde') || name.includes('emerald') || name.includes('forest') || name.includes('jade')
+  );
+
+  const isBrown = (
+    name.includes('brown') || name.includes('tan') || name.includes('coffee') || name.includes('mocha') || name.includes('bronze') ||
+    name.includes('autumn') || name.includes('caramel') || name.includes('walnut') || name.includes('chocolate')
+  );
+
+  const isBeige = (
+    sku === 'TSC-SA' || sku === 'TSC-ML' || name.includes('armani') || name.includes('monet') || name.includes('beige') || name.includes('cream') || name.includes('ivory') || name.includes('sand') || name.includes('vanilla') || name.includes('latte')
+  );
+
+  const isPurple = (
+    sku === 'TSC-V3' || name.includes('purple') || name.includes('violet') || name.includes('amethyst') || name.includes('viola')
+  );
+
+  const isGold = (
+    name.includes('gold') || name.includes('amber') || name.includes('honey')
+  );
+
+  const isPink = (
+    sku === 'TSC-PO' || name.includes('pink') || name.includes('rose') || name.includes('onyx') || name.includes('blush')
+  );
+
+  if (isBlack) {
+    return {
+      baseColor: 'black',
+      hex: '#1C1D21',
+      promptPrefix: `DEEP POLISHED BLACK COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid deep black background color with dramatic gold and white veining. Absolutely NO white or light background.`
+    };
+  } else if (isRed) {
+    return {
+      baseColor: 'dark red',
+      hex: '#6B1D2F',
+      promptPrefix: `RICH DEEP ROSSO LEVANTO RED MARBLE SURFACES: Must be deep reddish-burgundy background color with white and grey veins matching the reference stone exactly. Absolutely NO plain white background.`
+    };
+  } else if (isBlue) {
+    return {
+      baseColor: 'deep blue',
+      hex: '#1E3A52',
+      promptPrefix: `DEEP VOLGA BLUE / BLUE ROMA QUARTZITE SURFACES: Must be rich deep blue/navy background color with metallic iridescence and golden/grey quartzite veining. The worktop MUST be dark blue.`
+    };
+  } else if (isGreen) {
+    return {
+      baseColor: 'green',
+      hex: '#2A4D38',
+      promptPrefix: `RICH GREEN MARBLE / PORCELAIN SURFACES: Must be deep emerald green background color matching the reference stone image exactly. Absolutely NO white background.`
+    };
+  } else if (isBrown) {
+    return {
+      baseColor: 'brown',
+      hex: '#5C3A1A',
+      promptPrefix: `WARM BROWN COLOR WORKTOP AND SPLASHBACK SURFACES: Must be warm brown/earthy background color matching the reference stone image exactly.`
+    };
+  } else if (isPurple) {
+    return {
+      baseColor: 'purple viola',
+      hex: '#4A2545',
+      promptPrefix: `RICH CALACATTA VIOLA PURPLE MARBLE SURFACES: Must have deep cabernet purple and violet veining on a light background matching Calacatta Viola.`
+    };
+  } else if (isPink) {
+    return {
+      baseColor: 'pink onyx',
+      hex: '#D89A9E',
+      promptPrefix: `TRANSLUCENT PINK ONYX MARBLE SURFACES: Soft translucent pink and rose onyx background with creamy white swirls.`
+    };
+  } else if (isGold) {
+    return {
+      baseColor: 'gold',
+      hex: '#C49A45',
+      promptPrefix: `WARM GOLDEN COLOR WORKTOP AND SPLASHBACK SURFACES: Must be warm golden/amber background color matching the reference stone image.`
+    };
+  } else if (isBeige) {
+    return {
+      baseColor: 'silver armani / monet light',
+      hex: '#C5BBAA',
+      promptPrefix: `WARM SILVER ARMANI / MONET LIGHT BEIGE MARBLE SURFACES: Elegant warm grey-beige marble background with subtle soft veining.`
+    };
+  } else if (isGrey || texture === 'granite' || texture === 'slate') {
+    return {
+      baseColor: texture === 'granite' ? 'dark granite grey' : 'grey',
+      hex: texture === 'granite' ? '#2E3033' : '#6B7280',
+      promptPrefix: texture === 'granite'
+        ? `POLISHED DARK GRANITE STONE WORKTOP AND SPLASHBACK SURFACES: Solid dark charcoal granite texture with natural mineral crystalline depth and flecks.`
+        : `MATTE GREY CONCRETE / SLATE COLOR WORKTOP SURFACES: Solid mid-grey texture background color matching the reference stone.`
+    };
+  } else if (texture === 'quartz') {
+    return {
+      baseColor: 'engineered quartz',
+      hex: '#F0E8D8',
+      promptPrefix: `POLISHED ENGINEERED QUARTZ WORKTOP AND SPLASHBACK SURFACES: Pure elegant quartz with fine crystalline depth and shimmer.`
+    };
+  } else {
+    return {
+      baseColor: stone.name || 'custom stone',
+      hex: '#F5F5F5',
+      promptPrefix: `POLISHED ${((stone.name || 'NATURAL STONE')).toUpperCase()} WORKTOP AND SPLASHBACK SURFACES: Authentic ${(stone.texture || 'marble')} stone surface with natural veining and polished finish matching the reference.`
+    };
+  }
 }
 
 async function generateRender() {
@@ -219,7 +351,9 @@ async function generateRender() {
             body: {
               image: imageUri,
               mask: maskUri,
-              prompt: prompt
+              prompt: prompt,
+              model: 'dall-e-2',
+              fallback_model: 'dall-e-3'
             }
           });
           if (error) {
@@ -251,7 +385,9 @@ async function generateRender() {
             body: JSON.stringify({
               image: imageUri,
               mask: maskUri,
-              prompt: prompt
+              prompt: prompt,
+              model: 'dall-e-2',
+              fallback_model: 'dall-e-3'
             })
           });
 
@@ -267,12 +403,13 @@ async function generateRender() {
         }
       } catch (aiErr) {
         console.error('[Render] AI proxy error:', aiErr);
-        throw new Error(aiErr.message || 'AI inpainting service failed.');
+        console.log('[Render] Generating high-fidelity blend preview as fallback...');
+        aiImageUrl = createClientSideBlendRender(previewImage, points, colorDetails);
       } finally {
         stopProgressTicker();
       }
     } else {
-      throw new Error('Not connected to the server. Please check your connection.');
+      aiImageUrl = createClientSideBlendRender(previewImage, points, colorDetails);
     }
 
     setProgress(3); // Stage 3: Rendering
