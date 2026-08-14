@@ -1498,10 +1498,11 @@ async function saveColourToDB(colour) {
   if (!supabaseClient) return fullColourRecord;
 
   try {
-    // Note: brand_name is NOT a column in the Supabase colours table — only store it locally
+    // All columns now exist in Supabase after running the setup-stones-table.sql migration
     const { error: err } = await supabaseClient.from('colours').upsert([{
       id: colId,
       brand_id: brandId,
+      brand_name: colour.brand_name || '',
       name: colour.name,
       sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
       finish: colour.finish || 'Polished',
