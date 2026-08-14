@@ -4,8 +4,8 @@
 
 // ── Supabase Configuration ────────────────────
 // Replace these with your own live Supabase project credentials to connect to a real database
-const SUPABASE_URL = 'https://cvzeelapjwdvpotuvbrz.supabase.co'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2emVlbGFwandkdnBvdHV2YnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODI0NzAsImV4cCI6MjA5Nzc1ODQ3MH0.1zhb3W30NmK8wwW5q6_eJ_ExHd0zoyWhYvCG7w5T3S4'; 
+const SUPABASE_URL = 'https://cvzeelapjwdvpotuvbrz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2emVlbGFwandkdnBvdHV2YnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODI0NzAsImV4cCI6MjA5Nzc1ODQ3MH0.1zhb3W30NmK8wwW5q6_eJ_ExHd0zoyWhYvCG7w5T3S4';
 
 // ── Supabase Initialization ───────────────────
 // Use real Supabase when the library and credentials are available.
@@ -55,7 +55,7 @@ const store = {
       this._cache[key] = val;
       localStorage.setItem('rw_' + key, JSON.stringify(val));
       localStorage.setItem('ratedworktops_' + key, JSON.stringify(val));
-    } catch (e) {}
+    } catch (e) { }
   }
 };
 
@@ -72,27 +72,27 @@ class MockSupabaseQuery {
     this.deleteFlag = false;
     this.upsertRow = null;
   }
-  
+
   select(cols) {
     return this;
   }
-  
+
   eq(col, val) {
     this.filters.push({ col, val, op: 'eq' });
     return this;
   }
-  
+
   order(col, options) {
     this.orderByField = col;
     this.orderByAsc = options ? (options.ascending !== false) : true;
     return this;
   }
-  
+
   limit(count) {
     this.limitCount = count;
     return this;
   }
-  
+
   single() {
     this.isSingle = true;
     return this;
@@ -102,27 +102,27 @@ class MockSupabaseQuery {
     this.isSingle = true;
     return this;
   }
-  
+
   insert(rows) {
     this.insertRows = rows;
     return this;
   }
-  
+
   update(changes) {
     this.updateChanges = changes;
     return this;
   }
-  
+
   delete() {
     this.deleteFlag = true;
     return this;
   }
-  
+
   upsert(row) {
     this.upsertRow = row;
     return this;
   }
-  
+
   async then(resolve, reject) {
     try {
       const res = await this.execute();
@@ -132,11 +132,11 @@ class MockSupabaseQuery {
       else resolve({ data: null, error: e });
     }
   }
-  
+
   async execute() {
     let key = 'rw_' + this.table;
     let data = [];
-    
+
     data = safeGetLocalStorage(key, null);
     if (data === null) {
       if (this.table === 'brands') {
@@ -173,11 +173,11 @@ class MockSupabaseQuery {
         data = [];
       }
     }
-    
+
     if (!Array.isArray(data)) {
       data = [];
     }
-    
+
     if (this.table === 'settings' && (!data || data.length === 0)) {
       const defSettings = {
         freeCreditsEnabled: true,
@@ -193,11 +193,11 @@ class MockSupabaseQuery {
       data = [defSettings];
       localStorage.setItem('rw_settings', JSON.stringify(defSettings));
     }
-    
+
     if (this.table === 'settings' && !Array.isArray(data)) {
       data = [data];
     }
-    
+
     // Write Actions
     if (this.insertRows) {
       const rows = Array.isArray(this.insertRows) ? this.insertRows : [this.insertRows];
@@ -213,13 +213,13 @@ class MockSupabaseQuery {
       });
       data = data.concat(rowsWithIds);
       localStorage.setItem(key, JSON.stringify(data));
-      
+
       if (this.table === 'profiles') syncProfilesToUsers(data);
       if (this.table === 'colours') syncColoursToBrands(data);
-      
+
       return { data: this.isSingle ? rowsWithIds[0] : (Array.isArray(this.insertRows) ? rowsWithIds : rowsWithIds[0]), error: null };
     }
-    
+
     if (this.updateChanges) {
       data = data.map(item => {
         let match = true;
@@ -237,10 +237,10 @@ class MockSupabaseQuery {
         return item;
       });
       localStorage.setItem(key, JSON.stringify(data));
-      
+
       if (this.table === 'profiles') syncProfilesToUsers(data);
       if (this.table === 'colours') syncColoursToBrands(data);
-      
+
       const matchedItems = data.filter(item => {
         for (const filter of this.filters) {
           if (filter.op === 'eq' && item[filter.col] != filter.val) return false;
@@ -249,7 +249,7 @@ class MockSupabaseQuery {
       });
       return { data: this.isSingle ? matchedItems[0] : matchedItems, error: null };
     }
-    
+
     if (this.deleteFlag) {
       data = data.filter(item => {
         let match = true;
@@ -262,13 +262,13 @@ class MockSupabaseQuery {
         return !match;
       });
       localStorage.setItem(key, JSON.stringify(data));
-      
+
       if (this.table === 'profiles') syncProfilesToUsers(data);
       if (this.table === 'colours') syncColoursToBrands(data);
-      
+
       return { data: null, error: null };
     }
-    
+
     if (this.upsertRow) {
       const rows = Array.isArray(this.upsertRow) ? this.upsertRow : [this.upsertRow];
       rows.forEach(r => {
@@ -280,17 +280,17 @@ class MockSupabaseQuery {
         }
       });
       localStorage.setItem(key, JSON.stringify(data));
-      
+
       if (this.table === 'profiles') syncProfilesToUsers(data);
       if (this.table === 'colours') syncColoursToBrands(data);
       if (this.table === 'settings') {
         const row = Array.isArray(this.upsertRow) ? this.upsertRow[0] : this.upsertRow;
         localStorage.setItem('rw_settings', JSON.stringify(row));
       }
-      
+
       return { data: Array.isArray(this.upsertRow) ? rows : rows[0], error: null };
     }
-    
+
     // Read Actions
     let result = [...data];
     for (const filter of this.filters) {
@@ -298,7 +298,7 @@ class MockSupabaseQuery {
         result = result.filter(item => item[filter.col] == filter.val);
       }
     }
-    
+
     if (this.orderByField) {
       result.sort((a, b) => {
         const valA = a[this.orderByField];
@@ -308,19 +308,19 @@ class MockSupabaseQuery {
         return 0;
       });
     }
-    
+
     if (this.limitCount !== null) {
       result = result.slice(0, this.limitCount);
     }
-    
+
     if (this.isSingle) {
       return { data: result[0] || null, error: null };
     }
-    
+
     if (this.table === 'settings') {
       return { data: result[0] || {}, error: null };
     }
-    
+
     return { data: result, error: null };
   }
 }
@@ -340,7 +340,7 @@ function syncProfilesToUsers(profiles) {
     verified: true
   }));
   localStorage.setItem('rw_app_users', JSON.stringify(appUsers));
-  
+
   const adminUsers = profiles.map(p => ({
     id: p.id,
     name: p.name || p.full_name || 'Unknown',
@@ -365,8 +365,8 @@ function syncColoursToBrands(colours) {
     brands = safeGetLocalStorage('rw_brands');
   }
   const updatedBrands = brands.map(brand => {
-    const matchingCols = colours.filter(c => 
-      String(c.brand_id) === String(brand.id) || 
+    const matchingCols = colours.filter(c =>
+      String(c.brand_id) === String(brand.id) ||
       String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
       (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
     );
@@ -390,11 +390,11 @@ function syncColoursToBrands(colours) {
 
 function initProfilesTable() {
   let profiles = safeGetLocalStorage('rw_profiles');
-  
+
   const appUsers = safeGetLocalStorage('rw_app_users');
   const adminUsers = safeGetLocalStorage('rw_users');
   const userMap = {};
-  
+
   adminUsers.forEach(u => {
     userMap[u.email] = {
       id: u.id,
@@ -410,7 +410,7 @@ function initProfilesTable() {
       updated_at: new Date().toISOString()
     };
   });
-  
+
   appUsers.forEach(u => {
     userMap[u.email] = {
       id: u.id,
@@ -427,7 +427,7 @@ function initProfilesTable() {
       updated_at: new Date().toISOString()
     };
   });
-  
+
   if (!userMap['demo@ratedworktops.com']) {
     userMap['demo@ratedworktops.com'] = {
       id: 1,
@@ -444,7 +444,7 @@ function initProfilesTable() {
       updated_at: new Date().toISOString()
     };
   }
-  
+
   if (!userMap['ratedworktopsapp@gmail.com']) {
     userMap['ratedworktopsapp@gmail.com'] = {
       id: 999,
@@ -461,7 +461,7 @@ function initProfilesTable() {
       updated_at: new Date().toISOString()
     };
   }
-  
+
   profiles.forEach(p => {
     if (p.email) {
       userMap[p.email] = {
@@ -470,14 +470,14 @@ function initProfilesTable() {
       };
     }
   });
-  
+
   if (userMap['demo@ratedworktops.com']) {
     userMap['demo@ratedworktops.com'].password = 'Demo123';
   }
   if (userMap['ratedworktopsapp@gmail.com']) {
     userMap['ratedworktopsapp@gmail.com'].password = 'Ratedworktopsapp@';
   }
-  
+
   const finalProfiles = Object.values(userMap);
   localStorage.setItem('rw_profiles', JSON.stringify(finalProfiles));
   syncProfilesToUsers(finalProfiles);
@@ -495,7 +495,7 @@ function initBrandsAndColours() {
       }
     });
     if (updatedDeleted) localStorage.setItem('rw_deleted_brands', JSON.stringify(deleted));
-  } catch(e) {}
+  } catch (e) { }
 
   let rwBrands = safeGetLocalStorage('rw_brands');
   rwBrands = rwBrands.filter(b => b && b.name && !legacySeedNames.includes(b.name.toLowerCase().trim()));
@@ -531,7 +531,7 @@ function initBrandsAndColours() {
         ]
       }
     ];
-    try { localStorage.setItem('rw_brands', JSON.stringify(rwBrands)); } catch(e) {}
+    try { localStorage.setItem('rw_brands', JSON.stringify(rwBrands)); } catch (e) { }
   } else {
     // Ensure Top Stone Centre brand has all 8 colours
     const tsc = rwBrands.find(b => b.name && b.name.toLowerCase().trim().includes('top stone'));
@@ -552,14 +552,14 @@ function initBrandsAndColours() {
         }
       });
     }
-    try { localStorage.setItem('rw_brands', JSON.stringify(rwBrands)); } catch(e) {}
+    try { localStorage.setItem('rw_brands', JSON.stringify(rwBrands)); } catch (e) { }
   }
 
   try {
     let localBrands = safeGetLocalStorage('rw_local_brands');
     let filteredLocal = localBrands.filter(b => b && b.name && !legacySeedNames.includes(b.name.toLowerCase().trim()));
     localStorage.setItem('rw_local_brands', JSON.stringify(filteredLocal));
-  } catch(e) {}
+  } catch (e) { }
 }
 
 function fetchBrandsSync() {
@@ -567,11 +567,11 @@ function fetchBrandsSync() {
 
   let baseBrands = (typeof store !== 'undefined' ? store.get('brands', []) : []) || [];
   if (!baseBrands || baseBrands.length === 0) {
-    try { baseBrands = JSON.parse(localStorage.getItem('rw_brands') || '[]'); } catch(e) {}
+    try { baseBrands = JSON.parse(localStorage.getItem('rw_brands') || '[]'); } catch (e) { }
   }
 
   let localBrands = [];
-  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
+  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch (e) { }
 
   const allBrands = [...baseBrands];
   for (const lb of localBrands) {
@@ -581,15 +581,15 @@ function fetchBrandsSync() {
   }
 
   let localColours = [];
-  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
+  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch (e) { }
 
   return allBrands.map(brand => {
-    const locCols = localColours.filter(c => 
-      String(c.brand_id) === String(brand.id) || 
+    const locCols = localColours.filter(c =>
+      String(c.brand_id) === String(brand.id) ||
       String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
       (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
     );
-    
+
     const combined = [...(brand.colours || [])];
     for (const lc of locCols) {
       if (!combined.some(c => c.id == lc.id || (c.name && c.name === lc.name))) {
@@ -612,7 +612,7 @@ async function fetchBrands() {
         supabaseClient.from('brands').select('*'),
         supabaseClient.from('colours').select('*')
       ]);
-      
+
       if (bRes && !bRes.error && bRes.data) {
         const dbBrands = bRes.data.filter(b => b && b.name);
         const dbColours = (cRes && !cRes.error && cRes.data) ? cRes.data : [];
@@ -670,7 +670,7 @@ async function fetchBrands() {
         store.set('brands', results);
         return results;
       }
-    } catch(e) {
+    } catch (e) {
       console.warn('[Admin Brands] Supabase fetch notice:', e);
     }
   }
@@ -702,7 +702,7 @@ class MockSupabaseClient {
         if (profiles.find(p => p.email === email)) {
           return { data: { user: null }, error: { message: 'User already exists' } };
         }
-        
+
         const name = (options && options.data && options.data.name) ? options.data.name : email.split('@')[0];
         const newUser = {
           id: Date.now() + Math.floor(Math.random() * 1000),
@@ -718,11 +718,11 @@ class MockSupabaseClient {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
-        
+
         profiles.push(newUser);
         localStorage.setItem('rw_profiles', JSON.stringify(profiles));
         syncProfilesToUsers(profiles);
-        
+
         const session = {
           user: {
             id: newUser.id,
@@ -745,7 +745,7 @@ class MockSupabaseClient {
         if (user.status === 'suspended') {
           return { data: { user: null, session: null }, error: { message: 'Your account has been suspended' } };
         }
-        
+
         const session = {
           user: {
             id: user.id,
@@ -781,7 +781,7 @@ class MockSupabaseClient {
           localStorage.setItem('rw_profiles', JSON.stringify(profiles));
           syncProfilesToUsers(profiles);
         }
-        
+
         const session = {
           user: {
             id: adminUser.id,
@@ -792,7 +792,7 @@ class MockSupabaseClient {
           expires_at: Math.floor(Date.now() / 1000) + 3600
         };
         localStorage.setItem('rw_session', JSON.stringify(session));
-        
+
         if (options && options.redirectTo) {
           window.location.href = options.redirectTo;
         }
@@ -806,11 +806,11 @@ class MockSupabaseClient {
         initProfilesTable();
         const sessionStr = localStorage.getItem('rw_session');
         if (!sessionStr) return { data: { user: null }, error: { message: 'No active session' } };
-        
+
         const session = JSON.parse(sessionStr);
         let profiles = JSON.parse(localStorage.getItem('rw_profiles')) || [];
         const userIdx = profiles.findIndex(p => p.id == session.user.id);
-        
+
         if (userIdx >= 0) {
           if (attributes.password) {
             profiles[userIdx].password = attributes.password;
@@ -830,7 +830,7 @@ class MockSupabaseClient {
         return { data: {}, error: null };
       }
     };
-    
+
     this.storage = {
       from: (bucket) => {
         return {
@@ -847,7 +847,7 @@ class MockSupabaseClient {
                 const objectUrl = URL.createObjectURL(file);
                 window._mockStorage = window._mockStorage || {};
                 window._mockStorage[bucket + '_' + path] = objectUrl;
-                
+
                 resolve({ data: { path }, error: null });
               };
               reader.onerror = (err) => {
@@ -872,7 +872,7 @@ class MockSupabaseClient {
       }
     };
   }
-  
+
   from(table) {
     return new MockSupabaseQuery(table);
   }
@@ -885,7 +885,7 @@ class MockSupabaseClient {
           let profiles = JSON.parse(localStorage.getItem('rw_profiles') || '[]');
           profiles = profiles.filter(p => p.id != targetId && String(p.id) !== String(targetId));
           localStorage.setItem('rw_profiles', JSON.stringify(profiles));
-        } catch(e) {}
+        } catch (e) { }
       }
     }
     return { data: true, error: null };
@@ -908,8 +908,8 @@ if (typeof window !== 'undefined') {
 
 // Instantiate real Supabase client — always use real Supabase when the library is loaded
 const useRealSupabase = !!(typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
-const supabaseClient = useRealSupabase 
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+const supabaseClient = useRealSupabase
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : createMockSupabaseClient();
 
 // Seed initial mock data to ensure localStorage is always populated
@@ -936,7 +936,7 @@ async function requireAuth() {
     if (adminFlag === 'true' && (!session || !session.user)) {
       session = { user: { email: 'ratedworktopsapp@gmail.com' } };
     }
-  } catch (e) {}
+  } catch (e) { }
 
   // 1. Check local/mock session FIRST — instant, no network, no lock issues
   if (!session || !session.user) {
@@ -946,7 +946,7 @@ async function requireAuth() {
         const { data } = await mockClient.auth.getSession();
         session = data ? data.session : null;
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // 2. If no local session, try real Supabase with 1s timeout
@@ -958,7 +958,7 @@ async function requireAuth() {
         const { data } = await Promise.race([realSessionPromise, timeoutPromise]);
         session = data ? data.session : null;
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const userEmail = session && session.user && session.user.email ? session.user.email.toLowerCase().trim() : '';
@@ -976,13 +976,13 @@ async function requireAuth() {
 async function logout() {
   try {
     await supabaseClient.auth.signOut();
-  } catch (e) {}
+  } catch (e) { }
   try {
     const mockClient = createMockSupabaseClient();
     if (mockClient) {
       await mockClient.auth.signOut();
     }
-  } catch (e) {}
+  } catch (e) { }
   // Clear ALL auth state so requireAuth() doesn't bypass
   localStorage.removeItem('rw_admin_logged_in');
   localStorage.removeItem('rw_session');
@@ -1217,13 +1217,13 @@ function renderMiniChart(canvasId, data, color = '#c9a96e') {
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
   const h = canvas.height;
-  
-  ctx.clearRect(0,0,w,h);
+
+  ctx.clearRect(0, 0, w, h);
   if (!data || !data.length) return;
-  
+
   const max = Math.max(...data, 1);
   const barW = Math.max(2, (w / data.length) - 2);
-  
+
   ctx.fillStyle = color;
   data.forEach((val, i) => {
     const barH = (val / max) * h;
@@ -1251,7 +1251,7 @@ async function fetchCategories() {
           display_order: c.display_order || c.order || 1
         }));
       }
-    } catch(e) {}
+    } catch (e) { }
     return null;
   })();
 
@@ -1291,7 +1291,7 @@ async function fetchUsers() {
       store.set('users', dbUsers);
       return dbUsers;
     }
-  } catch(e) {
+  } catch (e) {
     console.warn('[Admin fetchUsers] DB fetch notice:', e);
   }
 
@@ -1355,14 +1355,14 @@ async function saveBrandToDB(brand) {
 
   // Sync to local brands cache
   let localBrands = [];
-  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch(e) {}
+  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch (e) { }
   const localIdx = localBrands.findIndex(b => b.id == brandId || (b.name && b.name.toLowerCase() === brand.name.toLowerCase()));
   if (localIdx >= 0) {
     localBrands[localIdx] = fullBrandRecord;
   } else {
     localBrands.unshift(fullBrandRecord);
   }
-  try { localStorage.setItem('rw_local_brands', JSON.stringify(localBrands)); } catch(e) {}
+  try { localStorage.setItem('rw_local_brands', JSON.stringify(localBrands)); } catch (e) { }
 
   // Sync to rw_brands
   let rwBrands = safeGetLocalStorage('rw_brands');
@@ -1393,7 +1393,7 @@ async function saveBrandToDB(brand) {
     } else {
       console.log('[Admin saveBrandToDB] Successfully persisted brand to Supabase:', brandId, brand.name);
     }
-  } catch(e) {
+  } catch (e) {
     console.error('[Admin saveBrandToDB] DB write exception:', e);
     if (typeof showToast === 'function') showToast('Error saving brand: ' + e.message, 'error');
     throw e;
@@ -1407,25 +1407,25 @@ async function deleteBrandFromDB(id, brandName) {
     let rwBrands = safeGetLocalStorage('rw_brands');
     rwBrands = rwBrands.filter(b => b.id != id && String(b.id) !== String(id) && (b.name && b.name.toLowerCase() !== String(id).toLowerCase()));
     localStorage.setItem('rw_brands', JSON.stringify(rwBrands));
-  } catch(e) {}
+  } catch (e) { }
 
   try {
     let localBrands = safeGetLocalStorage('rw_local_brands');
     localBrands = localBrands.filter(b => b.id != id && String(b.id) !== String(id) && (b.name && b.name.toLowerCase() !== String(id).toLowerCase()));
     localStorage.setItem('rw_local_brands', JSON.stringify(localBrands));
-  } catch(e) {}
+  } catch (e) { }
 
   try {
     let localCols = safeGetLocalStorage('rw_local_colours');
     localCols = localCols.filter(c => c.brand_id != id && String(c.brand_id) !== String(id));
     localStorage.setItem('rw_local_colours', JSON.stringify(localCols));
-  } catch(e) {}
+  } catch (e) { }
 
   if (typeof store !== 'undefined' && store.get) {
     try {
       let b = store.get('brands') || [];
       store.set('brands', b.filter(item => item.id != id && String(item.id) !== String(id)));
-    } catch(e) {}
+    } catch (e) { }
   }
 
   // 2. Remove from Supabase DB
@@ -1449,7 +1449,7 @@ async function deleteBrandFromDB(id, brandName) {
     }
 
     console.log('[deleteBrandFromDB] Successfully deleted brand from Supabase:', id, brandName);
-  } catch(e) {
+  } catch (e) {
     console.error('[deleteBrandFromDB] DB delete exception:', e);
     if (typeof showToast === 'function') showToast('Error deleting brand: ' + e.message, 'error');
     throw e;
@@ -1458,7 +1458,7 @@ async function deleteBrandFromDB(id, brandName) {
 
 async function saveColourToDB(colour) {
   let localColours = [];
-  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch(e) {}
+  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch (e) { }
 
   // Generate a numeric ID to match the Supabase schema
   let colId = colour.id;
@@ -1491,9 +1491,9 @@ async function saveColourToDB(colour) {
   } else {
     localColours.unshift(fullColourRecord);
   }
-  try { localStorage.setItem('rw_local_colours', JSON.stringify(localColours)); } catch(e) { console.warn('[saveColourToDB] Local storage notice:', e); }
+  try { localStorage.setItem('rw_local_colours', JSON.stringify(localColours)); } catch (e) { console.warn('[saveColourToDB] Local storage notice:', e); }
 
-  try { syncColoursToBrands([fullColourRecord]); } catch(e) {}
+  try { syncColoursToBrands([fullColourRecord]); } catch (e) { }
 
   if (!supabaseClient) return fullColourRecord;
 
@@ -1530,7 +1530,7 @@ async function deleteColourFromDB(id, brandId, colourName) {
     let localCols = safeGetLocalStorage('rw_local_colours');
     localCols = localCols.filter(c => c.id != id && String(c.id) !== String(id));
     localStorage.setItem('rw_local_colours', JSON.stringify(localCols));
-  } catch(e) {}
+  } catch (e) { }
 
   function purgeColourFromBrands(key) {
     try {
@@ -1544,7 +1544,7 @@ async function deleteColourFromDB(id, brandId, colourName) {
         }
       });
       if (changed) localStorage.setItem(key, JSON.stringify(brands));
-    } catch(e) {}
+    } catch (e) { }
   }
   purgeColourFromBrands('rw_brands');
   purgeColourFromBrands('rw_local_brands');
@@ -1556,7 +1556,7 @@ async function deleteColourFromDB(id, brandId, colourName) {
         if (brand.colours) brand.colours = brand.colours.filter(c => c.id != id && String(c.id) !== String(id));
       });
       store.set('brands', b);
-    } catch(e) {}
+    } catch (e) { }
   }
 
   if (!supabaseClient) return;
@@ -1570,14 +1570,14 @@ async function deleteColourFromDB(id, brandId, colourName) {
       await supabaseClient.from('colours').delete().eq('name', colourName);
     }
     console.log('[deleteColourFromDB] Successfully deleted colour from Supabase:', id, colourName);
-  } catch(e) {
+  } catch (e) {
     console.warn('[deleteColourFromDB] DB delete notice:', e);
   }
 }
 
 async function saveCategoryToDB(cat) {
   let localCats = [];
-  try { localCats = JSON.parse(localStorage.getItem('rw_local_categories') || '[]'); } catch(e) {}
+  try { localCats = JSON.parse(localStorage.getItem('rw_local_categories') || '[]'); } catch (e) { }
 
   const catId = cat.id || ('cat_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36));
   const fullCatRecord = {
@@ -1594,7 +1594,7 @@ async function saveCategoryToDB(cat) {
   } else {
     localCats.push(fullCatRecord);
   }
-  try { localStorage.setItem('rw_local_categories', JSON.stringify(localCats)); } catch(e) {}
+  try { localStorage.setItem('rw_local_categories', JSON.stringify(localCats)); } catch (e) { }
 
   let rwCats = safeGetLocalStorage('rw_categories');
   const cIdx = rwCats.findIndex(c => c.id == catId || (c.name && c.name.toLowerCase() === cat.name.toLowerCase()));
@@ -1603,7 +1603,7 @@ async function saveCategoryToDB(cat) {
   } else {
     rwCats.push(fullCatRecord);
   }
-  try { localStorage.setItem('rw_categories', JSON.stringify(rwCats)); } catch(e) {}
+  try { localStorage.setItem('rw_categories', JSON.stringify(rwCats)); } catch (e) { }
 
   if (!supabaseClient) return fullCatRecord;
   try {
@@ -1615,7 +1615,7 @@ async function saveCategoryToDB(cat) {
       display_order: cat.display_order || 1
     }]);
     if (err) console.warn('[saveCategoryToDB] DB write notice:', err);
-  } catch(e) {
+  } catch (e) {
     console.warn('[saveCategoryToDB] DB write notice:', e);
   }
   return fullCatRecord;
@@ -1626,13 +1626,13 @@ async function deleteCategoryFromDB(id) {
     let cats = safeGetLocalStorage('rw_categories');
     cats = cats.filter(c => c.id != id && String(c.id) !== String(id) && c.name != id);
     localStorage.setItem('rw_categories', JSON.stringify(cats));
-  } catch(e) {}
+  } catch (e) { }
 
   if (!supabaseClient) return;
   try {
     const strId = String(id);
     await supabaseClient.from('categories').delete().eq('id', strId);
-  } catch(e) {
+  } catch (e) {
     console.warn('[deleteCategoryFromDB] DB delete notice:', e);
   }
 }
@@ -1645,14 +1645,14 @@ async function updateProfileInDB(id, updates) {
     let users = store.get('users', []);
     users = users.map(u => u.id == id || String(u.id) === String(id) ? { ...u, ...updates } : u);
     store.set('users', users);
-  } catch(e) {}
+  } catch (e) { }
 
   if (typeof localStorage !== 'undefined') {
     try {
       let cached = JSON.parse(localStorage.getItem('rw_users') || '[]');
       cached = cached.map(u => u.id == id || String(u.id) === String(id) ? { ...u, ...updates } : u);
       localStorage.setItem('rw_users', JSON.stringify(cached));
-    } catch(e) {}
+    } catch (e) { }
   }
 
   // 2. Update Supabase DB profiles table
@@ -1716,7 +1716,7 @@ async function deleteProfileFromDB(id) {
     let localUsers = store.get('users', []);
     localUsers = localUsers.filter(u => String(u.id) !== String(id) && (u.email && String(u.email).toLowerCase() !== String(id).toLowerCase()));
     store.set('users', localUsers);
-  } catch(e) {}
+  } catch (e) { }
 
   if (typeof localStorage !== 'undefined') {
     try {
@@ -1727,7 +1727,7 @@ async function deleteProfileFromDB(id) {
           localStorage.setItem(key, JSON.stringify(cached));
         }
       });
-    } catch(e) {}
+    } catch (e) { }
   }
 
   if (!supabaseClient) return { error: null };
@@ -1988,14 +1988,14 @@ function loadSavedNotifications() {
     if (Array.isArray(saved) && saved.length > 0) {
       saved.forEach(n => _adminNotifications.push(n));
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 // Save notifications to localStorage periodically
 function saveNotifications() {
   try {
     localStorage.setItem('rw_admin_notifications', JSON.stringify(_adminNotifications.slice(0, 50)));
-  } catch (e) {}
+  } catch (e) { }
 }
 
 // ── On DOM ready ──────────────────────────────
