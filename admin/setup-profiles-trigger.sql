@@ -153,15 +153,17 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 4. Admin RPC to completely remove user if needed
+-- 4. Admin RPC to completely remove user if needed (Drop first to avoid return type conflict)
+DROP FUNCTION IF EXISTS public.delete_user_completely(UUID);
 CREATE OR REPLACE FUNCTION public.delete_user_completely(target_user_id UUID)
-RETURNS BOOLEAN AS $$
+RETURNS VOID AS $$
 BEGIN
   DELETE FROM public.profiles WHERE id = target_user_id;
   DELETE FROM auth.users WHERE id = target_user_id;
-  RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.delete_user_completely(UUID) TO anon, authenticated, service_role;
 
 -- 5. Backfill existing auth.users into public.profiles
 INSERT INTO public.profiles (
