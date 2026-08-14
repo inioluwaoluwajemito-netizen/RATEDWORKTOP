@@ -484,124 +484,27 @@ function initProfilesTable() {
 }
 
 function initBrandsAndColours() {
-  const legacySeedNames = ['silestone', 'dekton', 'caesarstone', 'neolith', 'calacatta premium'];
-  try {
-    let deleted = safeGetLocalStorage('rw_deleted_brands');
-    let updatedDeleted = false;
-    legacySeedNames.forEach(name => {
-      if (!deleted.includes(name)) {
-        deleted.push(name);
-        updatedDeleted = true;
-      }
-    });
-    if (updatedDeleted) localStorage.setItem('rw_deleted_brands', JSON.stringify(deleted));
-  } catch (e) { }
-
-  let rwBrands = safeGetLocalStorage('rw_brands');
-  rwBrands = rwBrands.filter(b => b && b.name && !legacySeedNames.includes(b.name.toLowerCase().trim()));
-
-  if (rwBrands.length === 0) {
-    rwBrands = [
-      {
-        id: 'brand_topstone_centre',
-        name: 'Top Stone Centre',
-        category: 'Marble',
-        enabled: true,
-        description: 'Luxury marble, quartzite & onyx surfaces',
-        colours: [
-          { id: 'tsc_101', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Nero Picasso', sku: 'TSC-NP', enabled: true, texture: 'marble', finish: 'Polished' },
-          { id: 'tsc_102', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Blue Roma Quartzite', sku: 'TSC-BR', enabled: true, texture: 'marble', finish: 'Polished' },
-          { id: 'tsc_103', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Italian Rosso Levanto', sku: 'TSC-RL', enabled: true, texture: 'marble', finish: 'Polished' },
-          { id: 'tsc_104', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Volga Blue', sku: 'TSC-VB', enabled: true, texture: 'granite', finish: 'Polished' },
-          { id: 'tsc_105', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Pink Onyx', sku: 'TSC-PO', enabled: true, texture: 'marble', finish: 'Polished' },
-          { id: 'tsc_106', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Monet Light', sku: 'TSC-ML', enabled: true, texture: 'marble', finish: 'Honed' },
-          { id: 'tsc_107', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Viola 3cm', sku: 'TSC-V3', enabled: true, texture: 'marble', finish: 'Polished' },
-          { id: 'tsc_108', brand_id: 'brand_topstone_centre', brand_name: 'Top Stone Centre', name: 'Silver Armani', sku: 'TSC-SA', enabled: true, texture: 'marble', finish: 'Polished' }
-        ]
-      },
-      {
-        id: 'brand_porcelanosa',
-        name: 'Porcelanosa',
-        category: 'Porcelain',
-        enabled: true,
-        description: 'Spanish luxury porcelain tiles and surfaces',
-        colours: [
-          { id: 'por_201', brand_id: 'brand_porcelanosa', brand_name: 'Porcelanosa', name: 'XTONE Calacatta Green', sku: 'POR-CG', enabled: true, texture: 'marble', finish: 'Polished' },
-          { id: 'por_202', brand_id: 'brand_porcelanosa', brand_name: 'Porcelanosa', name: 'XTONE Bottega Caliza', sku: 'POR-BC', enabled: true, texture: 'slate', finish: 'Matt' }
-        ]
-      }
-    ];
-    try { localStorage.setItem('rw_brands', JSON.stringify(rwBrands)); } catch (e) { }
-  } else {
-    // Ensure Top Stone Centre brand has all 8 colours
-    const tsc = rwBrands.find(b => b.name && b.name.toLowerCase().trim().includes('top stone'));
-    if (tsc && tsc.colours) {
-      const defaultTscCols = [
-        { id: 'tsc_101', name: 'Nero Picasso', sku: 'TSC-NP', texture: 'marble', finish: 'Polished' },
-        { id: 'tsc_102', name: 'Blue Roma Quartzite', sku: 'TSC-BR', texture: 'marble', finish: 'Polished' },
-        { id: 'tsc_103', name: 'Italian Rosso Levanto', sku: 'TSC-RL', texture: 'marble', finish: 'Polished' },
-        { id: 'tsc_104', name: 'Volga Blue', sku: 'TSC-VB', texture: 'granite', finish: 'Polished' },
-        { id: 'tsc_105', name: 'Pink Onyx', sku: 'TSC-PO', texture: 'marble', finish: 'Polished' },
-        { id: 'tsc_106', name: 'Monet Light', sku: 'TSC-ML', texture: 'marble', finish: 'Honed' },
-        { id: 'tsc_107', name: 'Viola 3cm', sku: 'TSC-V3', texture: 'marble', finish: 'Polished' },
-        { id: 'tsc_108', name: 'Silver Armani', sku: 'TSC-SA', texture: 'marble', finish: 'Polished' }
-      ];
-      defaultTscCols.forEach(dc => {
-        if (!tsc.colours.some(c => c.name && c.name.toLowerCase().trim() === dc.name.toLowerCase().trim())) {
-          tsc.colours.push({ id: dc.id, brand_id: tsc.id, brand_name: tsc.name, name: dc.name, sku: dc.sku, enabled: true, texture: dc.texture, finish: dc.finish });
-        }
-      });
-    }
-    try { localStorage.setItem('rw_brands', JSON.stringify(rwBrands)); } catch (e) { }
-  }
-
-  try {
-    let localBrands = safeGetLocalStorage('rw_local_brands');
-    let filteredLocal = localBrands.filter(b => b && b.name && !legacySeedNames.includes(b.name.toLowerCase().trim()));
-    localStorage.setItem('rw_local_brands', JSON.stringify(filteredLocal));
-  } catch (e) { }
+  // Clear ALL legacy localStorage brand/colour caches on load
+  // Supabase is now the single source of truth
+  const keysToRemove = [
+    'rw_brands', 'rw_local_brands', 'rw_local_colours',
+    'rw_deleted_brands', 'rw_colours', 'rw_local_categories',
+    'rw_categories'
+  ];
+  keysToRemove.forEach(key => {
+    try { localStorage.removeItem(key); } catch(e) {}
+  });
+  console.log('[initBrandsAndColours] Cleared all legacy localStorage caches — Supabase is now the source of truth.');
 }
 
 function fetchBrandsSync() {
-  initBrandsAndColours();
-
-  let baseBrands = (typeof store !== 'undefined' ? store.get('brands', []) : []) || [];
-  if (!baseBrands || baseBrands.length === 0) {
-    try { baseBrands = JSON.parse(localStorage.getItem('rw_brands') || '[]'); } catch (e) { }
+  // No more localStorage seed data — return whatever is in the in-memory store
+  // or an empty array. Supabase is the only source of truth.
+  if (typeof store !== 'undefined') {
+    const cached = store.get('brands', []);
+    if (cached && cached.length > 0) return cached;
   }
-
-  let localBrands = [];
-  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch (e) { }
-
-  const allBrands = [...baseBrands];
-  for (const lb of localBrands) {
-    if (!allBrands.some(b => b.id == lb.id || (b.name && b.name.toLowerCase() === lb.name.toLowerCase()))) {
-      allBrands.push(lb);
-    }
-  }
-
-  let localColours = [];
-  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch (e) { }
-
-  return allBrands.map(brand => {
-    const locCols = localColours.filter(c =>
-      String(c.brand_id) === String(brand.id) ||
-      String(c.brand_id).toLowerCase() === String(brand.name).toLowerCase() ||
-      (c.brand_name && c.brand_name.toLowerCase() === brand.name.toLowerCase())
-    );
-
-    const combined = [...(brand.colours || [])];
-    for (const lc of locCols) {
-      if (!combined.some(c => c.id == lc.id || (c.name && c.name === lc.name))) {
-        combined.push(lc);
-      }
-    }
-
-    return {
-      ...brand,
-      colours: combined
-    };
-  });
+  return [];
 }
 
 // ── Async Admin Data Helpers ──────────────────
@@ -1328,99 +1231,48 @@ function normalizeSettingsData(data) {
 }
 
 // ── Async Admin Write Helpers ─────────────────
+// ALL writes go directly to Supabase. No localStorage.
+
 async function saveBrandToDB(brand) {
-  // ID must be a bigint to match the Supabase schema (BIGINT PRIMARY KEY)
-  let brandId = brand.id;
-  if (!brandId) {
-    // Generate a unique numeric ID for new brands
-    brandId = Date.now() + Math.floor(Math.random() * 1000);
-  } else {
-    // Ensure existing IDs are numeric; if it's a legacy string ID, generate a new numeric one
-    const parsed = Number(brandId);
-    if (isNaN(parsed)) {
-      brandId = Date.now() + Math.floor(Math.random() * 1000);
-    } else {
-      brandId = parsed;
-    }
+  if (!supabaseClient) {
+    console.error('[saveBrandToDB] No Supabase client available');
+    if (typeof showToast === 'function') showToast('Cannot save: no database connection', 'error');
+    return null;
   }
 
-  const fullBrandRecord = {
+  // ID must be a numeric bigint
+  let brandId = Number(brand.id);
+  if (!brand.id || isNaN(brandId)) {
+    brandId = Date.now() + Math.floor(Math.random() * 1000);
+  }
+
+  const payload = {
     id: brandId,
     name: brand.name,
     category: brand.category || 'Quartz',
     description: brand.description || '',
-    enabled: brand.enabled !== false,
-    colours: brand.colours || []
+    enabled: brand.enabled !== false
   };
 
-  // Sync to local brands cache
-  let localBrands = [];
-  try { localBrands = JSON.parse(localStorage.getItem('rw_local_brands') || '[]'); } catch (e) { }
-  const localIdx = localBrands.findIndex(b => b.id == brandId || (b.name && b.name.toLowerCase() === brand.name.toLowerCase()));
-  if (localIdx >= 0) {
-    localBrands[localIdx] = fullBrandRecord;
-  } else {
-    localBrands.unshift(fullBrandRecord);
-  }
-  try { localStorage.setItem('rw_local_brands', JSON.stringify(localBrands)); } catch (e) { }
-
-  // Sync to rw_brands
-  let rwBrands = safeGetLocalStorage('rw_brands');
-  const bIdx = rwBrands.findIndex(b => b.id == brandId || (b.name && b.name.toLowerCase() === brand.name.toLowerCase()));
-  if (bIdx >= 0) {
-    rwBrands[bIdx] = { ...rwBrands[bIdx], ...fullBrandRecord };
-  } else {
-    rwBrands.unshift(fullBrandRecord);
-  }
-  localStorage.setItem('rw_brands', JSON.stringify(rwBrands));
-  if (typeof store !== 'undefined' && store.set) {
-    store.set('brands', rwBrands);
-  }
-
-  if (!supabaseClient) return fullBrandRecord;
   try {
-    const { error: err } = await supabaseClient.from('brands').upsert([{
-      id: brandId,
-      name: brand.name,
-      category: brand.category || 'Quartz',
-      description: brand.description || '',
-      enabled: brand.enabled !== false
-    }]);
+    const { error: err } = await supabaseClient.from('brands').upsert([payload]);
     if (err) {
-      console.error('[Admin saveBrandToDB] DB write error:', err);
-      if (typeof showToast === 'function') showToast('Failed to save brand to Supabase: ' + err.message, 'error');
+      console.error('[saveBrandToDB] DB write error:', err);
+      if (typeof showToast === 'function') showToast('Failed to save brand: ' + err.message, 'error');
       throw new Error('Supabase brand save failed: ' + err.message);
-    } else {
-      console.log('[Admin saveBrandToDB] Successfully persisted brand to Supabase:', brandId, brand.name);
     }
+    console.log('[saveBrandToDB] Saved brand to Supabase:', brandId, brand.name);
   } catch (e) {
-    console.error('[Admin saveBrandToDB] DB write exception:', e);
+    console.error('[saveBrandToDB] Exception:', e);
     if (typeof showToast === 'function') showToast('Error saving brand: ' + e.message, 'error');
     throw e;
   }
-  return fullBrandRecord;
+
+  return { ...payload, colours: brand.colours || [] };
 }
 
 async function deleteBrandFromDB(id, brandName) {
-  // 1. Purge from local storage and memory store
-  try {
-    let rwBrands = safeGetLocalStorage('rw_brands');
-    rwBrands = rwBrands.filter(b => b.id != id && String(b.id) !== String(id) && (b.name && b.name.toLowerCase() !== String(id).toLowerCase()));
-    localStorage.setItem('rw_brands', JSON.stringify(rwBrands));
-  } catch (e) { }
-
-  try {
-    let localBrands = safeGetLocalStorage('rw_local_brands');
-    localBrands = localBrands.filter(b => b.id != id && String(b.id) !== String(id) && (b.name && b.name.toLowerCase() !== String(id).toLowerCase()));
-    localStorage.setItem('rw_local_brands', JSON.stringify(localBrands));
-  } catch (e) { }
-
-  try {
-    let localCols = safeGetLocalStorage('rw_local_colours');
-    localCols = localCols.filter(c => c.brand_id != id && String(c.brand_id) !== String(id));
-    localStorage.setItem('rw_local_colours', JSON.stringify(localCols));
-  } catch (e) { }
-
+  // Clear from in-memory store
   if (typeof store !== 'undefined' && store.get) {
     try {
       let b = store.get('brands') || [];
@@ -1428,52 +1280,60 @@ async function deleteBrandFromDB(id, brandName) {
     } catch (e) { }
   }
 
-  // 2. Remove from Supabase DB
   if (!supabaseClient) return;
   try {
     const numId = Number(id);
-
-    // Delete associated colours first (by brand_id only)
+    // Delete associated colours first
     await supabaseClient.from('colours').delete().eq('brand_id', numId);
-
-    // Delete brand by ID
+    // Delete brand
     const { error: bErr } = await supabaseClient.from('brands').delete().eq('id', numId);
     if (brandName) {
       await supabaseClient.from('brands').delete().eq('name', brandName);
     }
-
     if (bErr) {
-      console.error('[deleteBrandFromDB] brands delete error:', bErr);
-      if (typeof showToast === 'function') showToast('Failed to delete brand from Supabase: ' + bErr.message, 'error');
+      console.error('[deleteBrandFromDB] Error:', bErr);
+      if (typeof showToast === 'function') showToast('Failed to delete brand: ' + bErr.message, 'error');
       throw new Error('Supabase brand delete failed: ' + bErr.message);
     }
-
-    console.log('[deleteBrandFromDB] Successfully deleted brand from Supabase:', id, brandName);
+    console.log('[deleteBrandFromDB] Deleted brand from Supabase:', id, brandName);
   } catch (e) {
-    console.error('[deleteBrandFromDB] DB delete exception:', e);
+    console.error('[deleteBrandFromDB] Exception:', e);
     if (typeof showToast === 'function') showToast('Error deleting brand: ' + e.message, 'error');
     throw e;
   }
 }
 
 async function saveColourToDB(colour) {
-  let localColours = [];
-  try { localColours = JSON.parse(localStorage.getItem('rw_local_colours') || '[]'); } catch (e) { }
-
-  // Generate a numeric ID to match the Supabase schema
-  let colId = colour.id;
-  if (!colId) {
-    // Generate a unique numeric ID for new colours
-    colId = Date.now() + Math.floor(Math.random() * 1000);
-  } else {
-    const parsed = Number(colId);
-    colId = isNaN(parsed) ? (Date.now() + Math.floor(Math.random() * 1000)) : parsed;
+  if (!supabaseClient) {
+    console.error('[saveColourToDB] No Supabase client available');
+    if (typeof showToast === 'function') showToast('Cannot save: no database connection', 'error');
+    return null;
   }
 
-  // Keep brand_id as numeric — the brands table uses BIGINT primary keys
-  const brandId = Number(colour.brand_id) || 0;
+  // Generate numeric BIGINT ID
+  let colId = Number(colour.id);
+  if (!colour.id || isNaN(colId)) {
+    colId = Date.now() + Math.floor(Math.random() * 1000);
+  }
 
-  const fullColourRecord = {
+  // Resolve brand_id to numeric
+  let brandId = Number(colour.brand_id);
+  if (isNaN(brandId) || !brandId) {
+    // Try to look up the brand by name
+    try {
+      const brands = await fetchBrands();
+      const found = brands ? brands.find(b =>
+        String(b.id) === String(colour.brand_id) ||
+        (b.name && b.name.toLowerCase() === String(colour.brand_name || colour.brand_id || '').toLowerCase())
+      ) : null;
+      if (found && !isNaN(Number(found.id))) {
+        brandId = Number(found.id);
+      }
+    } catch(e) {}
+  }
+  if (isNaN(brandId)) brandId = 0;
+
+  const payload = {
     id: colId,
     brand_id: brandId,
     brand_name: colour.brand_name || '',
@@ -1485,71 +1345,25 @@ async function saveColourToDB(colour) {
     enabled: colour.enabled !== false
   };
 
-  const existingIdx = localColours.findIndex(c => c.id == colId || (c.name === colour.name && String(c.brand_id) == String(colour.brand_id)));
-  if (existingIdx >= 0) {
-    localColours[existingIdx] = fullColourRecord;
-  } else {
-    localColours.unshift(fullColourRecord);
-  }
-  try { localStorage.setItem('rw_local_colours', JSON.stringify(localColours)); } catch (e) { console.warn('[saveColourToDB] Local storage notice:', e); }
-
-  try { syncColoursToBrands([fullColourRecord]); } catch (e) { }
-
-  if (!supabaseClient) return fullColourRecord;
-
   try {
-    // All columns now exist in Supabase after running the setup-stones-table.sql migration
-    const { error: err } = await supabaseClient.from('colours').upsert([{
-      id: colId,
-      brand_id: brandId,
-      brand_name: colour.brand_name || '',
-      name: colour.name,
-      sku: colour.sku || (colour.name.replace(/\s+/g, '-').toUpperCase()),
-      finish: colour.finish || 'Polished',
-      texture: colour.texture || 'marble',
-      image_url: colour.image_url || '',
-      enabled: colour.enabled !== false
-    }]);
+    const { error: err } = await supabaseClient.from('colours').upsert([payload]);
     if (err) {
-      console.error('[Admin saveColourToDB] DB write error:', err);
-      if (typeof showToast === 'function') showToast('Failed to save stone colour to Supabase: ' + err.message, 'error');
+      console.error('[saveColourToDB] DB write error:', err);
+      if (typeof showToast === 'function') showToast('Failed to save stone colour: ' + err.message, 'error');
       throw new Error('Supabase colour save failed: ' + err.message);
-    } else {
-      console.log('[Admin saveColourToDB] Successfully persisted colour to Supabase:', colId, colour.name);
     }
+    console.log('[saveColourToDB] Saved colour to Supabase:', colId, colour.name);
   } catch (dbErr) {
-    console.error('[Admin saveColourToDB] DB write exception:', dbErr);
+    console.error('[saveColourToDB] Exception:', dbErr);
     if (typeof showToast === 'function') showToast('Error saving stone colour: ' + dbErr.message, 'error');
     throw dbErr;
   }
 
-  return fullColourRecord;
+  return payload;
 }
 
 async function deleteColourFromDB(id, brandId, colourName) {
-  try {
-    let localCols = safeGetLocalStorage('rw_local_colours');
-    localCols = localCols.filter(c => c.id != id && String(c.id) !== String(id));
-    localStorage.setItem('rw_local_colours', JSON.stringify(localCols));
-  } catch (e) { }
-
-  function purgeColourFromBrands(key) {
-    try {
-      let brands = safeGetLocalStorage(key);
-      let changed = false;
-      brands.forEach(b => {
-        if (b && b.colours && Array.isArray(b.colours)) {
-          const initLen = b.colours.length;
-          b.colours = b.colours.filter(c => c.id != id && String(c.id) !== String(id));
-          if (b.colours.length !== initLen) changed = true;
-        }
-      });
-      if (changed) localStorage.setItem(key, JSON.stringify(brands));
-    } catch (e) { }
-  }
-  purgeColourFromBrands('rw_brands');
-  purgeColourFromBrands('rw_local_brands');
-
+  // Clear from in-memory store
   if (typeof store !== 'undefined' && store.get) {
     try {
       let b = store.get('brands') || [];
@@ -1562,17 +1376,15 @@ async function deleteColourFromDB(id, brandId, colourName) {
 
   if (!supabaseClient) return;
   try {
-    const strId = String(id);
-
-    const { error: err } = await supabaseClient.from('colours').delete().eq('id', strId);
+    const numId = Number(id);
+    const { error: err } = await supabaseClient.from('colours').delete().eq('id', numId);
     if (err) console.warn('[deleteColourFromDB] DB delete notice:', err);
-
     if (colourName) {
       await supabaseClient.from('colours').delete().eq('name', colourName);
     }
-    console.log('[deleteColourFromDB] Successfully deleted colour from Supabase:', id, colourName);
+    console.log('[deleteColourFromDB] Deleted colour from Supabase:', id, colourName);
   } catch (e) {
-    console.warn('[deleteColourFromDB] DB delete notice:', e);
+    console.warn('[deleteColourFromDB] Exception:', e);
   }
 }
 
