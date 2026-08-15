@@ -107,17 +107,23 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log(`[OpenAI Proxy] User: ${userId} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length}`);
+    if (!body.mask) {
+      return new Response(JSON.stringify({ error: { message: "Missing required field: mask. An inpainting mask is required to identify which surfaces to replace." } }), {
+        status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      });
+    }
 
-    // ── 3. Build OpenAI Image Edit request (v1/images/edits) ──────────────────
+    console.log(`[OpenAI Proxy] User: ${userId} | prompt len: ${body.prompt?.length} | image len: ${body.image?.length} | mask len: ${body.mask?.length}`);
+
+    // ── 3. Build OpenAI Image Edit request (v1/images/edits — TRUE INPAINTING) ──
+    // This endpoint takes the original image + mask and ONLY modifies the transparent
+    // (masked) pixels. Everything outside the mask stays pixel-identical to the original.
     const formData = new FormData();
     const imageBlob = dataURItoBlob(body.image);
     formData.append('image', imageBlob, 'image.png');
 
-    if (body.mask) {
-      const maskBlob = dataURItoBlob(body.mask);
-      formData.append('mask', maskBlob, 'mask.png');
-    }
+    const maskBlob = dataURItoBlob(body.mask);
+    formData.append('mask', maskBlob, 'mask.png');
 
     formData.append('model', 'gpt-image-1');
     formData.append('prompt', body.prompt);
@@ -125,9 +131,9 @@ serve(async (req: Request) => {
     formData.append('size', '1024x1024');
     formData.append('quality', 'high');
 
-    console.log("[OpenAI Proxy] Sending request to OpenAI v1/images/edits with model gpt-image-1...");
+    console.log("[OpenAI Proxy] Sending INPAINTING request to OpenAI v1/images/edits (mask provided, model: gpt-image-1)...");
 
-    let openAiRes = await fetch("https://api.openai.com/v1/images/edits", {
+    const openAiRes = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`
@@ -135,36 +141,17 @@ serve(async (req: Request) => {
       body: formData
     });
 
-    let resData = await openAiRes.json().catch(() => ({}));
-    console.log("[OpenAI Proxy] OpenAI Response Status:", openAiRes.status);
+    const resData = await openAiRes.json().catch(() => ({}));
+    console.log("[OpenAI Proxy] OpenAI Edits Response Status:", openAiRes.status);
 
-    // ── 4. Fallback to gpt-image-1 Image Generation if Image Edit is unavailable ────────
-    if (!openAiRes.ok) {
-      console.warn("[OpenAI Proxy] v1/images/edits failed, falling back to gpt-image-1 generation:", JSON.stringify(resData));
-      const dallePayload = {
-        model: "gpt-image-1",
-        prompt: body.prompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "high"
-      };
-
-      openAiRes = await fetch("https://api.openai.com/v1/images/generations", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(dallePayload)
-      });
-      resData = await openAiRes.json().catch(() => ({}));
-      console.log("[OpenAI Proxy] GPT Image Fallback Status:", openAiRes.status);
-    }
-
+    // ── 4. Handle response — NO fallback to /v1/images/generations ────────────
+    // We intentionally do NOT fall back to the generations endpoint because that
+    // creates an entirely new image from the prompt, ignoring the original photo
+    // and mask. If inpainting fails, we return a clear error to the user.
     if (!openAiRes.ok) {
       const errMsg = resData?.error?.message || JSON.stringify(resData);
-      console.error("[OpenAI Proxy] OpenAI API Error:", errMsg);
-      return new Response(JSON.stringify({ error: { message: "OpenAI Error: " + errMsg } }), {
+      console.error("[OpenAI Proxy] OpenAI Inpainting Error (no fallback to generation):", errMsg);
+      return new Response(JSON.stringify({ error: { message: "OpenAI Inpainting Error: " + errMsg } }), {
         status: 200,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
@@ -172,12 +159,12 @@ serve(async (req: Request) => {
 
     const imageUrl = resData.data?.[0]?.url || (resData.data?.[0]?.b64_json ? `data:image/png;base64,${resData.data[0].b64_json}` : null);
     if (!imageUrl) {
-      return new Response(JSON.stringify({ error: { message: "OpenAI returned no image data." } }), {
+      return new Response(JSON.stringify({ error: { message: "OpenAI returned no image data from inpainting." } }), {
         status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log("[OpenAI Proxy] OpenAI Inpainting generated successfully");
+    console.log("[OpenAI Proxy] ✅ Inpainting completed successfully (edits endpoint, mask applied)");
 
     return new Response(JSON.stringify({ data: [{ url: imageUrl }] }), {
       status: 200,
