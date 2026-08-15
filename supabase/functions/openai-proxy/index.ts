@@ -125,7 +125,7 @@ serve(async (req: Request) => {
     formData.append('size', '1024x1024');
     formData.append('quality', 'high');
 
-    console.log("[OpenAI Proxy] Sending request to OpenAI v1/images/edits ...");
+    console.log("[OpenAI Proxy] Sending request to OpenAI v1/images/edits with model gpt-image-1...");
 
     let openAiRes = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
@@ -138,7 +138,7 @@ serve(async (req: Request) => {
     let resData = await openAiRes.json().catch(() => ({}));
     console.log("[OpenAI Proxy] OpenAI Response Status:", openAiRes.status);
 
-    // ── 4. Fallback to GPT Image Generation if Image Edit is unavailable ────────
+    // ── 4. Fallback to gpt-image-1 Image Generation if Image Edit is unavailable ────────
     if (!openAiRes.ok) {
       console.warn("[OpenAI Proxy] v1/images/edits failed, falling back to gpt-image-1 generation:", JSON.stringify(resData));
       const dallePayload = {
