@@ -119,10 +119,11 @@ serve(async (req: Request) => {
       formData.append('mask', maskBlob, 'mask.png');
     }
 
-    formData.append('model', body.model || 'gpt-image-1');
+    formData.append('model', 'gpt-image-1');
     formData.append('prompt', body.prompt);
     formData.append('n', '1');
     formData.append('size', '1024x1024');
+    formData.append('quality', 'high');
 
     console.log("[OpenAI Proxy] Sending request to OpenAI v1/images/edits ...");
 
@@ -141,10 +142,11 @@ serve(async (req: Request) => {
     if (!openAiRes.ok) {
       console.warn("[OpenAI Proxy] v1/images/edits failed, falling back to gpt-image-1 generation:", JSON.stringify(resData));
       const dallePayload = {
-        model: body.fallback_model || "gpt-image-1",
+        model: "gpt-image-1",
         prompt: body.prompt,
         n: 1,
-        size: "1024x1024"
+        size: "1024x1024",
+        quality: "high"
       };
 
       openAiRes = await fetch("https://api.openai.com/v1/images/generations", {
