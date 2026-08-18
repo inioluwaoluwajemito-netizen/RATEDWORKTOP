@@ -685,12 +685,14 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     maskCtx.closePath();
     maskCtx.fill();
   } else {
-    // Auto Mode: Inpaint the splashback AND worktop as TWO SEPARATE bands
-    // with a gap between them so cabinets/appliances in the middle are preserved.
-    // 1. Splashback / Backsplash zone (upper-mid area behind the countertop)
-    maskCtx.fillRect(TARGET_SIZE * 0.05, TARGET_SIZE * 0.12, TARGET_SIZE * 0.90, TARGET_SIZE * 0.28);
-    // 2. Countertop / Worktop / Island surface (lower-mid band)
-    maskCtx.fillRect(TARGET_SIZE * 0.03, TARGET_SIZE * 0.55, TARGET_SIZE * 0.94, TARGET_SIZE * 0.22);
+    // Auto Mode: Single continuous unified worktop & splashback region (one seamless surface, no disjoint bands or gaps)
+    maskCtx.beginPath();
+    maskCtx.moveTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.35);
+    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.35);
+    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.85);
+    maskCtx.lineTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.85);
+    maskCtx.closePath();
+    maskCtx.fill();
   }
 
   maskCtx.globalCompositeOperation = 'source-over';
