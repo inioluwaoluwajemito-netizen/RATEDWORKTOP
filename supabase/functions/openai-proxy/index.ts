@@ -118,23 +118,29 @@ serve(async (req: Request) => {
 
     // ── 3. Route to FAL.AI if FAL_KEY is present ──────────────────────────────
     if (FAL_KEY) {
-      console.log("[AI Proxy] Routing inpainting to Fal.ai (Flux Inpainting)...");
+      console.log("[AI Proxy] Routing inpainting to Fal.ai (Gemini 2.5 Flash Image Edit)...");
 
       try {
-        const falRes = await fetch("https://fal.run/fal-ai/flux-general/in-painting", {
+        const imageUrls = [body.image];
+        if (body.stone_image_url && !body.stone_image_url.startsWith('linear-gradient')) {
+          imageUrls.push(body.stone_image_url);
+        } else if (body.stoneImageUrl && !body.stoneImageUrl.startsWith('linear-gradient')) {
+          imageUrls.push(body.stoneImageUrl);
+        }
+
+        const editPrompt = (imageUrls.length > 1)
+          ? `Modify the kitchen image: replace the countertop worktop and splashback surface with the exact stone material, texture, pattern, and color shown in the second reference stone image. Match the lighting, perspective, and shadows of the kitchen. Keep all cabinets, walls, appliances, sink, windows, flooring, and background intact.`
+          : body.prompt;
+
+        const falRes = await fetch("https://fal.run/fal-ai/gemini-25-flash-image/edit", {
           method: "POST",
           headers: {
             "Authorization": `Key ${FAL_KEY}`,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            image_url: body.image,
-            mask_url: body.mask,
-            prompt: body.prompt,
-            strength: 0.95,
-            num_inference_steps: 28,
-            guidance_scale: 7.5,
-            enable_safety_checker: false
+            prompt: editPrompt,
+            image_urls: imageUrls
           })
         });
 
@@ -144,15 +150,16 @@ serve(async (req: Request) => {
         if (falRes.ok) {
           const imageUrl = falData.images?.[0]?.url || falData.image?.url;
           if (imageUrl) {
-            console.log("[AI Proxy] ✅ Fal.ai Inpainting succeeded!");
+            console.log("[AI Proxy] ✅ Fal.ai Gemini 2.5 Flash Image Edit succeeded!");
             return new Response(JSON.stringify({ data: [{ url: imageUrl }] }), {
               status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
             });
           }
         }
 
-        console.warn("[AI Proxy] Fal.ai flux-general error:", falData?.detail || falData?.message || falData);
-        // Fallback to fast-sdxl inpainting if flux model had issue
+        console.warn("[AI Proxy] Fal.ai Gemini notice:", falData?.detail || falData?.message || falData);
+
+        // Fallback to fast-sdxl inpainting if needed
         const sdxlRes = await fetch("https://fal.run/fal-ai/fast-sdxl/inpaint", {
           method: "POST",
           headers: {
@@ -180,7 +187,7 @@ serve(async (req: Request) => {
         }
 
         if (!OPENAI_API_KEY) {
-          const errDetail = falData?.detail || sdxlData?.detail || "Fal.ai inpainting failed.";
+          const errDetail = falData?.detail || sdxlData?.detail || falData?.message || "Fal.ai inpainting failed.";
           return new Response(JSON.stringify({ error: { message: `Fal.ai Error: ${typeof errDetail === 'string' ? errDetail : JSON.stringify(errDetail)}` } }), {
             status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
           });

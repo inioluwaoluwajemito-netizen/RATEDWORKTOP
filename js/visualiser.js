@@ -513,7 +513,8 @@ async function generateRender() {
             body: {
               image: imageUri,
               mask: maskUri,
-              prompt: prompt
+              prompt: prompt,
+              stone_image_url: stoneImageUrl
             }
           });
           if (error) {
@@ -530,9 +531,9 @@ async function generateRender() {
           if (data && data.error) {
             console.error('[Render] Proxy returned error payload:', data.error);
             const errMsg = data.error.message || (typeof data.error === 'string' ? data.error : 'AI proxy returned error.');
-            // If OpenAI has no credits, automatically try Fal.ai
-            if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing')) {
-              console.log('[Render] OpenAI unavailable, falling back to Fal.ai Gemini / Flux inpainting...');
+            // If OpenAI has no credits or error, automatically try Fal.ai
+            if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing') || errMsg.includes('Fal.ai')) {
+              console.log('[Render] Falling back directly to Fal.ai Gemini Image Edit...');
               aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
             } else {
               throw new Error(errMsg);
@@ -553,7 +554,8 @@ async function generateRender() {
             body: JSON.stringify({
               image: imageUri,
               mask: maskUri,
-              prompt: prompt
+              prompt: prompt,
+              stone_image_url: stoneImageUrl
             })
           });
 
@@ -561,8 +563,8 @@ async function generateRender() {
           if (proxyResponse.ok) {
             if (resData.error) {
               const errMsg = resData.error.message || 'AI proxy returned error.';
-              if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing')) {
-                console.log('[Render] OpenAI unavailable, falling back to Fal.ai Gemini / Flux inpainting...');
+              if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing') || errMsg.includes('Fal.ai')) {
+                console.log('[Render] Falling back directly to Fal.ai Gemini Image Edit...');
                 aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
               } else {
                 throw new Error(errMsg);
@@ -572,8 +574,8 @@ async function generateRender() {
             }
           } else {
             const errMsg = resData?.error?.message || resData?.message || `Server error (status ${proxyResponse.status})`;
-            if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing')) {
-              console.log('[Render] OpenAI unavailable, falling back to Fal.ai Gemini / Flux inpainting...');
+            if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing') || errMsg.includes('Fal.ai')) {
+              console.log('[Render] Falling back directly to Fal.ai Gemini Image Edit...');
               aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
             } else {
               throw new Error(errMsg);
