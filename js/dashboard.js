@@ -84,8 +84,10 @@ function startProgressTicker() {
   if (_progressTicker) clearInterval(_progressTicker);
   let current = 60;
   _progressTicker = setInterval(() => {
-    if (current >= 92) { clearInterval(_progressTicker); return; }
-    current += 0.5;
+    if (current >= 97) { clearInterval(_progressTicker); return; }
+    // Slow down as we approach 97% to show activity without implying completion
+    const increment = current < 80 ? 0.5 : current < 90 ? 0.25 : 0.08;
+    current += increment;
     _progressCurrentPct = current;
     const fill = document.getElementById('progress-fill');
     const pctEl = document.getElementById('progress-pct');
@@ -173,6 +175,23 @@ function getStoneVisualDescription(stone) {
 // Direct Fal.ai Gemini 2.5 Flash Image Edit & Inpainting Engine
 const DEFAULT_FAL_KEY = '815924c7-606f-49a0-a1aa-b4d823819435:ad52dd06b6273e1f1d2431807e603d15';
 
+// Wrapper: fetch with a timeout so AI calls never hang indefinitely
+async function fetchWithTimeout(url, options, timeoutMs = 90000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error(`AI request timed out after ${Math.round(timeoutMs / 1000)}s. Please try again.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
   let falKey = localStorage.getItem('rw_fal_key') || localStorage.getItem('FAL_KEY') || DEFAULT_FAL_KEY;
   if (!falKey && typeof supabaseClient !== 'undefined' && supabaseClient) {
@@ -186,19 +205,43 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
 
   falKey = falKey || DEFAULT_FAL_KEY;
 
+  // Convert Base64 data URI to public Supabase Storage URL so Fal.ai can access it reliably
+  let kitchenPublicUrl = imageUri;
+  if (imageUri && imageUri.startsWith('data:') && typeof uploadFileToStorage === 'function') {
+    try {
+      console.log('[Fal.ai] Uploading kitchen photo data URI to temp storage...');
+      const byteString = atob(imageUri.split(',')[1]);
+      const mimeString = imageUri.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([ab], { type: mimeString });
+      const tempPath = `temp-inputs/input_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.png`;
+      const uploadRes = await uploadFileToStorage('ratedworktops', tempPath, blob);
+      if (uploadRes && uploadRes.ok && uploadRes.url) {
+        kitchenPublicUrl = uploadRes.url;
+        console.log('[Fal.ai] Uploaded kitchen photo to public URL:', kitchenPublicUrl);
+      }
+    } catch (e) {
+      console.warn('[Fal.ai] Could not convert/upload data URI to storage:', e);
+    }
+  }
+
   // 1. Primary: fal-ai/gemini-25-flash-image/edit (Multi-Image Reference Engine)
   console.log('[Fal.ai] Calling Gemini 2.5 Flash Image Edit (multi-image reference)...');
   try {
-    const imageUrls = [imageUri];
+    const imageUrls = [kitchenPublicUrl];
     if (stoneImageUrl && !stoneImageUrl.startsWith('linear-gradient')) {
       imageUrls.push(stoneImageUrl);
     }
 
     const editPrompt = (stoneImageUrl && !stoneImageUrl.startsWith('linear-gradient'))
-      ? `Modify the kitchen image: replace the countertop worktop and splashback surface with the exact stone material, texture, pattern, and color shown in the second reference stone image. Match the lighting, perspective, and shadows of the kitchen. Keep all cabinets, walls, appliances, sink, windows, flooring, and background intact.`
+      ? `Modify the first image: replace the countertop worktop and splashback surface with the exact stone material, texture, pattern, and color shown in the second reference stone image. Match the lighting, perspective, and shadows of the kitchen. Keep all cabinets, walls, appliances, sink, windows, flooring, and background intact.`
       : promptText;
 
-    const res = await fetch('https://fal.run/fal-ai/gemini-25-flash-image/edit', {
+    const res = await fetchWithTimeout('https://fal.run/fal-ai/gemini-25-flash-image/edit', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${falKey}`,
@@ -208,7 +251,7 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
         prompt: editPrompt,
         image_urls: imageUrls
       })
-    });
+    }, 90000);
 
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
@@ -223,10 +266,10 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
     console.warn('[Fal.ai] Gemini 2.5 Flash exception:', e);
   }
 
-  // 2. Secondary: fal-ai/flux-general/in-painting
+  // 2. Secondary: fal-ai/fast-sdxl/inpaint (Fast fallback)
   console.log('[Fal.ai] Calling Flux General inpainting...');
   try {
-    const res = await fetch('https://fal.run/fal-ai/flux-general/in-painting', {
+    const res = await fetchWithTimeout('https://fal.run/fal-ai/flux-general/in-painting', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${falKey}`,
@@ -241,7 +284,7 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
         guidance_scale: 7.5,
         enable_safety_checker: false
       })
-    });
+    }, 90000);
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
       const url = data.images?.[0]?.url || data.image?.url;
@@ -251,7 +294,7 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
 
   // 3. Fallback to fast-sdxl inpainting
   console.log('[Fal.ai] Fallback calling Fast SDXL inpainting...');
-  const sdxlRes = await fetch('https://fal.run/fal-ai/fast-sdxl/inpaint', {
+  const sdxlRes = await fetchWithTimeout('https://fal.run/fal-ai/fast-sdxl/inpaint', {
     method: 'POST',
     headers: {
       'Authorization': `Key ${falKey}`,
@@ -264,7 +307,7 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
       strength: 0.92,
       num_inference_steps: 30
     })
-  });
+  }, 90000);
   const sdxlData = await sdxlRes.json().catch(() => ({}));
   if (sdxlRes.ok) {
     const url = sdxlData.images?.[0]?.url || sdxlData.image?.url;
@@ -330,6 +373,21 @@ async function generateRender() {
 
   processingOverlay.style.display = 'flex';
   setProgress(1); // 15%
+
+  // Safety net: if overlay is still visible after 120s, force close it and show error
+  const _renderSafetyTimer = setTimeout(() => {
+    if (processingOverlay && processingOverlay.style.display !== 'none') {
+      stopProgressTicker();
+      processingOverlay.style.display = 'none';
+      isRendering = false;
+      if (generateBtn) {
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = `<i data-lucide="wand-2" style="width:16px;height:16px"></i> Generate render`;
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+      }
+      showToast('Render timed out after 120s. Please try again or check your connection.', 'error');
+    }
+  }, 120000);
 
   console.log('[Render] Starting AI image-to-image render...');
   console.log('[Render] Stone selected:', selectedStone?.name, selectedStone?.sku);
@@ -405,8 +463,17 @@ async function generateRender() {
 
     // ── 4. Display the clean, seamless AI-generated render ──────────────────────────
     if (aiImageUrl) {
-      setProgress(4); // 95%
-      console.log('[Render] Setting previewImage.src to seamless AI result (length:', aiImageUrl.length, ')');
+      stopProgressTicker();
+      setProgress(4); // 100%
+      processingOverlay.style.display = 'none'; // Hide overlay immediately so user sees their render right away!
+      isRendering = false;
+      if (generateBtn) {
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = `<i data-lucide="wand-2" style="width:16px;height:16px"></i> Generate render`;
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+      }
+
+      console.log('[Render] Setting previewImage.src to seamless AI result');
 
       // Directly set src — works for both URLs and base64 data URIs
       previewImage.src = aiImageUrl;
@@ -414,24 +481,18 @@ async function generateRender() {
       window._isAIRendered = true;
 
       // Keep renderCanvas hidden to prevent double-layer overlay seams, while holding image for download
-      await new Promise((resolve) => {
+      const renderCanvas = document.getElementById('render-canvas');
+      if (renderCanvas) {
         const tempImg = new Image();
+        tempImg.crossOrigin = 'anonymous';
         tempImg.onload = () => {
-          const renderCanvas = document.getElementById('render-canvas');
-          if (renderCanvas) {
-            renderCanvas.width = tempImg.naturalWidth;
-            renderCanvas.height = tempImg.naturalHeight;
-            renderCanvas.getContext('2d').drawImage(tempImg, 0, 0);
-            renderCanvas.style.display = 'none';
-          }
-          resolve();
-        };
-        tempImg.onerror = () => {
-          console.warn('[Render] Canvas draw failed (non-critical), image still displayed in <img> tag');
-          resolve();
+          renderCanvas.width = tempImg.naturalWidth;
+          renderCanvas.height = tempImg.naturalHeight;
+          renderCanvas.getContext('2d').drawImage(tempImg, 0, 0);
+          renderCanvas.style.display = 'none';
         };
         tempImg.src = aiImageUrl;
-      });
+      }
 
       console.log('[Render] ✅ Seamless AI render displayed successfully!');
     } else {
@@ -510,6 +571,7 @@ async function generateRender() {
     console.error('[Render] Error:', err);
     showToast('Render failed: ' + (err.message || 'Unknown error. Please try again.'), 'error');
   } finally {
+    clearTimeout(_renderSafetyTimer);
     stopProgressTicker();
     processingOverlay.style.display = 'none';
     isRendering = false;

@@ -74,12 +74,13 @@ function setProgress(stage) { // stage: 1-4
 }
 
 function startProgressTicker() {
-  // Slowly creep the bar toward 82% during the AI wait to show it's alive
+  // Slowly creep the bar during the AI wait to show it's alive
   if (_progressTicker) clearInterval(_progressTicker);
   let current = 40;
   _progressTicker = setInterval(() => {
-    if (current >= 82) { clearInterval(_progressTicker); return; }
-    current += 0.6;
+    if (current >= 97) { clearInterval(_progressTicker); return; }
+    const increment = current < 70 ? 0.6 : current < 85 ? 0.3 : 0.08;
+    current += increment;
     const fill = document.getElementById('progress-fill');
     if (fill) fill.style.width = current + '%';
   }, 300);
@@ -339,6 +340,23 @@ function getStoneColorDetails(stone) {
 // Direct Fal.ai Gemini 2.5 Flash Image Edit & Inpainting Engine
 const DEFAULT_FAL_KEY = '815924c7-606f-49a0-a1aa-b4d823819435:ad52dd06b6273e1f1d2431807e603d15';
 
+// Wrapper: fetch with a timeout so AI calls never hang indefinitely
+async function fetchWithTimeout(url, options, timeoutMs = 90000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error(`AI request timed out after ${Math.round(timeoutMs / 1000)}s. Please try again.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
   let falKey = localStorage.getItem('rw_fal_key') || localStorage.getItem('FAL_KEY') || DEFAULT_FAL_KEY;
   if (!falKey && typeof supabaseClient !== 'undefined' && supabaseClient) {
@@ -364,7 +382,7 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
       ? `Modify the kitchen image: replace the countertop worktop and splashback surface with the exact stone material, texture, pattern, and color shown in the second reference stone image. Match the lighting, perspective, and shadows of the kitchen. Keep all cabinets, walls, appliances, sink, windows, flooring, and background intact.`
       : promptText;
 
-    const res = await fetch('https://fal.run/fal-ai/gemini-25-flash-image/edit', {
+    const res = await fetchWithTimeout('https://fal.run/fal-ai/gemini-25-flash-image/edit', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${falKey}`,
@@ -374,7 +392,7 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
         prompt: editPrompt,
         image_urls: imageUrls
       })
-    });
+    }, 90000);
 
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
@@ -392,7 +410,7 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
   // 2. Secondary: fal-ai/flux-general/in-painting
   console.log('[Fal.ai] Calling Flux General inpainting...');
   try {
-    const res = await fetch('https://fal.run/fal-ai/flux-general/in-painting', {
+    const res = await fetchWithTimeout('https://fal.run/fal-ai/flux-general/in-painting', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${falKey}`,
@@ -407,7 +425,7 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
         guidance_scale: 7.5,
         enable_safety_checker: false
       })
-    });
+    }, 90000);
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
       const url = data.images?.[0]?.url || data.image?.url;
@@ -417,7 +435,7 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
 
   // 3. Fallback to fast-sdxl inpainting
   console.log('[Fal.ai] Fallback calling Fast SDXL inpainting...');
-  const sdxlRes = await fetch('https://fal.run/fal-ai/fast-sdxl/inpaint', {
+  const sdxlRes = await fetchWithTimeout('https://fal.run/fal-ai/fast-sdxl/inpaint', {
     method: 'POST',
     headers: {
       'Authorization': `Key ${falKey}`,
@@ -430,7 +448,7 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
       strength: 0.92,
       num_inference_steps: 30
     })
-  });
+  }, 90000);
   const sdxlData = await sdxlRes.json().catch(() => ({}));
   if (sdxlRes.ok) {
     const url = sdxlData.images?.[0]?.url || sdxlData.image?.url;
@@ -464,6 +482,16 @@ async function generateRender() {
   if (simulatedHighlight) simulatedHighlight.style.display = 'none';
   processingOverlay.style.display = 'flex';
   setProgress(1); // Stage 1: Preparing
+
+  // Safety net: if overlay is still visible after 120s, force close it and show error
+  const _renderSafetyTimer = setTimeout(() => {
+    if (processingOverlay && processingOverlay.style.display !== 'none') {
+      stopProgressTicker();
+      processingOverlay.style.display = 'none';
+      isRendering = false;
+      showToast('Render timed out after 120s. Please try again or check your connection.', 'error');
+    }
+  }, 120000);
 
   console.log('[Render] Starting image-to-image generateRender in visualiser.js...');
   console.log('[Render] Selected stone:', selectedStone?.name, selectedStone?.sku);
@@ -650,6 +678,7 @@ async function generateRender() {
     console.error('AI Render failed:', error);
     showToast('AI Render failed: ' + (error.message || 'Unknown error'), 'error');
   } finally {
+    clearTimeout(_renderSafetyTimer);
     processingOverlay.style.display = 'none';
     isRendering = false;
     stopProgressTicker();
