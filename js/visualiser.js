@@ -336,87 +336,6 @@ function getStoneColorDetails(stone) {
   }
 }
 
-// Composite real stone texture photo onto the kitchen canvas preserving natural 3D lighting, bevels & shadows
-async function applyRealStoneTextureComposite(baseRenderUrl, stoneImageUrl, manualPoints, isAutoMode) {
-  if (!stoneImageUrl || stoneImageUrl.startsWith('linear-gradient') || stoneImageUrl.startsWith('radial-gradient')) {
-    return baseRenderUrl;
-  }
-
-  return new Promise((resolve) => {
-    const baseImg = new Image();
-    baseImg.crossOrigin = 'anonymous';
-    baseImg.onload = () => {
-      const stoneImg = new Image();
-      stoneImg.crossOrigin = 'anonymous';
-      stoneImg.onload = () => {
-        try {
-          const W = baseImg.naturalWidth || baseImg.width || 1024;
-          const H = baseImg.naturalHeight || baseImg.height || 1024;
-          
-          const compositeCanvas = document.createElement('canvas');
-          compositeCanvas.width = W;
-          compositeCanvas.height = H;
-          const ctx = compositeCanvas.getContext('2d');
-          
-          // 1. Draw base AI inpainting render
-          ctx.drawImage(baseImg, 0, 0, W, H);
-          
-          // 2. Set up clipping mask for worktop region
-          ctx.save();
-          ctx.beginPath();
-          
-          if (manualPoints && manualPoints.length >= 3 && !isAutoMode) {
-            ctx.moveTo((manualPoints[0].x / 100) * W, (manualPoints[0].y / 100) * H);
-            for (let i = 1; i < manualPoints.length; i++) {
-              ctx.lineTo((manualPoints[i].x / 100) * W, (manualPoints[i].y / 100) * H);
-            }
-            ctx.closePath();
-          } else {
-            // Auto Mode: Backsplash + Countertop bands
-            ctx.rect(W * 0.05, H * 0.12, W * 0.90, H * 0.28);
-            ctx.rect(W * 0.03, H * 0.55, W * 0.94, H * 0.22);
-          }
-          ctx.clip();
-          
-          // 3. Draw the real stone pattern with texture repeat
-          const pattern = ctx.createPattern(stoneImg, 'repeat');
-          if (pattern) {
-            ctx.fillStyle = pattern;
-            ctx.globalAlpha = 0.88;
-            ctx.fill();
-          }
-          
-          // 4. Preserve 3D Ambient lighting & bevel shadows from the scene
-          ctx.globalCompositeOperation = 'multiply';
-          ctx.globalAlpha = 0.35;
-          ctx.drawImage(baseImg, 0, 0, W, H);
-          
-          // 5. Specular highlight sheen
-          ctx.globalCompositeOperation = 'screen';
-          ctx.globalAlpha = 0.15;
-          const sheenGrad = ctx.createLinearGradient(0, H * 0.50, 0, H * 0.80);
-          sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-          sheenGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.0)');
-          sheenGrad.addColorStop(1, 'rgba(255, 255, 255, 0.2)');
-          ctx.fillStyle = sheenGrad;
-          ctx.fill();
-          
-          ctx.restore();
-          
-          resolve(compositeCanvas.toDataURL('image/jpeg', 0.94));
-        } catch (e) {
-          console.warn('[TextureComposite] Fallback to base render:', e);
-          resolve(baseRenderUrl);
-        }
-      };
-      stoneImg.onerror = () => resolve(baseRenderUrl);
-      stoneImg.src = stoneImageUrl;
-    };
-    baseImg.onerror = () => resolve(baseRenderUrl);
-    baseImg.src = baseRenderUrl;
-  });
-}
-
 async function generateRender() {
   if (isRendering) return;
   if (!selectedStone) {
@@ -548,37 +467,29 @@ async function generateRender() {
 
     setProgress(3); // Stage 3: Rendering
 
-    // ── 4. Apply Real Stone Texture Composite & Display Image ──────────────────────────
+    // ── 4. Display the clean, seamless AI-generated render ──────────────────────────
     if (aiImageUrl) {
-      processingText.textContent = 'Enhancing authentic stone texture & lighting...';
-      console.log('[Render] Applying real stone texture composite...');
-      
-      try {
-        const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
-        aiImageUrl = await applyRealStoneTextureComposite(aiImageUrl, stoneImageUrl, points, isAutoMode);
-      } catch (compErr) {
-        console.warn('[Render] Real stone texture blend notice:', compErr);
-      }
-
-      console.log('[Render] Setting previewImage.src to final result');
+      processingText.textContent = 'Applying your new render...';
+      console.log('[Render] Setting previewImage.src to seamless AI result');
 
       previewImage.src = aiImageUrl;
       previewImage.style.display = 'block';
       window._isAIRendered = true;
 
+      // Keep renderCanvas hidden to prevent double-layer overlay seams, while holding image for download
       const renderCanvas = document.getElementById('render-canvas');
       if (renderCanvas) {
+        renderCanvas.style.display = 'none';
         const tempImg = new Image();
         tempImg.onload = () => {
           renderCanvas.width = tempImg.naturalWidth;
           renderCanvas.height = tempImg.naturalHeight;
           renderCanvas.getContext('2d').drawImage(tempImg, 0, 0);
-          renderCanvas.style.display = 'block';
         };
         tempImg.src = aiImageUrl;
       }
 
-      console.log('[Render] ✅ Final authentic stone render displayed successfully!');
+      console.log('[Render] ✅ Seamless AI render displayed successfully!');
     } else {
       throw new Error('AI returned no image. Please try again.');
     }
