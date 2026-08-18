@@ -365,7 +365,7 @@ async function generateRender() {
 
     console.log('[Render] Inpainting Prompt:', prompt);
 
-    // ── 3. Call the Supabase proxy → OpenAI inpainting ─────────────────────
+    // ── 3. Call Fal.ai Gemini 2.5 Flash directly for fast render ─────────────────────
     setProgress(3); // 60%
     startProgressTicker(); // Ticks up smoothly towards 92%
 
@@ -373,90 +373,30 @@ async function generateRender() {
 
     if (supabaseClient && useRealSupabase) {
       try {
-        if (typeof supabaseClient.functions?.invoke === 'function') {
-          const { data, error } = await supabaseClient.functions.invoke('openai-proxy', {
-            body: {
-              image: imageUri,
-              mask: maskUri,
-              prompt: prompt,
-              stone_image_url: stoneImageUrl
-            }
-          });
-          if (error) {
-            console.error('[Render] Functions invoke error:', error);
-            let detail = null;
-            try {
-              if (error.context && typeof error.context.json === 'function') {
-                const ctxJson = await error.context.json();
-                detail = ctxJson?.error?.message || ctxJson?.message || (typeof ctxJson?.error === 'string' ? ctxJson.error : null);
+        console.log('[Render] Generating render with Fal.ai Gemini 2.5 Flash...');
+        aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
+      } catch (aiErr) {
+        console.error('[Render] Fal.ai error, trying proxy fallback:', aiErr);
+        try {
+          if (typeof supabaseClient.functions?.invoke === 'function') {
+            const { data, error } = await supabaseClient.functions.invoke('openai-proxy', {
+              body: {
+                image: imageUri,
+                mask: maskUri,
+                prompt: prompt,
+                stone_image_url: stoneImageUrl
               }
-            } catch (e) {}
-            throw new Error(detail || error.message || 'AI inpainting failed via Supabase Function.');
-          }
-          if (data && data.error) {
-            console.error('[Render] Proxy returned error payload:', data.error);
-            const errMsg = data.error.message || (typeof data.error === 'string' ? data.error : 'AI proxy returned error.');
-            if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing') || errMsg.includes('Fal.ai')) {
-              console.log('[Render] Falling back directly to Fal.ai Gemini Image Edit...');
-              aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
-            } else {
-              throw new Error(errMsg);
-            }
-          } else {
-            aiImageUrl = data?.data?.[0]?.url || data?.url || null;
-          }
-        } else {
-          const { data: { session } } = await supabaseClient.auth.getSession();
-          const token = session?.access_token;
-          const proxyResponse = await fetch(`${SUPABASE_URL}/functions/v1/openai-proxy`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token || ''}`,
-              'apikey': SUPABASE_ANON_KEY || '',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              image: imageUri,
-              mask: maskUri,
-              prompt: prompt,
-              stone_image_url: stoneImageUrl
-            })
-          });
-
-          const resData = await proxyResponse.json().catch(() => ({}));
-          if (proxyResponse.ok) {
-            if (resData.error) {
-              const errMsg = resData.error.message || 'AI proxy returned error.';
-              if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing') || errMsg.includes('Fal.ai')) {
-                console.log('[Render] Falling back directly to Fal.ai Gemini Image Edit...');
-                aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
-              } else {
-                throw new Error(errMsg);
-              }
-            } else {
-              aiImageUrl = resData.data?.[0]?.url || resData.url || null;
-            }
-          } else {
-            const errMsg = resData?.error?.message || resData?.message || `Server error (status ${proxyResponse.status})`;
-            if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing') || errMsg.includes('Fal.ai')) {
-              console.log('[Render] Falling back directly to Fal.ai Gemini Image Edit...');
-              aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
-            } else {
-              throw new Error(errMsg);
+            });
+            if (data && data.data?.[0]?.url) {
+              aiImageUrl = data.data[0].url;
             }
           }
+        } catch (proxyErr) {
+          console.error('[Render] Proxy fallback error:', proxyErr);
         }
-      } catch (proxyErr) {
-        console.error('[Render] AI proxy error:', proxyErr);
-        if (proxyErr.message?.includes('OpenAI') || proxyErr.message?.includes('credits') || proxyErr.message?.includes('billing')) {
-          try {
-            console.log('[Render] Retrying with Fal.ai Inpainting...');
-            aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
-          } catch (falErr) {
-            throw new Error(falErr.message || 'AI generation failed.');
-          }
-        } else {
-          throw new Error(proxyErr.message || 'AI generation failed. Please verify AI provider configuration.');
+
+        if (!aiImageUrl) {
+          throw new Error(aiErr.message || 'AI generation failed. Please verify AI provider configuration.');
         }
       }
     } else {
