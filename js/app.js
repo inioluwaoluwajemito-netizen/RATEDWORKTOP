@@ -1520,43 +1520,52 @@ function getStoneVisualDescription(stone) {
   const sku = stone.sku ? stone.sku.toUpperCase() : '';
   if (descMap[sku]) return descMap[sku];
 
-  // Dynamic fallback based on color, texture, and finish
   const texture = (stone.texture || '').toLowerCase();
   const name = (stone.name || '').toLowerCase();
   const finish = (stone.finish || 'Polished').toLowerCase();
-  let colorDesc = 'natural stone';
 
-  if (texture === 'black' || name.includes('black') || name.includes('noir') || name.includes('nero') || name.includes('charcoal')) {
-    colorDesc = `${finish} deep black stone with fine veining and mineral accents`;
-  } else if (name.includes('red') || name.includes('rosso') || name.includes('ruby') || name.includes('bordeaux') || name.includes('burgundy')) {
-    colorDesc = `${finish} rich deep red stone with natural veining and warm tones`;
-  } else if (name.includes('blue') || name.includes('volga') || name.includes('azul') || name.includes('sodalite') || name.includes('sapphire')) {
-    colorDesc = `${finish} deep blue stone with natural crystalline patterns and mineral flecks`;
+  // Specific Stone Pattern Matching
+  if (name.includes('rosso viola') || name.includes('breccia') || name.includes('8263') || (name.includes('viola') && !name.includes('calacatta'))) {
+    return `${finish} breccia stone featuring large white and cream angular rock fragments set in a warm reddish-brown matrix with fine veining`;
+  } else if (name.includes('rosso levanto') || name.includes('trs-106') || (name.includes('rosso') && !name.includes('viola'))) {
+    return `${finish} deep reddish-burgundy marble with natural white, grey, and rose veining`;
+  } else if (name.includes('nero picasso') || name.includes('cosmin') || (name.includes('picasso') || (name.includes('black') && (name.includes('gold') || name.includes('amber'))))) {
+    return `${finish} deep black marble with dramatic flowing gold, amber, and cream veining`;
+  } else if (name.includes('blue roma') || name.includes('roma') || sku.includes('GRA-BLG')) {
+    return `${finish} light blue-grey quartzite with dramatic flowing copper, bronze, and brown veins`;
+  } else if (name.includes('volga blue') || (name.includes('volga') && name.includes('blue'))) {
+    return `${finish} deep black granite with iridescent blue labradorite crystalline flecks and mineral shimmer`;
+  } else if (name.includes('patagonia')) {
+    return `${finish} translucent cream-white quartzite with dramatic dark mineral patches and golden accents`;
+  } else if (name.includes('amazonia')) {
+    return `${finish} deep teal-green quartzite with intricate webbed golden-beige veining`;
+  } else if (texture === 'black' || name.includes('black') || name.includes('noir') || name.includes('nero') || name.includes('charcoal')) {
+    return `${finish} deep black stone with fine veining and mineral accents`;
+  } else if (name.includes('blue') || name.includes('azul') || name.includes('sodalite') || name.includes('sapphire')) {
+    return `${finish} deep blue stone with natural crystalline patterns and mineral flecks`;
   } else if (name.includes('green') || name.includes('verde') || name.includes('emerald') || name.includes('forest') || name.includes('jade')) {
-    colorDesc = `${finish} rich green stone with natural veining and mineral patterns`;
+    return `${finish} rich green stone with natural veining and mineral patterns`;
   } else if (name.includes('brown') || name.includes('tan') || name.includes('coffee') || name.includes('mocha') || name.includes('bronze') || name.includes('autumn') || name.includes('caramel')) {
-    colorDesc = `${finish} warm brown stone with natural earthy tones and veining`;
+    return `${finish} warm brown stone with natural earthy tones and veining`;
   } else if (name.includes('beige') || name.includes('cream') || name.includes('ivory') || name.includes('sand') || name.includes('vanilla') || name.includes('latte')) {
-    colorDesc = `${finish} warm beige cream stone with subtle natural patterns`;
+    return `${finish} warm beige cream stone with subtle natural patterns`;
   } else if (name.includes('gold') || name.includes('amber') || name.includes('honey')) {
-    colorDesc = `${finish} warm golden stone with rich amber tones and natural veining`;
-  } else if (name.includes('pink') || name.includes('rose') || name.includes('blush')) {
-    colorDesc = `${finish} soft pink rose-toned stone with delicate natural patterns`;
+    return `${finish} warm golden stone with rich amber tones and natural veining`;
+  } else if (name.includes('pink') || name.includes('rose') || name.includes('blush') || name.includes('onyx')) {
+    return `${finish} soft pink rose-toned stone with delicate natural patterns`;
   } else if (name.includes('purple') || name.includes('violet') || name.includes('amethyst') || name.includes('viola')) {
-    colorDesc = `${finish} rich purple stone with dramatic veining and deep violet tones`;
+    return `${finish} rich purple stone with dramatic veining and deep violet tones`;
   } else if (texture === 'granite' || name.includes('granite')) {
-    colorDesc = `${finish} natural granite with rich mineral speckles, crystalline depth and fine flecks`;
+    return `${finish} natural granite with rich mineral speckles, crystalline depth and fine flecks`;
   } else if (texture === 'slate' || name.includes('concrete') || name.includes('kreta') || name.includes('slate')) {
-    colorDesc = `${finish} textured slate and concrete-look architectural stone`;
+    return `${finish} textured slate and concrete-look architectural stone`;
   } else if (texture === 'quartz' || name.includes('quartz') || name.includes('white') || name.includes('miami')) {
-    colorDesc = `${finish} pure engineered quartz with subtle crystal shimmer`;
+    return `${finish} pure engineered quartz with subtle crystal shimmer`;
   } else if (texture === 'marble' || name.includes('marble') || name.includes('calacatta') || name.includes('carrara') || name.includes('statuario') || name.includes('vagli')) {
-    colorDesc = `${finish} premium luxury marble with flowing elegant veining`;
+    return `${finish} premium luxury marble with flowing elegant veining`;
   } else {
-    colorDesc = `${finish} ${stone.name || 'custom stone'} with authentic stone texture and natural veining`;
+    return `${finish} ${stone.name || 'custom stone'} with authentic stone texture and natural veining`;
   }
-  
-  return colorDesc;
 }
 
 function getStoneColorDetails(stone) {
@@ -1566,9 +1575,66 @@ function getStoneColorDetails(stone) {
   const name = stone.name ? stone.name.toLowerCase() : '';
   const texture = stone.texture ? stone.texture.toLowerCase() : '';
 
+  // 1. Specific Unique Pattern Checks
+  if (name.includes('rosso viola') || name.includes('breccia') || name.includes('8263') || (name.includes('viola') && !name.includes('calacatta'))) {
+    return {
+      baseColor: 'rosso viola breccia',
+      hex: '#C8A29A',
+      promptPrefix: `DISTINCTIVE ROSSO VIOLA BRECCIA SURFACES: Must feature large white and cream angular rock fragments, broken stone clasts, and a rich reddish-brown matrix with fine veining. Preserve the large fragment breccia pattern.`
+    };
+  }
+
+  if (name.includes('nero picasso') || name.includes('cosmin') || (name.includes('picasso') || (name.includes('black') && (name.includes('gold') || name.includes('amber'))))) {
+    return {
+      baseColor: 'black and gold marble',
+      hex: '#1C1D21',
+      promptPrefix: `LUXURY POLISHED BLACK AND GOLD VEINED SURFACES: Solid deep black background with dramatic flowing gold, amber, and cream veins.`
+    };
+  }
+
+  if (name.includes('blue roma') || name.includes('roma') || sku.includes('GRA-BLG')) {
+    return {
+      baseColor: 'blue roma quartzite',
+      hex: '#B8C4CC',
+      promptPrefix: `BLUE ROMA QUARTZITE SURFACES: Light blue-grey quartzite background with dramatic flowing copper, bronze, and brown veining.`
+    };
+  }
+
+  if (name.includes('volga blue') || (name.includes('volga') && name.includes('blue'))) {
+    return {
+      baseColor: 'volga blue granite',
+      hex: '#161922',
+      promptPrefix: `VOLGA BLUE GRANITE SURFACES: Solid deep black-charcoal granite background with iridescent shimmering blue labradorite crystalline flecks.`
+    };
+  }
+
+  if (name.includes('patagonia')) {
+    return {
+      baseColor: 'patagonia quartzite',
+      hex: '#DDD6C8',
+      promptPrefix: `PATAGONIA GOLD QUARTZITE SURFACES: Translucent cream and white quartzite with bold dark mineral patches and golden accents.`
+    };
+  }
+
+  if (name.includes('amazonia')) {
+    return {
+      baseColor: 'amazonia green quartzite',
+      hex: '#2F483E',
+      promptPrefix: `AMAZONIA GREEN QUARTZITE SURFACES: Deep teal and emerald green background with intricate golden-beige webbed veins.`
+    };
+  }
+
+  if (name.includes('rosso levanto') || sku === 'TSC-RL' || sku === 'TRS-106' || (name.includes('rosso') && !name.includes('viola'))) {
+    return {
+      baseColor: 'rosso levanto red',
+      hex: '#6B1D2F',
+      promptPrefix: `RICH DEEP ROSSO LEVANTO RED MARBLE SURFACES: Must be deep reddish-burgundy background color with white and grey veins matching the reference stone.`
+    };
+  }
+
   const isBlack = (
     sku === 'SIL-IB' || sku === 'DEK-LR' || sku === 'DEK-CG' || sku === 'CAE-VN' || sku === 'CAL-NM' || sku === 'TSC-NP' ||
-    texture === 'black' || name.includes('black') || name.includes('laurent') || name.includes('noir') || name.includes('nero') || name.includes('charcoal') || name.includes('picasso')
+    texture === 'black' || name.includes('black') || name.includes('laurent') || name.includes('noir') || name.includes('nero') || name.includes('charcoal')
   );
 
   const isGrey = (
@@ -1576,12 +1642,8 @@ function getStoneColorDetails(stone) {
     texture === 'slate' || name.includes('kreta') || name.includes('concrete') || name.includes('slate') || name.includes('grey') || name.includes('bottega')
   );
 
-  const isRed = (
-    sku === 'TSC-RL' || name.includes('red') || name.includes('rosso') || name.includes('levanto') || name.includes('ruby') || name.includes('bordeaux') || name.includes('burgundy') || name.includes('crimson')
-  );
-
   const isBlue = (
-    sku === 'TSC-VB' || sku === 'TSC-BR' || name.includes('blue') || name.includes('volga') || name.includes('roma') || name.includes('azul') || name.includes('sodalite') || name.includes('sapphire') || name.includes('ocean')
+    name.includes('blue') || name.includes('azul') || name.includes('sodalite') || name.includes('sapphire') || name.includes('ocean')
   );
 
   const isGreen = (
@@ -1598,7 +1660,7 @@ function getStoneColorDetails(stone) {
   );
 
   const isPurple = (
-    sku === 'TSC-V3' || name.includes('purple') || name.includes('violet') || name.includes('amethyst') || name.includes('viola')
+    sku === 'TSC-V3' || name.includes('purple') || name.includes('violet') || name.includes('amethyst')
   );
 
   const isGold = (
@@ -1615,17 +1677,11 @@ function getStoneColorDetails(stone) {
       hex: '#1C1D21',
       promptPrefix: `DEEP POLISHED BLACK COLOR WORKTOP AND SPLASHBACK SURFACES: Must be solid deep black background color with dramatic gold and white veining. Absolutely NO white or light background.`
     };
-  } else if (isRed) {
-    return {
-      baseColor: 'dark red',
-      hex: '#6B1D2F',
-      promptPrefix: `RICH DEEP ROSSO LEVANTO RED MARBLE SURFACES: Must be deep reddish-burgundy background color with white and grey veins matching the reference stone exactly. Absolutely NO plain white background.`
-    };
   } else if (isBlue) {
     return {
       baseColor: 'deep blue',
       hex: '#1E3A52',
-      promptPrefix: `DEEP VOLGA BLUE / BLUE ROMA QUARTZITE SURFACES: Must be rich deep blue/navy background color with metallic iridescence and golden/grey quartzite veining. The worktop MUST be dark blue.`
+      promptPrefix: `DEEP BLUE COLOR WORKTOP SURFACES: Must be rich deep blue/navy background color with crystalline patterns and mineral accents.`
     };
   } else if (isGreen) {
     return {
@@ -1659,9 +1715,9 @@ function getStoneColorDetails(stone) {
     };
   } else if (isBeige) {
     return {
-      baseColor: 'silver armani / monet light',
+      baseColor: 'beige marble',
       hex: '#C5BBAA',
-      promptPrefix: `WARM SILVER ARMANI / MONET LIGHT BEIGE MARBLE SURFACES: Elegant warm grey-beige marble background with subtle soft veining.`
+      promptPrefix: `WARM BEIGE MARBLE SURFACES: Elegant warm grey-beige marble background with subtle soft veining.`
     };
   } else if (isGrey || texture === 'granite' || texture === 'slate') {
     return {
@@ -1685,6 +1741,7 @@ function getStoneColorDetails(stone) {
     };
   }
 }
+
 
 // ── Navigation build ──────────────────────────
 async function buildNav(activePage = '') {
