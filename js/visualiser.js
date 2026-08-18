@@ -336,6 +336,81 @@ function getStoneColorDetails(stone) {
   }
 }
 
+// Direct Fal.ai Flux Inpainting fallback
+async function callFalAiInpaint(imageUri, maskUri, promptText) {
+  let falKey = localStorage.getItem('rw_fal_key') || localStorage.getItem('FAL_KEY');
+  if (!falKey && typeof supabaseClient !== 'undefined' && supabaseClient) {
+    try {
+      const { data: settings } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
+      if (settings && (settings.fal_key || settings.data?.fal_key || settings.data?.falKey)) {
+        falKey = settings.fal_key || settings.data?.fal_key || settings.data?.falKey;
+      }
+    } catch (e) {}
+  }
+
+  if (!falKey) {
+    const inputKey = window.prompt('Please enter your Fal.ai API key (from fal.ai/dashboard/keys):', '');
+    if (inputKey && inputKey.trim()) {
+      falKey = inputKey.trim();
+      localStorage.setItem('rw_fal_key', falKey);
+    } else {
+      throw new Error('Fal.ai API key is required to generate renders.');
+    }
+  }
+
+  console.log('[Fal.ai] Calling Flux General inpainting...');
+  try {
+    const res = await fetch('https://fal.run/fal-ai/flux-general/in-painting', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${falKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        image_url: imageUri,
+        mask_url: maskUri,
+        prompt: promptText,
+        strength: 0.95,
+        num_inference_steps: 28,
+        guidance_scale: 7.5,
+        enable_safety_checker: false
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      const url = data.images?.[0]?.url || data.image?.url;
+      if (url) return url;
+    }
+    console.warn('[Fal.ai] Flux general response error:', data);
+  } catch (e) {
+    console.warn('[Fal.ai] Flux general exception:', e);
+  }
+
+  // Fallback to fast-sdxl inpainting
+  console.log('[Fal.ai] Fallback calling Fast SDXL inpainting...');
+  const sdxlRes = await fetch('https://fal.run/fal-ai/fast-sdxl/inpaint', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Key ${falKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      image_url: imageUri,
+      mask_url: maskUri,
+      prompt: promptText,
+      strength: 0.92,
+      num_inference_steps: 30
+    })
+  });
+  const sdxlData = await sdxlRes.json().catch(() => ({}));
+  if (sdxlRes.ok) {
+    const url = sdxlData.images?.[0]?.url || sdxlData.image?.url;
+    if (url) return url;
+  }
+
+  throw new Error(sdxlData?.detail || sdxlData?.message || 'Fal.ai generation failed. Please verify your Fal.ai API key.');
+}
+
 async function generateRender() {
   if (isRendering) return;
   if (!selectedStone) {
@@ -425,9 +500,17 @@ async function generateRender() {
           }
           if (data && data.error) {
             console.error('[Render] Proxy returned error payload:', data.error);
-            throw new Error(data.error.message || (typeof data.error === 'string' ? data.error : 'AI proxy returned error.'));
+            const errMsg = data.error.message || (typeof data.error === 'string' ? data.error : 'AI proxy returned error.');
+            // If OpenAI has no credits, automatically try Fal.ai
+            if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing')) {
+              console.log('[Render] OpenAI unavailable, falling back to Fal.ai Flux inpainting...');
+              aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt);
+            } else {
+              throw new Error(errMsg);
+            }
+          } else {
+            aiImageUrl = data?.data?.[0]?.url || data?.url || null;
           }
-          aiImageUrl = data?.data?.[0]?.url || data?.url || null;
         } else {
           const { data: { session } } = await supabaseClient.auth.getSession();
           const token = session?.access_token;
@@ -448,16 +531,38 @@ async function generateRender() {
           const resData = await proxyResponse.json().catch(() => ({}));
           if (proxyResponse.ok) {
             if (resData.error) {
-              throw new Error(resData.error.message || 'AI proxy returned error.');
+              const errMsg = resData.error.message || 'AI proxy returned error.';
+              if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing')) {
+                console.log('[Render] OpenAI unavailable, falling back to Fal.ai Flux inpainting...');
+                aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt);
+              } else {
+                throw new Error(errMsg);
+              }
+            } else {
+              aiImageUrl = resData.data?.[0]?.url || resData.url || null;
             }
-            aiImageUrl = resData.data?.[0]?.url || resData.url || null;
           } else {
-            throw new Error(resData?.error?.message || resData?.message || `Server error (status ${proxyResponse.status})`);
+            const errMsg = resData?.error?.message || resData?.message || `Server error (status ${proxyResponse.status})`;
+            if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing')) {
+              console.log('[Render] OpenAI unavailable, falling back to Fal.ai Flux inpainting...');
+              aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt);
+            } else {
+              throw new Error(errMsg);
+            }
           }
         }
       } catch (aiErr) {
         console.error('[Render] AI proxy error:', aiErr);
-        throw new Error(aiErr.message || 'AI generation failed. Please verify OpenAI API configuration.');
+        if (aiErr.message?.includes('OpenAI') || aiErr.message?.includes('credits') || aiErr.message?.includes('billing')) {
+          try {
+            console.log('[Render] Retrying with Fal.ai Inpainting...');
+            aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt);
+          } catch (falErr) {
+            throw new Error(falErr.message || 'AI generation failed.');
+          }
+        } else {
+          throw new Error(aiErr.message || 'AI generation failed. Please verify AI provider configuration.');
+        }
       } finally {
         stopProgressTicker();
       }
