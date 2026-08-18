@@ -170,9 +170,11 @@ function getStoneVisualDescription(stone) {
   }
 }
 
-// Direct Fal.ai Flux Inpainting fallback
-async function callFalAiInpaint(imageUri, maskUri, promptText) {
-  let falKey = localStorage.getItem('rw_fal_key') || localStorage.getItem('FAL_KEY');
+// Direct Fal.ai Gemini 2.5 Flash Image Edit & Inpainting Engine
+const DEFAULT_FAL_KEY = '815924c7-606f-49a0-a1aa-b4d823819435:ad52dd06b6273e1f1d2431807e603d15';
+
+async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
+  let falKey = localStorage.getItem('rw_fal_key') || localStorage.getItem('FAL_KEY') || DEFAULT_FAL_KEY;
   if (!falKey && typeof supabaseClient !== 'undefined' && supabaseClient) {
     try {
       const { data: settings } = await supabaseClient.from('settings').select('*').eq('id', 1).maybeSingle();
@@ -182,16 +184,46 @@ async function callFalAiInpaint(imageUri, maskUri, promptText) {
     } catch (e) {}
   }
 
-  if (!falKey) {
-    const inputKey = window.prompt('Please enter your Fal.ai API key (from fal.ai/dashboard/keys):', '');
-    if (inputKey && inputKey.trim()) {
-      falKey = inputKey.trim();
-      localStorage.setItem('rw_fal_key', falKey);
-    } else {
-      throw new Error('Fal.ai API key is required to generate renders.');
+  falKey = falKey || DEFAULT_FAL_KEY;
+
+  // 1. Primary: fal-ai/gemini-25-flash-image/edit (Multi-Image Reference Engine)
+  console.log('[Fal.ai] Calling Gemini 2.5 Flash Image Edit (multi-image reference)...');
+  try {
+    const imageUrls = [imageUri];
+    if (stoneImageUrl && !stoneImageUrl.startsWith('linear-gradient')) {
+      imageUrls.push(stoneImageUrl);
     }
+
+    const editPrompt = (stoneImageUrl && !stoneImageUrl.startsWith('linear-gradient'))
+      ? `Modify the kitchen image: replace the countertop worktop and splashback surface with the exact stone material, texture, pattern, and color shown in the second reference stone image. Match the lighting, perspective, and shadows of the kitchen. Keep all cabinets, walls, appliances, sink, windows, flooring, and background intact.`
+      : promptText;
+
+    const res = await fetch('https://fal.run/fal-ai/gemini-25-flash-image/edit', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${falKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        prompt: editPrompt,
+        image_urls: imageUrls
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      const url = data.images?.[0]?.url || data.image?.url;
+      if (url) {
+        console.log('[Fal.ai] ✅ Gemini 2.5 Flash Image Edit succeeded!');
+        return url;
+      }
+    }
+    console.warn('[Fal.ai] Gemini 2.5 Flash response notice:', data);
+  } catch (e) {
+    console.warn('[Fal.ai] Gemini 2.5 Flash exception:', e);
   }
 
+  // 2. Secondary: fal-ai/flux-general/in-painting
   console.log('[Fal.ai] Calling Flux General inpainting...');
   try {
     const res = await fetch('https://fal.run/fal-ai/flux-general/in-painting', {
@@ -215,12 +247,9 @@ async function callFalAiInpaint(imageUri, maskUri, promptText) {
       const url = data.images?.[0]?.url || data.image?.url;
       if (url) return url;
     }
-    console.warn('[Fal.ai] Flux general response error:', data);
-  } catch (e) {
-    console.warn('[Fal.ai] Flux general exception:', e);
-  }
+  } catch (e) {}
 
-  // Fallback to fast-sdxl inpainting
+  // 3. Fallback to fast-sdxl inpainting
   console.log('[Fal.ai] Fallback calling Fast SDXL inpainting...');
   const sdxlRes = await fetch('https://fal.run/fal-ai/fast-sdxl/inpaint', {
     method: 'POST',
@@ -367,8 +396,8 @@ async function generateRender() {
             console.error('[Render] Proxy returned error payload:', data.error);
             const errMsg = data.error.message || (typeof data.error === 'string' ? data.error : 'AI proxy returned error.');
             if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing')) {
-              console.log('[Render] OpenAI unavailable, falling back to Fal.ai Flux inpainting...');
-              aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt);
+              console.log('[Render] OpenAI unavailable, falling back to Fal.ai Gemini / Flux inpainting...');
+              aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
             } else {
               throw new Error(errMsg);
             }
@@ -397,8 +426,8 @@ async function generateRender() {
             if (resData.error) {
               const errMsg = resData.error.message || 'AI proxy returned error.';
               if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing')) {
-                console.log('[Render] OpenAI unavailable, falling back to Fal.ai Flux inpainting...');
-                aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt);
+                console.log('[Render] OpenAI unavailable, falling back to Fal.ai Gemini / Flux inpainting...');
+                aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
               } else {
                 throw new Error(errMsg);
               }
@@ -408,8 +437,8 @@ async function generateRender() {
           } else {
             const errMsg = resData?.error?.message || resData?.message || `Server error (status ${proxyResponse.status})`;
             if (errMsg.includes('OpenAI') || errMsg.includes('credits') || errMsg.includes('billing')) {
-              console.log('[Render] OpenAI unavailable, falling back to Fal.ai Flux inpainting...');
-              aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt);
+              console.log('[Render] OpenAI unavailable, falling back to Fal.ai Gemini / Flux inpainting...');
+              aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
             } else {
               throw new Error(errMsg);
             }
@@ -420,7 +449,7 @@ async function generateRender() {
         if (proxyErr.message?.includes('OpenAI') || proxyErr.message?.includes('credits') || proxyErr.message?.includes('billing')) {
           try {
             console.log('[Render] Retrying with Fal.ai Inpainting...');
-            aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt);
+            aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
           } catch (falErr) {
             throw new Error(falErr.message || 'AI generation failed.');
           }
