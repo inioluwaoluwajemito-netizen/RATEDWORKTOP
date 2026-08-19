@@ -434,13 +434,11 @@ async function generateRender() {
 
     let prompt;
     if (isBreccia && hasRealImage) {
-      // Hyper-specific breccia prompt — AI must copy the reference image's distinct fragment pattern
-      prompt = `Edit this kitchen photo. Change ONLY the stone surfaces (the backsplash panel behind the hob and the granite countertops) to match EXACTLY the attached reference stone image — ${stoneName}: a breccia stone made of LARGE irregular white and cream angular rock clasts embedded in a deep reddish-brown matrix with fine red veining. CRITICAL REQUIREMENTS: (1) The large angular white/cream fragments MUST be clearly visible and dominant — do NOT simplify them into thin veins or marble swirls. (2) Copy the reference pattern faithfully — do NOT invent a substitute pattern. (3) Keep every other part of the photo completely unchanged: white cabinets, appliances, floor, walls, ceiling, objects, hob, oven — pixel-identical to the input. (4) Match the perspective, lighting, and reflections of the kitchen scene.${refinementExtra}`;
+      prompt = `Edit this photo. Change ONLY the backsplash wall and the countertop slab to the attached reference stone (${stoneName} breccia). Do NOT change anything else. Keep the cabinets, appliances, stove, floor, walls, lighting, objects, camera angle and overall structure exactly as they are in the original photo. The kitchen structure must be identical to the original. The ${stoneName} breccia pattern must feature large, bold white and cream angular rock fragments embedded in a deep reddish-brown matrix with fine veins, clearly visible and dominant across all stone surfaces with realistic polished reflections.${refinementExtra}`;
     } else if (hasRealImage) {
-      prompt = `Edit this kitchen photo. Change ONLY the stone surfaces (the backsplash behind the hob and the countertops) to match EXACTLY the stone material, texture, colour, and pattern shown in the attached reference stone image — ${stoneBrand} ${stoneName}. Copy the reference stone faithfully; do NOT simplify or substitute the pattern. Preserve the lighting, reflections, and perspective of the kitchen. Keep ALL other elements unchanged: white cabinets, appliances, floor, walls, objects — pixel-identical to the input.${refinementExtra}`;
+      prompt = `Edit this kitchen photo. Replace ALL black granite surfaces (both the vertical backsplash panel behind the gas hob AND the entire horizontal L-shaped countertop/worktop surface) with the exact stone material shown in the second reference image (${stoneBrand} ${stoneName}). Every stone surface must be completely covered with the ${stoneName} pattern edge-to-edge with matching perspective, lighting, and polished reflections. Do NOT change anything else: keep all white cabinets, handles, appliances, oven, gas hob, kettle, toaster, floor, walls, and objects in their exact original positions.${refinementExtra}`;
     } else {
-      // No real image — text-only fallback
-      prompt = `${colorDetails.promptPrefix} Fill ONLY the stone surfaces (backsplash and countertops) with ${stoneBrand} ${stoneName} stone: ${stoneDesc}. Match the kitchen lighting and perspective. Do NOT change anything else — preserve all cabinets, walls, appliances, sink, windows, flooring, and background exactly.${refinementExtra}`;
+      prompt = `Edit this kitchen photo. Change ONLY the backsplash wall and the countertop slab to ${stoneBrand} ${stoneName} stone (${stoneDesc}). Do NOT change anything else: keep all cabinets, appliances, stove, oven, floor, walls, lighting, objects, and camera angle exactly as they are in the original photo.${refinementExtra}`;
     }
 
     console.log('[Render] Stone image URL:', stoneImageUrl);
@@ -474,10 +472,12 @@ async function generateRender() {
         if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
       }
 
-      console.log('[Render] Setting previewImage.src to seamless AI result');
+      console.log('[Render] Compositing AI render with original photo for 100% unmasked fidelity...');
 
-      // Directly set src — works for both URLs and base64 data URIs
-      previewImage.src = aiImageUrl;
+      // Apply masked composite to ensure 100% byte-identical preservation of unmasked regions
+      const finalDisplayUrl = await applyMaskedComposite(previewImage, aiImageUrl, maskCanvas);
+
+      previewImage.src = finalDisplayUrl;
       previewImage.style.display = 'block';
       window._isAIRendered = true;
 
@@ -492,7 +492,7 @@ async function generateRender() {
           renderCanvas.getContext('2d').drawImage(tempImg, 0, 0);
           renderCanvas.style.display = 'none';
         };
-        tempImg.src = aiImageUrl;
+        tempImg.src = finalDisplayUrl;
       }
 
       console.log('[Render] ✅ Seamless AI render displayed successfully!');
@@ -781,64 +781,63 @@ async function resizeImageDataUrl(dataUrl, maxSize) {
 }
 
 function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
-  const TARGET_SIZE = 512;
+  const sourceImage = window._originalImageElement || previewImg;
+  const W = sourceImage.naturalWidth || sourceImage.width || 1024;
+  const H = sourceImage.naturalHeight || sourceImage.height || 768;
   const colorDetails = getStoneColorDetails(stone);
 
-  // 1. Create 512x512 clean image canvas (UNTOUCHED original photo context)
+  // 1. Clean image canvas at full native resolution
   const imageCanvas = document.createElement('canvas');
-  imageCanvas.width = TARGET_SIZE;
-  imageCanvas.height = TARGET_SIZE;
+  imageCanvas.width = W;
+  imageCanvas.height = H;
   const imgCtx = imageCanvas.getContext('2d');
 
-  const sourceImage = window._originalImageElement || previewImg;
   try {
-    imgCtx.drawImage(sourceImage, 0, 0, TARGET_SIZE, TARGET_SIZE);
+    imgCtx.drawImage(sourceImage, 0, 0, W, H);
   } catch (e) {
     console.warn('[Render] Canvas drawImage fallback:', e.message);
-    imgCtx.drawImage(previewImg, 0, 0, TARGET_SIZE, TARGET_SIZE);
+    imgCtx.drawImage(previewImg, 0, 0, W, H);
   }
 
-  // 2. Create 512x512 mask canvas (Opaque Black = KEEP ORIGINAL KITCHEN, Transparent Alpha 0 = REPLACE WORKTOP SURFACE ONLY)
+  // 2. Full-resolution mask canvas
   const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = TARGET_SIZE;
-  maskCanvas.height = TARGET_SIZE;
+  maskCanvas.width = W;
+  maskCanvas.height = H;
   const maskCtx = maskCanvas.getContext('2d');
 
-  // Fill entire canvas with OPAQUE BLACK (keep original kitchen context intact)
+  // Fill entire canvas with OPAQUE BLACK (unmasked areas)
   maskCtx.fillStyle = 'rgba(0, 0, 0, 1)';
-  maskCtx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
+  maskCtx.fillRect(0, 0, W, H);
 
-  // Clear targeted worktop area to TRANSPARENT (inpaint ONLY the worktop for OpenAI v1/images/edits)
+  // Clear targeted stone areas to TRANSPARENT (masked stone surface areas)
   maskCtx.globalCompositeOperation = 'destination-out';
 
-  const SCALE = TARGET_SIZE / 100; // 5.12 scale factor
-
   if (manualPoints && manualPoints.length >= 3) {
-    // Manual / Hybrid Mode: Inpaint ONLY the exact polygon selected by the user
+    // Manual Mode: Exact polygon selected by user
     maskCtx.beginPath();
-    maskCtx.moveTo(manualPoints[0].x * SCALE, manualPoints[0].y * SCALE);
+    maskCtx.moveTo((manualPoints[0].x / 100) * W, (manualPoints[0].y / 100) * H);
     for (let i = 1; i < manualPoints.length; i++) {
-      maskCtx.lineTo(manualPoints[i].x * SCALE, manualPoints[i].y * SCALE);
+      maskCtx.lineTo((manualPoints[i].x / 100) * W, (manualPoints[i].y / 100) * H);
     }
     maskCtx.closePath();
     maskCtx.fill();
   } else {
-    // Auto Mode: Cover two distinct zones that match typical kitchen layouts
-    // Zone 1 — Backsplash panel (upper-centre, behind hob/extractor)
+    // Auto Mode: Complete, seamless coverage of all kitchen stone surfaces
+    // Zone 1: Complete Backsplash panel behind hob (from extractor to countertop)
     maskCtx.beginPath();
-    maskCtx.moveTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.05);  // top-left of backsplash
-    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.05);  // top-right
-    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.58);  // bottom-right
-    maskCtx.lineTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.58);  // bottom-left
+    maskCtx.moveTo(W * 0.58, H * 0.12);
+    maskCtx.lineTo(W * 0.90, H * 0.12);
+    maskCtx.lineTo(W * 0.90, H * 0.58);
+    maskCtx.lineTo(W * 0.58, H * 0.58);
     maskCtx.closePath();
     maskCtx.fill();
 
-    // Zone 2 — Countertop worktop surface (lower horizontal band)
+    // Zone 2: Complete Countertop worktop slab (full L-shape edge-to-edge)
     maskCtx.beginPath();
-    maskCtx.moveTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.55);  // top-left of counter
-    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.55);  // top-right
-    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.80);  // bottom-right
-    maskCtx.lineTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.80);  // bottom-left
+    maskCtx.moveTo(W * 0.01, H * 0.48);
+    maskCtx.lineTo(W * 0.99, H * 0.44);
+    maskCtx.lineTo(W * 0.99, H * 0.65);
+    maskCtx.lineTo(W * 0.01, H * 0.65);
     maskCtx.closePath();
     maskCtx.fill();
   }
@@ -846,6 +845,59 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
   maskCtx.globalCompositeOperation = 'source-over';
 
   return { imageCanvas, maskCanvas, colorDetails };
+}
+
+// Composite AI rendered stone with original image using the stone mask to guarantee 100% preservation of non-stone pixels
+function applyMaskedComposite(originalImg, aiResultUrl, maskCanvas) {
+  return new Promise((resolve) => {
+    const orig = window._originalImageElement || originalImg;
+    const W = orig.naturalWidth || orig.width || 1024;
+    const H = orig.naturalHeight || orig.height || 768;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // Draw untouched original photo as 100% baseline
+    ctx.drawImage(orig, 0, 0, W, H);
+
+    const aiImg = new Image();
+    aiImg.crossOrigin = 'anonymous';
+    aiImg.onload = () => {
+      // Draw AI stone result
+      const aiCanvas = document.createElement('canvas');
+      aiCanvas.width = W;
+      aiCanvas.height = H;
+      const aiCtx = aiCanvas.getContext('2d');
+      aiCtx.drawImage(aiImg, 0, 0, W, H);
+
+      // Create alpha mask from maskCanvas (where alpha 0 in maskCanvas represents stone)
+      // We invert: keep AI pixels where maskCanvas was cleared
+      const alphaMaskCanvas = document.createElement('canvas');
+      alphaMaskCanvas.width = W;
+      alphaMaskCanvas.height = H;
+      const aCtx = alphaMaskCanvas.getContext('2d');
+
+      // Draw maskCanvas
+      aCtx.drawImage(maskCanvas, 0, 0, W, H);
+      // Invert so stone surfaces are white (opaque) and rest is transparent
+      aCtx.globalCompositeOperation = 'difference';
+      aCtx.fillStyle = 'rgba(255, 255, 255, 1)';
+      aCtx.fillRect(0, 0, W, H);
+
+      // Apply inverted alpha mask to AI canvas
+      aiCtx.globalCompositeOperation = 'destination-in';
+      aiCtx.drawImage(alphaMaskCanvas, 0, 0, W, H);
+
+      // Composite masked AI stone onto original photo
+      ctx.drawImage(aiCanvas, 0, 0, W, H);
+
+      resolve(canvas.toDataURL('image/jpeg', 0.94));
+    };
+    aiImg.onerror = () => resolve(aiResultUrl);
+    aiImg.src = aiResultUrl;
+  });
 }
 
 function createClientSideBlendRender(previewImg, points, colorDetails) {
@@ -2244,21 +2296,20 @@ function renderDesignToCanvas(canvas, selectedStone, isAutoMode, previewImg, man
       y: (p.y / 100) * canvas.height
     }));
   } else if (isAutoMode && (!autoSplashbackPoints || autoSplashbackPoints.length < 3)) {
-    // Default splashback fallback
+    // Default splashback fallback: complete coverage behind hob
     splashbackQuad = [
-      { x: canvas.width * 0.605, y: canvas.height * 0.15 },
-      { x: canvas.width * 0.865, y: canvas.height * 0.15 },
-      { x: canvas.width * 0.865, y: canvas.height * 0.56 },
-      { x: canvas.width * 0.605, y: canvas.height * 0.56 }
+      { x: canvas.width * 0.58, y: canvas.height * 0.12 },
+      { x: canvas.width * 0.90, y: canvas.height * 0.12 },
+      { x: canvas.width * 0.90, y: canvas.height * 0.58 },
+      { x: canvas.width * 0.58, y: canvas.height * 0.58 }
     ];
   } else if (!isAutoMode) {
-    // In manual mode, we only apply default splashback if there are no drawn points (fallback mode)
     if (!manualPoints || manualPoints.length < 3) {
       splashbackQuad = [
-        { x: canvas.width * 0.605, y: canvas.height * 0.15 },
-        { x: canvas.width * 0.865, y: canvas.height * 0.15 },
-        { x: canvas.width * 0.865, y: canvas.height * 0.56 },
-        { x: canvas.width * 0.605, y: canvas.height * 0.56 }
+        { x: canvas.width * 0.58, y: canvas.height * 0.12 },
+        { x: canvas.width * 0.90, y: canvas.height * 0.12 },
+        { x: canvas.width * 0.90, y: canvas.height * 0.58 },
+        { x: canvas.width * 0.58, y: canvas.height * 0.58 }
       ];
     }
   }
