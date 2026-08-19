@@ -517,13 +517,24 @@ async function generateRender() {
     }
     console.log('[Render] Stone texture reference URL:', stoneImageUrl);
 
-    // ── 2. Build the AI prompt (INPAINTING-FOCUSED: describe ONLY the stone for the masked area) ──
+    // ── 2. Build the AI prompt ────────────────────────────────────────────────────────
     const stoneDesc = getStoneVisualDescription(selectedStone);
     const stoneBrand = selectedStone.brandName || selectedStone.brand_name || selectedStone.brand || '';
     const stoneName = selectedStone.name || 'natural stone';
     const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
     const refinementExtra = refinementText ? ` ${refinementText}.` : '';
-    const prompt = `${colorDetails.promptPrefix} Fill ONLY the masked transparent area with ${stoneBrand} ${stoneName} stone surface. The stone must show authentic ${stoneDesc} with realistic natural veining, polished finish, and consistent texture. Match the lighting, perspective, and shadows of the surrounding kitchen scene. Do NOT change anything outside the masked area — preserve all cabinets, walls, appliances, sink, windows, flooring, and background exactly as they are in the original photo.${refinementExtra}`;
+    const stoneLower = stoneName.toLowerCase();
+    const isBreccia = stoneLower.includes('rosso viola') || stoneLower.includes('breccia') || stoneLower.includes('rosso levanto');
+    const hasRealImage = stoneImageUrl && !stoneImageUrl.startsWith('linear-gradient') && !stoneImageUrl.startsWith('radial-gradient');
+
+    let prompt;
+    if (isBreccia && hasRealImage) {
+      prompt = `Edit this kitchen photo. Change ONLY the stone surfaces (the backsplash panel behind the hob and the granite countertops) to match EXACTLY the attached reference stone image — ${stoneName}: a breccia stone made of LARGE irregular white and cream angular rock clasts embedded in a deep reddish-brown matrix with fine red veining. CRITICAL REQUIREMENTS: (1) The large angular white/cream fragments MUST be clearly visible and dominant — do NOT simplify them into thin veins or marble swirls. (2) Copy the reference pattern faithfully — do NOT invent a substitute pattern. (3) Keep every other part of the photo completely unchanged: white cabinets, appliances, floor, walls, ceiling, objects, hob, oven — pixel-identical to the input. (4) Match the perspective, lighting, and reflections of the kitchen scene.${refinementExtra}`;
+    } else if (hasRealImage) {
+      prompt = `Edit this kitchen photo. Change ONLY the stone surfaces (the backsplash behind the hob and the countertops) to match EXACTLY the stone material, texture, colour, and pattern shown in the attached reference stone image — ${stoneBrand} ${stoneName}. Copy the reference stone faithfully; do NOT simplify or substitute the pattern. Preserve the lighting, reflections, and perspective of the kitchen. Keep ALL other elements unchanged: white cabinets, appliances, floor, walls, objects — pixel-identical to the input.${refinementExtra}`;
+    } else {
+      prompt = `${colorDetails.promptPrefix} Fill ONLY the stone surfaces (backsplash and countertops) with ${stoneBrand} ${stoneName} stone: ${stoneDesc}. Match the kitchen lighting and perspective. Do NOT change anything else — preserve all cabinets, walls, appliances, sink, windows, flooring, and background exactly.${refinementExtra}`;
+    }
 
     console.log('[Render] Inpainting Prompt:', prompt);
     setProgress(2); // Stage 2: Sending to AI

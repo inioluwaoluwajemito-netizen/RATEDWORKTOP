@@ -242,9 +242,13 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
       imageUrls.push(stoneImageUrl);
     }
 
-    const editPrompt = (stoneImageUrl && !stoneImageUrl.startsWith('linear-gradient'))
-      ? `Modify the first image: replace the countertop worktop and splashback surface with the exact stone material, texture, pattern, and color shown in the second reference stone image. Match the lighting, perspective, and shadows of the kitchen. Keep all cabinets, walls, appliances, sink, windows, flooring, and background intact.`
+    const editPrompt = (stoneImageUrl && !stoneImageUrl.startsWith('linear-gradient') && !stoneImageUrl.startsWith('radial-gradient'))
+      ? promptText  // Use the stone-type-specific prompt built by generateRender, which already references the image
       : promptText;
+
+    // Log the exact payload being sent
+    console.log('[Fal.ai] image_urls being sent:', imageUrls);
+    console.log('[Fal.ai] Prompt being sent:', editPrompt);
 
     const res = await fetchWithTimeout('https://fal.run/fal-ai/gemini-25-flash-image/edit', {
       method: 'POST',
@@ -418,15 +422,31 @@ async function generateRender() {
     }
     console.log('[Render] Stone texture reference URL:', stoneImageUrl);
 
-    // ── 2. Build the AI prompt (INPAINTING-FOCUSED: describe ONLY the stone for the masked area) ──
+    // ── 2. Build the AI prompt ─────────────────────────────────────
     const stoneDesc = getStoneVisualDescription(selectedStone);
     const stoneBrand = selectedStone.brandName || selectedStone.brand_name || selectedStone.brand || '';
     const stoneName = selectedStone.name || 'natural stone';
     const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
     const refinementExtra = refinementText ? ` ${refinementText}.` : '';
-    const prompt = `${colorDetails.promptPrefix} Fill ONLY the masked transparent area with ${stoneBrand} ${stoneName} stone surface. The stone must show authentic ${stoneDesc} with realistic natural veining, polished finish, and consistent texture. Match the lighting, perspective, and shadows of the surrounding kitchen scene. Do NOT change anything outside the masked area — preserve all cabinets, walls, appliances, sink, windows, flooring, and background exactly as they are in the original photo.${refinementExtra}`;
+    const stoneLower = stoneName.toLowerCase();
+    const isBreccia = stoneLower.includes('rosso viola') || stoneLower.includes('breccia') || stoneLower.includes('rosso levanto');
+    const hasRealImage = stoneImageUrl && !stoneImageUrl.startsWith('linear-gradient') && !stoneImageUrl.startsWith('radial-gradient');
 
-    console.log('[Render] Inpainting Prompt:', prompt);
+    let prompt;
+    if (isBreccia && hasRealImage) {
+      // Hyper-specific breccia prompt — AI must copy the reference image's distinct fragment pattern
+      prompt = `Edit this kitchen photo. Change ONLY the stone surfaces (the backsplash panel behind the hob and the granite countertops) to match EXACTLY the attached reference stone image — ${stoneName}: a breccia stone made of LARGE irregular white and cream angular rock clasts embedded in a deep reddish-brown matrix with fine red veining. CRITICAL REQUIREMENTS: (1) The large angular white/cream fragments MUST be clearly visible and dominant — do NOT simplify them into thin veins or marble swirls. (2) Copy the reference pattern faithfully — do NOT invent a substitute pattern. (3) Keep every other part of the photo completely unchanged: white cabinets, appliances, floor, walls, ceiling, objects, hob, oven — pixel-identical to the input. (4) Match the perspective, lighting, and reflections of the kitchen scene.${refinementExtra}`;
+    } else if (hasRealImage) {
+      prompt = `Edit this kitchen photo. Change ONLY the stone surfaces (the backsplash behind the hob and the countertops) to match EXACTLY the stone material, texture, colour, and pattern shown in the attached reference stone image — ${stoneBrand} ${stoneName}. Copy the reference stone faithfully; do NOT simplify or substitute the pattern. Preserve the lighting, reflections, and perspective of the kitchen. Keep ALL other elements unchanged: white cabinets, appliances, floor, walls, objects — pixel-identical to the input.${refinementExtra}`;
+    } else {
+      // No real image — text-only fallback
+      prompt = `${colorDetails.promptPrefix} Fill ONLY the stone surfaces (backsplash and countertops) with ${stoneBrand} ${stoneName} stone: ${stoneDesc}. Match the kitchen lighting and perspective. Do NOT change anything else — preserve all cabinets, walls, appliances, sink, windows, flooring, and background exactly.${refinementExtra}`;
+    }
+
+    console.log('[Render] Stone image URL:', stoneImageUrl);
+    console.log('[Render] Has real image reference:', hasRealImage);
+    console.log('[Render] Is breccia:', isBreccia);
+    console.log('[Render] Prompt:', prompt);
 
     // ── 3. Call Fal.ai Gemini 2.5 Flash directly for fast render ─────────────────────
     setProgress(3); // 60%
@@ -803,12 +823,22 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     maskCtx.closePath();
     maskCtx.fill();
   } else {
-    // Auto Mode: Single continuous unified worktop & splashback region (one seamless surface, no disjoint bands or gaps)
+    // Auto Mode: Cover two distinct zones that match typical kitchen layouts
+    // Zone 1 — Backsplash panel (upper-centre, behind hob/extractor)
     maskCtx.beginPath();
-    maskCtx.moveTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.35);
-    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.35);
-    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.85);
-    maskCtx.lineTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.85);
+    maskCtx.moveTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.05);  // top-left of backsplash
+    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.05);  // top-right
+    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.58);  // bottom-right
+    maskCtx.lineTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.58);  // bottom-left
+    maskCtx.closePath();
+    maskCtx.fill();
+
+    // Zone 2 — Countertop worktop surface (lower horizontal band)
+    maskCtx.beginPath();
+    maskCtx.moveTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.55);  // top-left of counter
+    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.55);  // top-right
+    maskCtx.lineTo(TARGET_SIZE * 0.99, TARGET_SIZE * 0.80);  // bottom-right
+    maskCtx.lineTo(TARGET_SIZE * 0.01, TARGET_SIZE * 0.80);  // bottom-left
     maskCtx.closePath();
     maskCtx.fill();
   }

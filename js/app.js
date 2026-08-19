@@ -1451,7 +1451,8 @@ const STONE_IMAGES = {
   'SIL-MW': 'images/stones/miami_white.png',
   'TSC-NP': 'images/stones/nero_marquina.png',
   'TSC-BR': 'images/stones/arabescato_vagli.png',
-  'TSC-RL': 'images/stones/calacatta_viola.png',
+  // TSC-RL (Rosso Levanto) re-mapped to rosso viola as the closest breccia reference
+  'TSC-RL': 'images/stones/rosso_viola_breccia.jpg',
   'TSC-VB': 'images/stones/charcoal_granite.png',
   'TSC-PO': 'images/stones/carrara_white_marble.png',
   'TSC-ML': 'images/stones/miami_white.png',
@@ -1461,6 +1462,29 @@ const STONE_IMAGES = {
   'POR-BC': 'images/stones/kreta.png'
 };
 
+// Name-based stone image lookup for dynamic Supabase stones not in the SKU map above.
+// Returns an image path if the stone name matches, or null to fall through.
+function getStoneImageByName(name) {
+  if (!name) return null;
+  const n = name.toLowerCase();
+  if (n.includes('rosso viola') || n.includes('breccia')) return 'images/stones/rosso_viola_breccia.jpg';
+  if (n.includes('rosso levanto')) return 'images/stones/rosso_viola_breccia.jpg';
+  if (n.includes('nero picasso') || n.includes('cosmin black') || n.includes('cosmin')) return 'images/stones/nero_marquina.png';
+  if (n.includes('calacatta viola') || (n.includes('viola') && !n.includes('rosso'))) return 'images/stones/calacatta_viola.png';
+  if (n.includes('calacatta gold') || n.includes('eternal calacatta')) return 'images/stones/eternal_calacatta_gold.png';
+  if (n.includes('nero marquina') || (n.includes('nero') && !n.includes('picasso'))) return 'images/stones/nero_marquina.png';
+  if (n.includes('carrara') || n.includes('statuario') || n.includes('arabescato') || n.includes('vagli')) return 'images/stones/arabescato_vagli.png';
+  if (n.includes('charcoal') || n.includes('dark granite') || n.includes('volga')) return 'images/stones/charcoal_granite.png';
+  if (n.includes('kreta') || n.includes('concrete') || n.includes('slate')) return 'images/stones/kreta.png';
+  if (n.includes('iconic black') || n.includes('absolute black') || n.includes('pure black')) return 'images/stones/iconic_black.png';
+  if (n.includes('vanilla noir') || n.includes('night sky')) return 'images/stones/vanilla_noir.png';
+  if (n.includes('miami white') || n.includes('arctic white') || n.includes('pure white')) return 'images/stones/miami_white.png';
+  if (n.includes('laurent') || n.includes('black gold') || n.includes('black amber')) return 'images/stones/laurent.png';
+  if (n.includes('opera') || n.includes('bianco') || n.includes('white veins')) return 'images/stones/opera.png';
+  if (n.includes('nebula') || n.includes('pearl')) return 'images/stones/nebula_pearl.png';
+  return null;
+}
+
 function getTexture(key) {
   return TEXTURES[key] || TEXTURES.default;
 }
@@ -1469,20 +1493,23 @@ function getStoneImage(skuOrStone, stoneObj = null) {
   const stone = (typeof skuOrStone === 'object' && skuOrStone !== null) ? skuOrStone : stoneObj;
   const sku = (typeof skuOrStone === 'string') ? skuOrStone : (stone ? stone.sku : '');
 
-  // Check stone object's image_url (skip empty strings and placeholder paths)
-  if (stone && stone.image_url && 
-      stone.image_url.trim() !== '' && 
+  // 1. Check stone object's image_url from Supabase (skip empty strings and placeholder paths)
+  if (stone && stone.image_url &&
+      stone.image_url.trim() !== '' &&
       !stone.image_url.includes('placeholder')) {
+    console.log('[StoneImage] Using Supabase image_url for', stone.name, ':', stone.image_url);
     return stone.image_url;
   }
-  // Check hardcoded SKU image map
+  // 2. Check hardcoded SKU image map
   if (sku && STONE_IMAGES[sku]) {
+    console.log('[StoneImage] Using SKU map image for', sku, ':', STONE_IMAGES[sku]);
     return STONE_IMAGES[sku];
   }
-  // Check localStorage for custom images
+  // 3. Check localStorage for custom images
   if (sku) {
     const localImg = localStorage.getItem('rw_stone_img_' + sku.toLowerCase());
     if (localImg) {
+      console.log('[StoneImage] Using localStorage image for', sku);
       return localImg;
     }
     try {
@@ -1491,9 +1518,16 @@ function getStoneImage(skuOrStone, stoneObj = null) {
       if (match && match.image_url && match.image_url.trim() !== '' && !match.image_url.includes('placeholder')) return match.image_url;
     } catch(e) {}
   }
-  // Use texture-based CSS gradient as a visual fallback
+  // 4. Name-based lookup for dynamic Supabase stones (e.g. Rosso Viola, Cosmin Black)
+  const nameMatch = getStoneImageByName(stone && stone.name);
+  if (nameMatch) {
+    console.log('[StoneImage] Using name-based image for', stone && stone.name, ':', nameMatch);
+    return nameMatch;
+  }
+  // 5. Last resort: CSS gradient (no real image available — will produce generic AI output)
   const textureKey = (stone && stone.texture) ? stone.texture : 'default';
   const gradient = TEXTURES[textureKey] || TEXTURES.default;
+  console.warn('[StoneImage] ⚠️ No real image found for', stone && stone.name, sku, '— using gradient fallback. AI will produce generic output.');
   return gradient;
 }
 
