@@ -422,83 +422,108 @@ async function generateRender() {
     }
     console.log('[Render] Stone texture reference URL:', stoneImageUrl);
 
-    // ── 2. Build the AI prompt ─────────────────────────────────────
+    // ── 2. Build the AI prompt adhering to all core visualizer rules ───────────
     const stoneDesc = getStoneVisualDescription(selectedStone);
     const stoneBrand = selectedStone.brandName || selectedStone.brand_name || selectedStone.brand || '';
     const stoneName = selectedStone.name || 'natural stone';
     const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
     const refinementExtra = refinementText ? ` ${refinementText}.` : '';
-    const stoneLower = stoneName.toLowerCase();
-    const isBreccia = stoneLower.includes('rosso viola') || stoneLower.includes('breccia') || stoneLower.includes('rosso levanto');
     const hasRealImage = stoneImageUrl && !stoneImageUrl.startsWith('linear-gradient') && !stoneImageUrl.startsWith('radial-gradient');
+    const promptPrefix = colorDetails?.promptPrefix ? `${colorDetails.promptPrefix} ` : '';
 
     let prompt;
-    if (isBreccia && hasRealImage) {
-      prompt = `Change ONLY the backsplash wall AND the entire countertop slab to the attached reference stone (${stoneName} breccia). BOTH the vertical backsplash panel behind the gas hob/stove AND the entire horizontal L-shaped countertop/worktop surface across the whole kitchen (including all front edges, corners, and side surfaces) must be completely covered and painted edge-to-edge with the ${stoneName} breccia pattern. The ${stoneName} breccia pattern must feature large, bold white and cream angular rock fragments embedded in a deep reddish-brown matrix with fine veins, clearly visible and dominant across all stone surfaces with realistic polished reflections. Leave everything else unchanged: keep all white cabinets, handles, appliances, oven, gas hob, kettle, toaster, floor, walls, lighting, and objects in their exact original positions.${refinementExtra}`;
-    } else if (hasRealImage) {
-      prompt = `Change ONLY the backsplash wall AND the entire countertop slab to the attached reference stone (${stoneBrand} ${stoneName}). BOTH the vertical backsplash panel behind the gas hob AND the entire horizontal L-shaped countertop/worktop surface across the whole kitchen must be completely repainted edge-to-edge with the exact stone pattern shown in the reference image with matching perspective, lighting, and polished reflections. Leave everything else unchanged: keep all white cabinets, handles, appliances, oven, gas hob, kettle, toaster, floor, walls, and objects in their exact original positions.${refinementExtra}`;
+    if (hasRealImage) {
+      prompt = `Change ONLY the stone surfaces to match EXACTLY the attached reference stone image (${stoneBrand} ${stoneName}). ${promptPrefix}Copy its pattern faithfully — do not invent, simplify, or change it.
+MANDATORY REQUIREMENTS:
+1. FULL COVERAGE: Repaint EVERY stone surface in the kitchen edge-to-edge — including the full vertical backsplash wall panel AND every horizontal countertop slab, worktop, and kitchen island surface. Zero patches of the old stone must remain.
+2. EXACT STONE PATTERN: Faithfully reproduce the exact color, fragments, veining, and texture of the reference stone image with realistic polished reflections.
+3. KITCHEN UNTOUCHED: Keep everything else in the photo unchanged: all cabinets, handles, appliances, oven, gas hob, sink, kettle, toaster, floor, walls, lighting, and objects must stay in their exact original positions.${refinementExtra}`;
     } else {
-      prompt = `Change ONLY the backsplash wall AND the entire countertop slab to ${stoneBrand} ${stoneName} stone (${stoneDesc}). BOTH the vertical backsplash panel behind the gas hob AND the entire horizontal countertop worktop slab must be completely repainted edge-to-edge with the ${stoneName} stone. Leave everything else unchanged: keep all cabinets, appliances, stove, oven, floor, walls, lighting, objects, and camera angle exactly as they are in the original photo.${refinementExtra}`;
+      prompt = `Change ONLY the stone surfaces to match ${stoneBrand} ${stoneName} stone (${stoneDesc}). ${promptPrefix}
+MANDATORY REQUIREMENTS:
+1. FULL COVERAGE: Repaint EVERY stone surface in the kitchen edge-to-edge — including the full vertical backsplash wall AND every horizontal countertop slab, worktop, and island.
+2. KITCHEN UNTOUCHED: Keep all cabinets, handles, appliances, oven, stove, floor, walls, and lighting exactly as they are in the original photo.${refinementExtra}`;
     }
 
     console.log('[Render] Stone image URL:', stoneImageUrl);
     console.log('[Render] Has real image reference:', hasRealImage);
-    console.log('[Render] Is breccia:', isBreccia);
     console.log('[Render] Prompt:', prompt);
 
-    // ── 3. Call Fal.ai Gemini 2.5 Flash directly for fast render ─────────────────────
+    // ── 3. Call Fal.ai Gemini 2.5 Flash with Self-Check and Auto-Retry (up to 3 attempts)
     setProgress(3); // 60%
     startProgressTicker(); // Ticks up smoothly
 
     let aiImageUrl = null;
+    let attempts = 0;
+    const maxAttempts = 3;
 
     if (supabaseClient && useRealSupabase) {
-      // Direct Fal.ai call only — the openai-proxy Edge Function fallback was removed
-      // because it hangs indefinitely when sending large base64 payloads.
-      aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
+      while (attempts < maxAttempts && !aiImageUrl) {
+        attempts++;
+        if (attempts > 1) {
+          console.log(`[Render] Auto-retry attempt ${attempts}/${maxAttempts}...`);
+        }
+        console.log(`[Render] Generating render with Fal.ai Gemini 2.5 Flash (attempt ${attempts})...`);
+        try {
+          const candidateUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
+          if (candidateUrl) {
+            const isValid = await verifyImageLoadable(candidateUrl);
+            if (isValid) {
+              aiImageUrl = candidateUrl;
+              console.log('[Render] ✅ Self-check passed on attempt', attempts);
+            } else {
+              console.warn('[Render] Self-check failed for candidate image. Retrying...');
+            }
+          }
+        } catch (err) {
+          console.warn(`[Render] Attempt ${attempts} error:`, err);
+          if (attempts >= maxAttempts) throw err;
+        }
+      }
     } else {
       throw new Error('Not connected to the server. Please check your connection.');
     }
 
-    // ── 4. Display the clean, seamless AI-generated render ──────────────────────────
-    if (aiImageUrl) {
-      stopProgressTicker();
-      setProgress(4); // 100%
-      processingOverlay.style.display = 'none'; // Hide overlay immediately so user sees their render right away!
-      isRendering = false;
-      if (generateBtn) {
-        generateBtn.disabled = false;
-        generateBtn.innerHTML = `<i data-lucide="wand-2" style="width:16px;height:16px"></i> Generate render`;
-        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
-      }
-
-      console.log('[Render] Compositing AI render with original photo for 100% unmasked fidelity...');
-
-      // Apply masked composite to ensure 100% byte-identical preservation of unmasked regions
-      const finalDisplayUrl = await applyMaskedComposite(previewImage, aiImageUrl, maskCanvas);
-
-      previewImage.src = finalDisplayUrl;
-      previewImage.style.display = 'block';
-      window._isAIRendered = true;
-
-      // Keep renderCanvas hidden to prevent double-layer overlay seams, while holding image for download
-      const renderCanvas = document.getElementById('render-canvas');
-      if (renderCanvas) {
-        const tempImg = new Image();
-        tempImg.crossOrigin = 'anonymous';
-        tempImg.onload = () => {
-          renderCanvas.width = tempImg.naturalWidth;
-          renderCanvas.height = tempImg.naturalHeight;
-          renderCanvas.getContext('2d').drawImage(tempImg, 0, 0);
-          renderCanvas.style.display = 'none';
-        };
-        tempImg.src = finalDisplayUrl;
-      }
-
-      console.log('[Render] ✅ Seamless AI render displayed successfully!');
-    } else {
-      throw new Error('AI returned no image. Please try again.');
+    if (!aiImageUrl) {
+      throw new Error('AI was unable to generate a valid render after 3 attempts. Please try again or upload another photo.');
     }
+
+    // ── 4. Display the clean, seamless AI-generated render ──────────────────────────
+    stopProgressTicker();
+    setProgress(4); // 100%
+    processingOverlay.style.display = 'none'; // Hide overlay immediately so user sees their render right away!
+    isRendering = false;
+    if (generateBtn) {
+      generateBtn.disabled = false;
+      generateBtn.innerHTML = `<i data-lucide="wand-2" style="width:16px;height:16px"></i> Generate render`;
+      if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    }
+
+    console.log('[Render] Compositing AI render with original photo for 100% unmasked fidelity...');
+
+    const finalDisplayUrl = (manualPoints && manualPoints.length >= 3)
+      ? await applyMaskedComposite(previewImage, aiImageUrl, maskCanvas)
+      : aiImageUrl;
+
+    previewImage.src = finalDisplayUrl;
+    previewImage.style.display = 'block';
+    window._isAIRendered = true;
+
+    // Keep renderCanvas hidden to prevent double-layer overlay seams, while holding image for download
+    const renderCanvas = document.getElementById('render-canvas');
+    if (renderCanvas) {
+      const tempImg = new Image();
+      tempImg.crossOrigin = 'anonymous';
+      tempImg.onload = () => {
+        renderCanvas.width = tempImg.naturalWidth;
+        renderCanvas.height = tempImg.naturalHeight;
+        renderCanvas.getContext('2d').drawImage(tempImg, 0, 0);
+        renderCanvas.style.display = 'none';
+      };
+      tempImg.src = finalDisplayUrl;
+    }
+
+    console.log('[Render] ✅ Seamless AI render displayed successfully!');
 
     // ── 5. Deduct credits & update UI ────────────────────────────────────────
     const currentCreds = currentProfile?.credits ?? 999;
@@ -777,6 +802,23 @@ async function resizeImageDataUrl(dataUrl, maxSize) {
     };
     img.onerror = () => resolve(dataUrl);
     img.src = dataUrl;
+  });
+}
+
+function verifyImageLoadable(url) {
+  return new Promise((resolve) => {
+    if (!url) return resolve(false);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (img.naturalWidth > 50 && img.naturalHeight > 50) {
+        resolve(true);
+      } else {
+        resolve(false);
+      }
+    };
+    img.onerror = () => resolve(false);
+    img.src = url;
   });
 }
 
