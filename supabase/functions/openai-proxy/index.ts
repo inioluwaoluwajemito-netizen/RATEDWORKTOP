@@ -128,9 +128,7 @@ serve(async (req: Request) => {
           imageUrls.push(body.stoneImageUrl);
         }
 
-        const editPrompt = (imageUrls.length > 1)
-          ? `Modify the kitchen image: replace the countertop worktop and splashback surface with the exact stone material, texture, pattern, and color shown in the second reference stone image. Match the lighting, perspective, and shadows of the kitchen. Keep all cabinets, walls, appliances, sink, windows, flooring, and background intact.`
-          : body.prompt;
+        const editPrompt = body.prompt || `Change ONLY the backsplash wall AND the entire countertop slab to the attached reference stone. BOTH the vertical backsplash panel behind the gas hob AND the entire horizontal L-shaped countertop/worktop surface across the whole kitchen must be completely repainted edge-to-edge with the reference stone. Leave everything else unchanged: keep all cabinets, appliances, stove, oven, floor, walls, lighting, and objects in their exact original positions.`;
 
         const falRes = await fetch("https://fal.run/fal-ai/gemini-25-flash-image/edit", {
           method: "POST",

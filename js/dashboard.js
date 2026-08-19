@@ -434,11 +434,11 @@ async function generateRender() {
 
     let prompt;
     if (isBreccia && hasRealImage) {
-      prompt = `Edit this photo. Change ONLY the backsplash wall and the countertop slab to the attached reference stone (${stoneName} breccia). Do NOT change anything else. Keep the cabinets, appliances, stove, floor, walls, lighting, objects, camera angle and overall structure exactly as they are in the original photo. The kitchen structure must be identical to the original. The ${stoneName} breccia pattern must feature large, bold white and cream angular rock fragments embedded in a deep reddish-brown matrix with fine veins, clearly visible and dominant across all stone surfaces with realistic polished reflections.${refinementExtra}`;
+      prompt = `Change ONLY the backsplash wall AND the entire countertop slab to the attached reference stone (${stoneName} breccia). BOTH the vertical backsplash panel behind the gas hob/stove AND the entire horizontal L-shaped countertop/worktop surface across the whole kitchen (including all front edges, corners, and side surfaces) must be completely covered and painted edge-to-edge with the ${stoneName} breccia pattern. The ${stoneName} breccia pattern must feature large, bold white and cream angular rock fragments embedded in a deep reddish-brown matrix with fine veins, clearly visible and dominant across all stone surfaces with realistic polished reflections. Leave everything else unchanged: keep all white cabinets, handles, appliances, oven, gas hob, kettle, toaster, floor, walls, lighting, and objects in their exact original positions.${refinementExtra}`;
     } else if (hasRealImage) {
-      prompt = `Edit this kitchen photo. Replace ALL black granite surfaces (both the vertical backsplash panel behind the gas hob AND the entire horizontal L-shaped countertop/worktop surface) with the exact stone material shown in the second reference image (${stoneBrand} ${stoneName}). Every stone surface must be completely covered with the ${stoneName} pattern edge-to-edge with matching perspective, lighting, and polished reflections. Do NOT change anything else: keep all white cabinets, handles, appliances, oven, gas hob, kettle, toaster, floor, walls, and objects in their exact original positions.${refinementExtra}`;
+      prompt = `Change ONLY the backsplash wall AND the entire countertop slab to the attached reference stone (${stoneBrand} ${stoneName}). BOTH the vertical backsplash panel behind the gas hob AND the entire horizontal L-shaped countertop/worktop surface across the whole kitchen must be completely repainted edge-to-edge with the exact stone pattern shown in the reference image with matching perspective, lighting, and polished reflections. Leave everything else unchanged: keep all white cabinets, handles, appliances, oven, gas hob, kettle, toaster, floor, walls, and objects in their exact original positions.${refinementExtra}`;
     } else {
-      prompt = `Edit this kitchen photo. Change ONLY the backsplash wall and the countertop slab to ${stoneBrand} ${stoneName} stone (${stoneDesc}). Do NOT change anything else: keep all cabinets, appliances, stove, oven, floor, walls, lighting, objects, and camera angle exactly as they are in the original photo.${refinementExtra}`;
+      prompt = `Change ONLY the backsplash wall AND the entire countertop slab to ${stoneBrand} ${stoneName} stone (${stoneDesc}). BOTH the vertical backsplash panel behind the gas hob AND the entire horizontal countertop worktop slab must be completely repainted edge-to-edge with the ${stoneName} stone. Leave everything else unchanged: keep all cabinets, appliances, stove, oven, floor, walls, lighting, objects, and camera angle exactly as they are in the original photo.${refinementExtra}`;
     }
 
     console.log('[Render] Stone image URL:', stoneImageUrl);
@@ -823,21 +823,21 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     maskCtx.fill();
   } else {
     // Auto Mode: Complete, seamless coverage of all kitchen stone surfaces
-    // Zone 1: Complete Backsplash panel behind hob (from extractor to countertop)
+    // Zone 1: Complete Backsplash panel behind hob (under hood)
     maskCtx.beginPath();
-    maskCtx.moveTo(W * 0.58, H * 0.12);
-    maskCtx.lineTo(W * 0.90, H * 0.12);
-    maskCtx.lineTo(W * 0.90, H * 0.58);
-    maskCtx.lineTo(W * 0.58, H * 0.58);
+    maskCtx.moveTo(W * 0.40, H * 0.10);
+    maskCtx.lineTo(W * 0.96, H * 0.10);
+    maskCtx.lineTo(W * 0.96, H * 0.65);
+    maskCtx.lineTo(W * 0.40, H * 0.65);
     maskCtx.closePath();
     maskCtx.fill();
 
-    // Zone 2: Complete Countertop worktop slab (full L-shape edge-to-edge)
+    // Zone 2: Complete Countertop worktop slab (full edge-to-edge kitchen coverage)
     maskCtx.beginPath();
-    maskCtx.moveTo(W * 0.01, H * 0.48);
-    maskCtx.lineTo(W * 0.99, H * 0.44);
-    maskCtx.lineTo(W * 0.99, H * 0.65);
-    maskCtx.lineTo(W * 0.01, H * 0.65);
+    maskCtx.moveTo(0, H * 0.40);
+    maskCtx.lineTo(W, H * 0.40);
+    maskCtx.lineTo(W, H);
+    maskCtx.lineTo(0, H);
     maskCtx.closePath();
     maskCtx.fill();
   }
