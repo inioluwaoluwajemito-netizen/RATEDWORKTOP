@@ -12,6 +12,7 @@ let selectedStone = null;
 // Shape Drawing State
 let isDrawMode = false;
 let points = [];
+let manualPoints = [];
 let originalFileUrl = null;
 
 // DOM Elements
@@ -586,7 +587,11 @@ MANDATORY REQUIREMENTS:
     processingText.textContent = 'Applying your new render...';
     console.log('[Render] Compositing AI render with original photo for 100% fidelity...');
 
-    const finalDisplayUrl = (manualPoints && manualPoints.length >= 3)
+    const activeManualPoints = (typeof points !== 'undefined' && Array.isArray(points) && points.length >= 3)
+      ? points
+      : (typeof manualPoints !== 'undefined' && Array.isArray(manualPoints) && manualPoints.length >= 3 ? manualPoints : []);
+
+    const finalDisplayUrl = (!isAutoMode && activeManualPoints.length >= 3)
       ? await applyMaskedComposite(previewImage, aiImageUrl, maskCanvas)
       : aiImageUrl;
 
@@ -696,6 +701,7 @@ MANDATORY REQUIREMENTS:
     stopProgressTicker();
     setTimeout(() => setProgress(1), 100);
   }
+}
 
 function verifyImageLoadable(url) {
   return new Promise((resolve) => {
@@ -1737,8 +1743,6 @@ function setupActionListeners() {
       }
     });
   });
-    });
-  });
 
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', (e) => {
@@ -1795,108 +1799,17 @@ function getRenderedCanvasBlob() {
       }
     };
     img.src = previewImage.src;
-    canvas.width = img.width;
-    canvas.height = img.height;
-
-    if (!window._isAIRendered) {
-      const stoneImg = new Image();
-      stoneImg.crossOrigin = "Anonymous";
-      stoneImg.onload = () => {
-        // Draw base kitchen image
-        ctx.drawImage(img, 0, 0);
-
-        // 1. Create a clipped mask path for the countertop area
-        ctx.save();
-        ctx.beginPath();
-        if (points.length >= 3) {
-          ctx.moveTo((points[0].x / 100) * img.width, (points[0].y / 100) * img.height);
-          for (let i = 1; i < points.length; i++) {
-            ctx.lineTo((points[i].x / 100) * img.width, (points[i].y / 100) * img.height);
-          }
-        } else {
-          // Preset Countertop
-          ctx.moveTo(img.width * 0.1, img.height * 0.6);
-          ctx.lineTo(img.width * 0.9, img.height * 0.6);
-          ctx.lineTo(img.width * 0.95, img.height * 0.75);
-          ctx.lineTo(img.width * 0.05, img.height * 0.75);
-        }
-        ctx.closePath();
-        ctx.clip();
-
-        // 2. Render the stone pattern inside the countertop mask
-        const pattern = ctx.createPattern(stoneImg, 'repeat');
-        ctx.fillStyle = pattern;
-        ctx.fill();
-
-        // 3. Extract and apply shadows (Grayscale Multiply blend at low opacity)
-        ctx.save();
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.globalAlpha = 0.25;
-        ctx.filter = 'grayscale(100%) contrast(120%)';
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
-
-        // 4. Extract and apply highlights (Grayscale Screen blend at moderate opacity)
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.3;
-        ctx.filter = 'grayscale(100%)';
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
-
-        ctx.restore();
-
-        // 5. Draw Splashback (Wall stone) - Always rendered
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(img.width * 0.605, img.height * 0.15);
-        ctx.lineTo(img.width * 0.865, img.height * 0.15);
-        ctx.lineTo(img.width * 0.865, img.height * 0.56);
-        ctx.lineTo(img.width * 0.605, img.height * 0.56);
-        ctx.closePath();
-        ctx.clip();
-
-        // Render stone texture
-        ctx.fillStyle = pattern;
-        ctx.fill();
-
-        // Extract shadows (Grayscale Multiply)
-        ctx.save();
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.globalAlpha = 0.25;
-        ctx.filter = 'grayscale(100%) contrast(120%)';
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
-
-        // Extract highlights (Grayscale Screen)
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.3;
-        ctx.filter = 'grayscale(100%)';
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
-
-        ctx.restore();
-
-        drawWatermarkAndResolve();
-      };
-      stoneImg.onerror = () => resolve(null);
-      stoneImg.src = getStoneImage(selectedStone.sku, selectedStone);
-    } else {
-      ctx.drawImage(img, 0, 0);
-      drawWatermarkAndResolve();
-    }
 
     function drawWatermarkAndResolve() {
       // Draw Premium Branding & Watermark Logo Card
       ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1.0;
 
-      const margin = Math.max(16, Math.floor(img.width * 0.02));
-      const logoHeight = Math.max(44, Math.floor(img.height * 0.065));
+      const margin = Math.max(16, Math.floor(canvas.width * 0.02));
+      const logoHeight = Math.max(44, Math.floor(canvas.height * 0.065));
       const logoWidth = logoHeight * 3.8;
-      const logoX = img.width - logoWidth - margin;
-      const logoY = img.height - logoHeight - margin;
+      const logoX = canvas.width - logoWidth - margin;
+      const logoY = canvas.height - logoHeight - margin;
 
       // Draw card background
       ctx.fillStyle = 'rgba(17, 17, 22, 0.85)';
@@ -1955,10 +1868,7 @@ function getRenderedCanvasBlob() {
         resolve(blob);
       }, 'image/jpeg', 0.9);
     }
-  };
-  img.onerror = () => resolve(null);
-  img.src = previewImage.src;
-});
+  });
 }
 
 function resetSaveBtn(btn) {

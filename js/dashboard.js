@@ -12,6 +12,7 @@ let selectedStone = null;
 // Shape Drawing State
 let isDrawMode = false;
 let points = [];
+let manualPoints = [];
 let originalFileUrl = null;
 
 // DOM Elements
@@ -501,7 +502,11 @@ MANDATORY REQUIREMENTS:
 
     console.log('[Render] Compositing AI render with original photo for 100% unmasked fidelity...');
 
-    const finalDisplayUrl = (manualPoints && manualPoints.length >= 3)
+    const activeManualPoints = (typeof points !== 'undefined' && Array.isArray(points) && points.length >= 3)
+      ? points
+      : (typeof manualPoints !== 'undefined' && Array.isArray(manualPoints) && manualPoints.length >= 3 ? manualPoints : []);
+
+    const finalDisplayUrl = (!isAutoMode && activeManualPoints.length >= 3)
       ? await applyMaskedComposite(previewImage, aiImageUrl, maskCanvas)
       : aiImageUrl;
 
