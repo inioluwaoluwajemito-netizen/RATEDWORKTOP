@@ -219,13 +219,18 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
       }
       const blob = new Blob([ab], { type: mimeString });
       const tempPath = `temp-inputs/input_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.png`;
-      const uploadRes = await uploadFileToStorage('ratedworktops', tempPath, blob);
+      // Add 30-second timeout on the storage upload
+      const uploadRes = await Promise.race([
+        uploadFileToStorage('ratedworktops', tempPath, blob),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Storage upload timed out')), 30000))
+      ]);
       if (uploadRes && uploadRes.ok && uploadRes.url) {
         kitchenPublicUrl = uploadRes.url;
         console.log('[Fal.ai] Uploaded kitchen photo to public URL:', kitchenPublicUrl);
       }
     } catch (e) {
-      console.warn('[Fal.ai] Could not convert/upload data URI to storage:', e);
+      console.warn('[Fal.ai] Could not upload to storage, using data URI directly:', e.message);
+      // Fall through — kitchenPublicUrl remains as the data URI
     }
   }
 
@@ -374,7 +379,7 @@ async function generateRender() {
   processingOverlay.style.display = 'flex';
   setProgress(1); // 15%
 
-  // Safety net: if overlay is still visible after 120s, force close it and show error
+  // Safety net: if overlay is still visible after 60s, force close it and show error
   const _renderSafetyTimer = setTimeout(() => {
     if (processingOverlay && processingOverlay.style.display !== 'none') {
       stopProgressTicker();
@@ -385,9 +390,9 @@ async function generateRender() {
         generateBtn.innerHTML = `<i data-lucide="wand-2" style="width:16px;height:16px"></i> Generate render`;
         if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
       }
-      showToast('Render timed out after 120s. Please try again or check your connection.', 'error');
+      showToast('Render timed out. Please try again or check your connection.', 'error');
     }
-  }, 120000);
+  }, 60000);
 
   console.log('[Render] Starting AI image-to-image render...');
   console.log('[Render] Stone selected:', selectedStone?.name, selectedStone?.sku);
@@ -425,38 +430,14 @@ async function generateRender() {
 
     // ── 3. Call Fal.ai Gemini 2.5 Flash directly for fast render ─────────────────────
     setProgress(3); // 60%
-    startProgressTicker(); // Ticks up smoothly towards 92%
+    startProgressTicker(); // Ticks up smoothly
 
     let aiImageUrl = null;
 
     if (supabaseClient && useRealSupabase) {
-      try {
-        console.log('[Render] Generating render with Fal.ai Gemini 2.5 Flash...');
-        aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
-      } catch (aiErr) {
-        console.error('[Render] Fal.ai error, trying proxy fallback:', aiErr);
-        try {
-          if (typeof supabaseClient.functions?.invoke === 'function') {
-            const { data, error } = await supabaseClient.functions.invoke('openai-proxy', {
-              body: {
-                image: imageUri,
-                mask: maskUri,
-                prompt: prompt,
-                stone_image_url: stoneImageUrl
-              }
-            });
-            if (data && data.data?.[0]?.url) {
-              aiImageUrl = data.data[0].url;
-            }
-          }
-        } catch (proxyErr) {
-          console.error('[Render] Proxy fallback error:', proxyErr);
-        }
-
-        if (!aiImageUrl) {
-          throw new Error(aiErr.message || 'AI generation failed. Please verify AI provider configuration.');
-        }
-      }
+      // Direct Fal.ai call only — the openai-proxy Edge Function fallback was removed
+      // because it hangs indefinitely when sending large base64 payloads.
+      aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
     } else {
       throw new Error('Not connected to the server. Please check your connection.');
     }

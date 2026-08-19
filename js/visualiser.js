@@ -483,15 +483,15 @@ async function generateRender() {
   processingOverlay.style.display = 'flex';
   setProgress(1); // Stage 1: Preparing
 
-  // Safety net: if overlay is still visible after 120s, force close it and show error
+  // Safety net: if overlay is still visible after 60s, force close it and show error
   const _renderSafetyTimer = setTimeout(() => {
     if (processingOverlay && processingOverlay.style.display !== 'none') {
       stopProgressTicker();
       processingOverlay.style.display = 'none';
       isRendering = false;
-      showToast('Render timed out after 120s. Please try again or check your connection.', 'error');
+      showToast('Render timed out. Please try again or check your connection.', 'error');
     }
-  }, 120000);
+  }, 60000);
 
   console.log('[Render] Starting image-to-image generateRender in visualiser.js...');
   console.log('[Render] Selected stone:', selectedStone?.name, selectedStone?.sku);
@@ -536,32 +536,9 @@ async function generateRender() {
     if (supabaseClient && useRealSupabase) {
       startProgressTicker();
       try {
-        // Direct ultra-fast Fal.ai Gemini 2.5 Flash generator
+        // Direct Fal.ai Gemini 2.5 Flash generator (openai-proxy fallback removed - it hangs with large base64 payloads)
         console.log('[Render] Generating render with Fal.ai Gemini 2.5 Flash...');
         aiImageUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
-      } catch (aiErr) {
-        console.error('[Render] Fal.ai error, trying proxy fallback:', aiErr);
-        try {
-          if (typeof supabaseClient.functions?.invoke === 'function') {
-            const { data, error } = await supabaseClient.functions.invoke('openai-proxy', {
-              body: {
-                image: imageUri,
-                mask: maskUri,
-                prompt: prompt,
-                stone_image_url: stoneImageUrl
-              }
-            });
-            if (data && data.data?.[0]?.url) {
-              aiImageUrl = data.data[0].url;
-            }
-          }
-        } catch (proxyErr) {
-          console.error('[Render] Fallback error:', proxyErr);
-        }
-
-        if (!aiImageUrl) {
-          throw new Error(aiErr.message || 'AI generation failed. Please verify AI provider configuration.');
-        }
       } finally {
         stopProgressTicker();
       }
