@@ -587,13 +587,7 @@ MANDATORY REQUIREMENTS:
     processingText.textContent = 'Applying your new render...';
     console.log('[Render] Compositing AI render with original photo for 100% fidelity...');
 
-    const activeManualPoints = (typeof points !== 'undefined' && Array.isArray(points) && points.length >= 3)
-      ? points
-      : (typeof manualPoints !== 'undefined' && Array.isArray(manualPoints) && manualPoints.length >= 3 ? manualPoints : []);
-
-    const finalDisplayUrl = (!isAutoMode && activeManualPoints.length >= 3)
-      ? await applyMaskedComposite(previewImage, aiImageUrl, maskCanvas)
-      : aiImageUrl;
+    const finalDisplayUrl = await applyMaskedComposite(previewImage, aiImageUrl, maskCanvas);
 
     previewImage.src = finalDisplayUrl;
     previewImage.style.display = 'block';
