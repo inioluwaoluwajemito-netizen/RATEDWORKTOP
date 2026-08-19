@@ -327,11 +327,17 @@
                 </div>
               </div>
 
-              <div class="project-actions">
-                <button class="btn btn-ghost btn-sm btn-icon flex-1" style="justify-content:center" onclick="downloadProject('${imgUrl}', '${title}')" title="Download Image">
-                  <i data-lucide="download" style="width:13px;height:13px"></i> Download
+              <div class="project-actions" style="display:grid; grid-template-columns: 1fr 1fr 1fr auto; gap:6px;">
+                <button class="btn btn-ghost btn-sm" style="justify-content:center; font-size:12px; padding:6px 8px;" onclick="viewProjectModal('${imgUrl}', '${title}')" title="View Full Render">
+                  <i data-lucide="eye" style="width:13px;height:13px"></i> View
                 </button>
-                <button class="btn btn-danger btn-sm btn-icon" onclick="deleteProject('${proj.id}')" title="Delete Design">
+                <button class="btn btn-ghost btn-sm" style="justify-content:center; font-size:12px; padding:6px 8px;" onclick="downloadProject('${imgUrl}', '${title}')" title="Download Image">
+                  <i data-lucide="download" style="width:13px;height:13px"></i> Save
+                </button>
+                <button class="btn btn-ghost btn-sm" style="justify-content:center; font-size:12px; padding:6px 8px;" onclick="shareProject('${imgUrl}', '${title}')" title="Share Link">
+                  <i data-lucide="share-2" style="width:13px;height:13px"></i> Share
+                </button>
+                <button class="btn btn-danger btn-sm btn-icon" style="padding:6px 10px;" onclick="deleteProject('${proj.id}')" title="Delete Design">
                   <i data-lucide="trash-2" style="width:13px;height:13px"></i>
                 </button>
               </div>
@@ -342,6 +348,29 @@
       grid.innerHTML = html;
       
       lucide.createIcons();
+    }
+
+    function viewProjectModal(imgUrl, title) {
+      const modal = document.getElementById('view-modal');
+      const img = document.getElementById('view-modal-img');
+      const titleEl = document.getElementById('view-modal-title');
+      if (modal && img) {
+        img.src = imgUrl;
+        if (titleEl) titleEl.textContent = title;
+        modal.classList.add('open');
+      }
+    }
+
+    function shareProject(imgUrl, title) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(imgUrl).then(() => {
+          showToast('Project link copied to clipboard!', 'success');
+        }).catch(() => {
+          showToast('Copied project link!', 'success');
+        });
+      } else {
+        showToast('Share URL: ' + imgUrl, 'info');
+      }
     }
 
     async function deleteProject(id) {
@@ -378,6 +407,22 @@
       showToast("Download started!");
     }
   </script>
+
+  <!-- View Modal -->
+  <div class="modal-overlay" id="view-modal">
+    <div class="modal" style="max-width: 840px; width: 92%; padding: 24px; text-align: center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 id="view-modal-title" style="font-family:'Playfair Display',serif; font-size:20px; font-weight:700;">Saved Render</h3>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('view-modal').classList.remove('open')">✕</button>
+      </div>
+      <div style="border-radius:12px; overflow:hidden; background:#000; max-height:70vh; display:flex; align-items:center; justify-content:center;">
+        <img id="view-modal-img" src="" alt="Render Preview" style="max-width:100%; max-height:70vh; object-fit:contain;" />
+      </div>
+      <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:12px;">
+        <button class="btn btn-ghost" onclick="document.getElementById('view-modal').classList.remove('open')">Close</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
 

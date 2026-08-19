@@ -1791,156 +1791,209 @@ function setupActionListeners() {
     document.getElementById('share-modal').classList.remove('open');
   });
 
-  document.getElementById('download-btn').addEventListener('click', async () => {
-    if (!previewImage.src) {
+  // ── Unified Action Bar Capabilities (Download, Save to My Space, Share) ──
+  async function handleDownload() {
+    if (!previewImage.src || previewImage.style.display === 'none') {
       showToast('Please generate or upload an image first.', 'error');
       return;
     }
     showToast('Preparing your design download...', 'info');
 
-    // Increment downloads metric in DB
-    if (currentProfile && supabaseClient) {
+    if (currentProfile && supabaseClient && currentUser) {
       const newDownloads = (currentProfile.downloads || 0) + 1;
       await supabaseClient
         .from('profiles')
         .update({ downloads: newDownloads })
-        .eq('id', currentUser.id);
+        .eq('id', currentUser.id)
+        .catch(e => console.warn('Downloads count update notice:', e));
       currentProfile.downloads = newDownloads;
     }
 
     const blob = await getRenderedCanvasBlob();
-    if (!blob) {
-      showToast('Failed to prepare download file.', 'error');
+    let downloadUrl = '';
+    if (blob) {
+      downloadUrl = URL.createObjectURL(blob);
+    } else {
+      downloadUrl = previewImage.src;
+    }
+
+    const stoneClean = selectedStone?.name ? selectedStone.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() : 'stone-render';
+    const dateStr = new Date().toISOString().split('T')[0];
+    const fileName = `stone-visualiser-${stoneClean}-${dateStr}.png`;
+
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = fileName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      if (blob) URL.revokeObjectURL(downloadUrl);
+    }, 3000);
+
+    showToast('Image downloaded to device!', 'success');
+  }
+
+  async function handleSaveToUserSpace() {
+    if (!currentUser || !currentUser.id) {
+      showToast('Please sign in to save renders to your account space.', 'warning');
+      if (typeof openAuthModal === 'function') {
+        openAuthModal('login');
+      } else {
+        window.location.href = 'index.html?auth=login';
+      }
       return;
     }
 
-    const stoneName = selectedStone?.name ? selectedStone.name.replace(/\s+/g, '-').toLowerCase() : 'design';
-    const fileName = `ratedworktops-${stoneName}.jpg`;
+    const saveBtns = [
+      document.getElementById('save-btn'),
+      document.getElementById('main-save-btn')
+    ].filter(Boolean);
 
-    // Capacitor Native Mobile Download / Share
-    if (window.Capacitor && window.Capacitor.Plugins?.Share) {
-      try {
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          if (window.Capacitor.Plugins?.Share) {
-            await window.Capacitor.Plugins.Share.share({
-              title: 'RatedWorktops Design',
-              text: `My kitchen design with ${selectedStone?.name || 'stone'}`,
-              url: reader.result,
-              dialogTitle: 'Save or Share Image'
-            });
-            showToast('Image shared / saved successfully!', 'success');
-          }
-        };
-        reader.readAsDataURL(blob);
-        return;
-      } catch (err) {
-        console.warn('Native share/save failed, using browser download:', err);
-      }
-    }
-
-    // Web Browser Download Fallback
-    const link = document.createElement('a');
-    link.download = fileName;
-    const objectUrl = URL.createObjectURL(blob);
-    link.href = objectUrl;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
-
-    showToast('Image downloaded successfully!', 'success');
-  });
-
-  document.getElementById('save-btn').addEventListener('click', async () => {
-    const btn = document.getElementById('save-btn');
-    btn.innerHTML = `<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0"></div> Saving...`;
-    btn.disabled = true;
+    saveBtns.forEach(btn => {
+      btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0"></div> Saving...`;
+      btn.disabled = true;
+    });
 
     let dbCount = 0;
-    try {
-      const { data: existing } = await supabaseClient
-        .from('projects')
-        .select('id')
-        .eq('user_id', currentUser.id);
-      if (existing) dbCount = existing.length;
-    } catch(e) {}
+    if (supabaseClient) {
+      try {
+        const { count, data: existing, error: fetchErr } = await supabaseClient
+          .from('projects')
+          .select('id', { count: 'exact' })
+          .eq('user_id', currentUser.id);
+        if (!fetchErr && typeof count === 'number') {
+          dbCount = count;
+        } else if (existing) {
+          dbCount = existing.length;
+        }
+      } catch(e) {}
+    }
 
-    let localProjects = [];
-    try {
-      localProjects = JSON.parse(localStorage.getItem('rw_local_projects_' + currentUser.id) || '[]');
-    } catch(e) {}
-
-    const totalCount = Math.max(dbCount, localProjects.length);
     const settings = typeof fetchAppSettings === 'function' ? await fetchAppSettings() : {};
     const maxLimit = settings.maxSavedProjects || 2;
 
-    if (totalCount >= maxLimit) {
-      showToast(`Save limit reached (${maxLimit} max)! Please delete a project in "My Projects" first.`, 'error');
-      resetSaveBtn(btn);
+    if (dbCount >= maxLimit) {
+      showToast(`Save limit reached (${maxLimit} max)! Please delete a project in "My Renders" first.`, 'error');
+      saveBtns.forEach(btn => resetSaveBtn(btn));
       return;
     }
 
-    getRenderedCanvasBlob().then(async (blob) => {
-      if (!blob) {
-        showToast('Failed to compile render canvas.', 'error');
-        resetSaveBtn(btn);
-        return;
-      }
-
-      showToast('Saving design file...', 'info');
-      const uuid = Math.random().toString(36).substring(2, 15);
-      const path = `outputs/${currentUser.id}/${uuid}.jpg`;
-      const uploadRes = await uploadFileToStorage('ratedworktops', path, blob);
+    try {
+      const blob = await getRenderedCanvasBlob();
+      showToast('Saving design file to cloud...', 'info');
 
       let imageUrl = '';
-      if (uploadRes.ok) {
-        imageUrl = uploadRes.url;
-      } else {
-        console.warn('[Save Project] Cloud upload notice:', uploadRes.error, 'Falling back to canvas data URL...');
-        imageUrl = renderCanvas ? renderCanvas.toDataURL('image/jpeg', 0.85) : '';
+      if (blob && typeof uploadFileToStorage === 'function') {
+        const uuid = Math.random().toString(36).substring(2, 15);
+        const path = `outputs/${currentUser.id}/${uuid}.jpg`;
+        const uploadRes = await uploadFileToStorage('ratedworktops', path, blob);
+        if (uploadRes.ok && uploadRes.url) imageUrl = uploadRes.url;
+      }
+      if (!imageUrl && previewImage.src) {
+        imageUrl = previewImage.src;
       }
 
       const stoneName = selectedStone ? (selectedStone.name || selectedStone.title || 'Custom Stone') : 'Stone Worktop';
       const brandName = selectedStone ? (selectedStone.brandName || selectedStone.brand || 'RatedWorktops') : 'RatedWorktops';
 
-      const projectRecord = {
-        id: Math.random().toString(36).substring(2, 15) + Date.now().toString(36),
-        user_id: currentUser.id,
-        stone_name: stoneName,
-        brand_name: brandName,
-        image_url: imageUrl,
-        created_at: new Date().toISOString()
+      const { data: inserted, error: insertErr } = await supabaseClient
+        .from('projects')
+        .insert([{
+          user_id: currentUser.id,
+          stone_name: stoneName,
+          brand_name: brandName,
+          image_url: imageUrl,
+          title: `${stoneName} Render`,
+          rendered_image: imageUrl,
+          created_at: new Date().toISOString()
+        }])
+        .select();
+
+      if (insertErr) throw insertErr;
+
+      showToast('Project saved successfully to "My Renders"!', 'success');
+      saveBtns.forEach(btn => {
+        btn.disabled = false;
+        btn.style.background = '#22c55e';
+        btn.style.borderColor = '#22c55e';
+        btn.style.color = '#ffffff';
+        btn.innerHTML = `<i data-lucide="check" style="width:16px;height:16px"></i> Saved ✓`;
+      });
+      if (window.lucide) lucide.createIcons();
+    } catch (err) {
+      console.error('[Save Project] Error:', err);
+      showToast('Failed to save project: ' + (err.message || 'Unknown error'), 'error');
+      saveBtns.forEach(btn => resetSaveBtn(btn));
+    }
+  }
+
+  function handleShare() {
+    let shareUrl = window._shareImageUrl || window._currentRenderPublicUrl || previewImage.src;
+    if (!shareUrl) {
+      showToast('Please generate an image first.', 'error');
+      return;
+    }
+
+    const stoneName = selectedStone?.name || 'Natural Stone';
+    const shareTitle = `Kitchen Visualisation — ${stoneName}`;
+    const shareText = `Check out my kitchen visualisation with ${stoneName} worktop on RatedWorktops!`;
+
+    const shareModal = document.getElementById('share-modal');
+    const sharePreviewImg = document.getElementById('share-preview-img');
+    const sharePreviewText = document.getElementById('share-preview-text');
+    const shareUrlInput = document.getElementById('share-public-url-input');
+
+    if (sharePreviewImg) {
+      sharePreviewImg.src = shareUrl;
+      sharePreviewImg.style.display = 'block';
+    }
+    if (sharePreviewText) sharePreviewText.style.display = 'none';
+    if (shareUrlInput) shareUrlInput.value = shareUrl;
+
+    const wa = document.getElementById('share-whatsapp');
+    if (wa) wa.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`;
+
+    const fb = document.getElementById('share-facebook');
+    if (fb) fb.href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+
+    const tw = document.getElementById('share-x') || document.getElementById('share-twitter');
+    if (tw) tw.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+
+    const em = document.getElementById('share-email');
+    if (em) em.href = `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareText + '\n\n' + shareUrl)}`;
+
+    const copyBtn = document.getElementById('share-copy-public-url-btn');
+    if (copyBtn) {
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          showToast('Link copied to clipboard!', 'success');
+          copyBtn.textContent = 'Copied! ✓';
+          setTimeout(() => { copyBtn.textContent = 'Copy Link'; }, 2500);
+        }).catch(() => {
+          showToast('Link copied!', 'success');
+        });
       };
+    }
 
-      // 1. Try Supabase Database Insert
-      try {
-        const { error: insertErr } = await supabaseClient
-          .from('projects')
-          .insert([{
-            user_id: currentUser.id,
-            stone_name: stoneName,
-            brand_name: brandName,
-            image_url: imageUrl
-          }]);
-        if (insertErr) {
-          console.warn('[Save Project] Supabase RLS/DB notice:', insertErr.message);
-        }
-      } catch (err) {
-        console.warn('[Save Project] Supabase DB exception:', err);
-      }
+    if (shareModal) shareModal.classList.add('open');
+  }
 
-      // 2. Always persist locally as fail-safe guarantee
-      localProjects.unshift(projectRecord);
-      try { localStorage.setItem('rw_local_projects_' + currentUser.id, JSON.stringify(localProjects)); } catch(e) {}
+  // Attach Action Bar Listeners
+  ['download-btn', 'main-download-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', handleDownload);
+  });
 
-      showToast('Project saved successfully!', 'success');
-      btn.innerHTML = `<i data-lucide="check" style="width:16px;height:16px"></i> Saved`;
-      btn.style.background = '#4ade80';
-      btn.style.borderColor = '#4ade80';
-      btn.style.color = '#000';
-      lucide.createIcons();
-    });
+  ['save-btn', 'main-save-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', handleSaveToUserSpace);
+  });
+
+  ['share-btn', 'main-share-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', handleShare);
   });
 
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
