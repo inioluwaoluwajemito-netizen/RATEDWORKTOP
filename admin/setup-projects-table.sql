@@ -19,6 +19,9 @@ ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS user_id TEXT;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS stone_name TEXT;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS brand_name TEXT;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS rendered_image TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS title TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS stone_sku TEXT;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Enable Row Level Security with full public access policy

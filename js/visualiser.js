@@ -1606,53 +1606,124 @@ function setupActionListeners() {
     document.getElementById('share-modal').classList.remove('open');
   });
 
+  // ── Helper: Robust cross-origin & data URL image blob fetcher ─────────────
+  async function fetchImageBlob(url) {
+    if (!url) return null;
+    if (url.startsWith('data:')) {
+      try {
+        const res = await fetch(url);
+        return await res.blob();
+      } catch (e) {
+        console.warn('[Blob] Data URI fetch error:', e);
+      }
+    }
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (res.ok) return await res.blob();
+    } catch (e) {
+      console.warn('[Blob] Direct fetch error:', e);
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 1024;
+          canvas.height = img.naturalHeight || img.height || 768;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob(resolve, 'image/png');
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
   // ── Unified Action Bar Capabilities (Download, Save to My Space, Share) ──
   async function handleDownload() {
-    if (!previewImage.src || previewImage.style.display === 'none') {
-      showToast('Please generate or upload an image first.', 'error');
+    const currentUrl = previewImage.src;
+    if (!currentUrl || previewImage.style.display === 'none') {
+      showToast('The render is not ready to download yet.', 'error');
       return;
     }
-    showToast('Preparing your design download...', 'info');
 
-    if (currentProfile && supabaseClient && currentUser) {
-      const newDownloads = (currentProfile.downloads || 0) + 1;
-      await supabaseClient
-        .from('profiles')
-        .update({ downloads: newDownloads })
-        .eq('id', currentUser.id)
-        .catch(e => console.warn('Downloads count update notice:', e));
-      currentProfile.downloads = newDownloads;
+    const downloadBtns = [
+      document.getElementById('download-btn'),
+      document.getElementById('main-download-btn')
+    ].filter(Boolean);
+
+    downloadBtns.forEach(btn => {
+      btn.disabled = true;
+      btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0;border-top-color:#fff;"></div> Downloading...`;
+    });
+
+    try {
+      showToast('Preparing your high-resolution render download...', 'info');
+
+      const blob = await fetchImageBlob(currentUrl);
+      const stoneClean = selectedStone?.name ? selectedStone.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() : 'stone-render';
+      const dateStr = new Date().toISOString().split('T')[0];
+      const fileName = `stone-visualiser-${stoneClean}-${dateStr}.png`;
+
+      if (blob) {
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(blobUrl);
+        }, 5000);
+        showToast('Image downloaded to device!', 'success');
+      } else {
+        const a = document.createElement('a');
+        a.href = currentUrl;
+        a.target = '_blank';
+        a.download = fileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => document.body.removeChild(a), 2000);
+        showToast('Opening full-resolution image for download...', 'success');
+      }
+
+      if (currentProfile && supabaseClient && currentUser) {
+        const newDownloads = (currentProfile.downloads || 0) + 1;
+        await supabaseClient
+          .from('profiles')
+          .update({ downloads: newDownloads })
+          .eq('id', currentUser.id)
+          .catch(e => console.warn('Downloads count update notice:', e));
+        currentProfile.downloads = newDownloads;
+      }
+    } catch (err) {
+      console.error('[Download] Error:', err);
+      showToast('Download failed: ' + (err.message || 'Unknown error'), 'error');
+    } finally {
+      downloadBtns.forEach(btn => {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="download" style="width:16px;height:16px"></i> Download`;
+      });
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
     }
-
-    const blob = await getRenderedCanvasBlob();
-    let downloadUrl = '';
-    if (blob) {
-      downloadUrl = URL.createObjectURL(blob);
-    } else {
-      downloadUrl = previewImage.src;
-    }
-
-    const stoneClean = selectedStone?.name ? selectedStone.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() : 'stone-render';
-    const dateStr = new Date().toISOString().split('T')[0];
-    const fileName = `stone-visualiser-${stoneClean}-${dateStr}.png`;
-
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = fileName;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      if (blob) URL.revokeObjectURL(downloadUrl);
-    }, 3000);
-
-    showToast('Image downloaded to device!', 'success');
   }
 
   async function handleSaveToUserSpace() {
+    const currentUrl = previewImage.src;
+    if (!currentUrl || previewImage.style.display === 'none') {
+      showToast('The render is not ready to save yet.', 'error');
+      return;
+    }
+
     if (!currentUser || !currentUser.id) {
-      showToast('Please sign in to save renders to your account space.', 'warning');
+      showToast('Please sign in to save renders to your account workspace.', 'warning');
       if (typeof openAuthModal === 'function') {
         openAuthModal('login');
       } else {
@@ -1666,9 +1737,21 @@ function setupActionListeners() {
       document.getElementById('main-save-btn')
     ].filter(Boolean);
 
+    if (window._currentSavedProjectId) {
+      showToast('Project already saved to your workspace!', 'info');
+      saveBtns.forEach(btn => {
+        btn.disabled = true;
+        btn.style.background = '#22c55e';
+        btn.style.color = '#ffffff';
+        btn.innerHTML = `<i data-lucide="check" style="width:16px;height:16px"></i> Saved ✓`;
+      });
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
+      return;
+    }
+
     saveBtns.forEach(btn => {
-      btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0"></div> Saving...`;
       btn.disabled = true;
+      btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0;border-top-color:#000;"></div> Saving...`;
     });
 
     let dbCount = 0;
@@ -1691,56 +1774,94 @@ function setupActionListeners() {
 
     if (dbCount >= maxLimit) {
       showToast(`Save limit reached (${maxLimit} max)! Please delete a project in "My Renders" first.`, 'error');
-      saveBtns.forEach(btn => resetSaveBtn(btn));
+      saveBtns.forEach(btn => {
+        btn.disabled = false;
+        btn.className = 'btn-save-project-gold';
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.innerHTML = `<i data-lucide="bookmark" style="width:16px;height:16px"></i> Save Project`;
+      });
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
       return;
     }
 
     try {
-      const blob = await getRenderedCanvasBlob();
       showToast('Saving design file to cloud...', 'info');
 
-      let imageUrl = '';
-      if (blob && typeof uploadFileToStorage === 'function') {
-        const uuid = Math.random().toString(36).substring(2, 15);
-        const path = `outputs/${currentUser.id}/${uuid}.jpg`;
-        const uploadRes = await uploadFileToStorage('ratedworktops', path, blob);
-        if (uploadRes.ok && uploadRes.url) imageUrl = uploadRes.url;
+      let finalStorageUrl = window._currentRenderPublicUrl || '';
+      if (!finalStorageUrl) {
+        const blob = await fetchImageBlob(currentUrl);
+        if (blob && typeof uploadFileToStorage === 'function') {
+          const uuid = Math.random().toString(36).substring(2, 15);
+          const path = `outputs/${currentUser.id}/${uuid}.jpg`;
+          const uploadRes = await uploadFileToStorage('ratedworktops', path, blob);
+          if (uploadRes.ok && uploadRes.url) finalStorageUrl = uploadRes.url;
+        }
       }
-      if (!imageUrl && previewImage.src) {
-        imageUrl = previewImage.src;
+      if (!finalStorageUrl) {
+        finalStorageUrl = currentUrl;
       }
 
       const stoneName = selectedStone ? (selectedStone.name || selectedStone.title || 'Custom Stone') : 'Stone Worktop';
       const brandName = selectedStone ? (selectedStone.brandName || selectedStone.brand || 'RatedWorktops') : 'RatedWorktops';
+      const stoneSku = selectedStone ? (selectedStone.sku || selectedStone.id || '') : '';
+
+      const fullPayload = {
+        user_id: currentUser.id,
+        stone_name: stoneName,
+        brand_name: brandName,
+        image_url: finalStorageUrl,
+        rendered_image: finalStorageUrl,
+        title: `${stoneName} Render`,
+        stone_sku: stoneSku,
+        created_at: new Date().toISOString()
+      };
 
       const { data: inserted, error: insertErr } = await supabaseClient
         .from('projects')
-        .insert([{
+        .insert([fullPayload])
+        .select();
+
+      if (insertErr) {
+        console.warn('[Save Project] Full payload notice:', insertErr.message, 'Retrying with core columns...');
+        const corePayload = {
           user_id: currentUser.id,
           stone_name: stoneName,
           brand_name: brandName,
-          image_url: imageUrl,
-          title: `${stoneName} Render`,
-          rendered_image: imageUrl,
-          created_at: new Date().toISOString()
-        }])
-        .select();
+          image_url: finalStorageUrl
+        };
+        const { data: coreInserted, error: coreErr } = await supabaseClient
+          .from('projects')
+          .insert([corePayload])
+          .select();
 
-      if (insertErr) throw insertErr;
+        if (coreErr) throw coreErr;
+        if (coreInserted && coreInserted[0]) window._currentSavedProjectId = coreInserted[0].id;
+      } else if (inserted && inserted[0]) {
+        window._currentSavedProjectId = inserted[0].id;
+      }
 
       showToast('Project saved successfully to "My Renders"!', 'success');
       saveBtns.forEach(btn => {
-        btn.disabled = false;
+        btn.disabled = true;
         btn.style.background = '#22c55e';
         btn.style.borderColor = '#22c55e';
         btn.style.color = '#ffffff';
         btn.innerHTML = `<i data-lucide="check" style="width:16px;height:16px"></i> Saved ✓`;
       });
-      if (window.lucide) lucide.createIcons();
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
     } catch (err) {
       console.error('[Save Project] Error:', err);
       showToast('Failed to save project: ' + (err.message || 'Unknown error'), 'error');
-      saveBtns.forEach(btn => resetSaveBtn(btn));
+      saveBtns.forEach(btn => {
+        btn.disabled = false;
+        btn.className = 'btn-save-project-gold';
+        btn.style.background = '';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+        btn.innerHTML = `<i data-lucide="bookmark" style="width:16px;height:16px"></i> Save Project`;
+      });
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
     }
   }
 
