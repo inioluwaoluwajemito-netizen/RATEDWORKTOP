@@ -478,6 +478,26 @@ async function generateRender() {
   }
 
   isRendering = true;
+  window._currentSavedProjectId = null;
+  window._currentRenderPublicUrl = null;
+
+  const mainActionBar = document.getElementById('main-action-bar');
+  if (mainActionBar) mainActionBar.style.display = 'none';
+  const postRenderActions = document.getElementById('post-render-actions');
+  if (postRenderActions) postRenderActions.style.display = 'none';
+
+  ['save-btn', 'main-save-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.disabled = false;
+      btn.className = 'btn-save-project-gold';
+      btn.style.background = '';
+      btn.style.borderColor = '';
+      btn.style.color = '';
+      btn.innerHTML = `<i data-lucide="bookmark" style="width:16px;height:16px"></i> Save Project`;
+    }
+  });
+
   if (simulatedHighlight) simulatedHighlight.style.display = 'none';
   processingOverlay.style.display = 'flex';
   setProgress(1); // Stage 1: Preparing
@@ -679,6 +699,8 @@ MANDATORY REQUIREMENTS:
     if (preRenderControls) preRenderControls.style.display = 'none';
     const postRenderActions = document.getElementById('post-render-actions');
     if (postRenderActions) postRenderActions.style.display = 'flex';
+    const mainActionBar = document.getElementById('main-action-bar');
+    if (mainActionBar) mainActionBar.style.display = 'flex';
 
     setTimeout(() => {
       openShareModalWithPublicUrl();

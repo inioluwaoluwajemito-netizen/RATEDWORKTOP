@@ -809,16 +809,18 @@
       </div>
 
       <!-- Action Bar under generated image -->
-      <div id="main-action-bar" class="main-action-bar" style="display:none;">
-        <button type="button" class="btn-action-bar btn-download" id="main-download-btn">
-          <i data-lucide="download" style="width:16px;height:16px"></i> Download
+      <div id="main-action-bar" class="post-render-action-panel" style="display:none; margin:16px auto 0;">
+        <button type="button" class="btn-save-project-gold" id="main-save-btn">
+          <i data-lucide="bookmark" style="width:16px;height:16px"></i> Save Project
         </button>
-        <button type="button" class="btn-action-bar btn-save" id="main-save-btn">
-          <i data-lucide="bookmark" style="width:16px;height:16px"></i> Save to My Space
-        </button>
-        <button type="button" class="btn-action-bar btn-share" id="main-share-btn">
-          <i data-lucide="share-2" style="width:16px;height:16px"></i> Share
-        </button>
+        <div class="action-buttons-row">
+          <button type="button" class="btn-action-ghost" id="main-download-btn">
+            <i data-lucide="download" style="width:16px;height:16px"></i> Download
+          </button>
+          <button type="button" class="btn-action-ghost" id="main-share-btn">
+            <i data-lucide="share-2" style="width:16px;height:16px"></i> Share
+          </button>
+        </div>
       </div>
     </main>
 
@@ -857,19 +859,19 @@
         </div>
 
         <!-- Post-render options wrapper -->
-        <div id="post-render-actions" style="display:none; flex-direction:column; gap:12px;">
-          <button class="btn btn-primary w-full" id="save-btn" style="height:42px; justify-content:center;">
+        <div id="post-render-actions" class="post-render-action-panel" style="display:none;">
+          <button class="btn-save-project-gold" id="save-btn">
             <i data-lucide="bookmark" style="width:16px;height:16px"></i> Save Project
           </button>
-          <div style="display:flex; gap:10px;">
-            <button class="btn btn-ghost flex-1" id="download-btn" style="justify-content:center;">
-              <i data-lucide="download" style="width:14px;height:14px"></i> Download
+          <div class="action-buttons-row">
+            <button class="btn-action-ghost" id="download-btn">
+              <i data-lucide="download" style="width:16px;height:16px"></i> Download
             </button>
-            <button class="btn btn-ghost flex-1" id="share-btn" style="justify-content:center;">
-              <i data-lucide="share-2" style="width:14px;height:14px"></i> Share
+            <button class="btn-action-ghost" id="share-btn">
+              <i data-lucide="share-2" style="width:16px;height:16px"></i> Share
             </button>
           </div>
-          <button class="btn btn-ghost w-full" id="reset-btn" style="height:38px; justify-content:center; border-color:transparent; color:var(--text-secondary);">
+          <button class="btn btn-ghost w-full" id="reset-btn" style="height:36px; justify-content:center; border-color:transparent; color:var(--text-secondary); margin-top:4px;">
             <i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Start Over
           </button>
         </div>

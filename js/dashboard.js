@@ -377,6 +377,27 @@ async function generateRender() {
 
   // Set badge stone name
   const badgeStoneName = document.getElementById('processing-stone-name');
+  isRendering = true;
+  window._currentSavedProjectId = null;
+  window._currentRenderPublicUrl = null;
+
+  const mainActionBar = document.getElementById('main-action-bar');
+  if (mainActionBar) mainActionBar.style.display = 'none';
+  const postRenderActions = document.getElementById('post-render-actions');
+  if (postRenderActions) postRenderActions.style.display = 'none';
+
+  ['save-btn', 'main-save-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.disabled = false;
+      btn.className = 'btn-save-project-gold';
+      btn.style.background = '';
+      btn.style.borderColor = '';
+      btn.style.color = '';
+      btn.innerHTML = `<i data-lucide="bookmark" style="width:16px;height:16px"></i> Save Project`;
+    }
+  });
+
   if (badgeStoneName && selectedStone) {
     badgeStoneName.textContent = `Applying ${selectedStone.name} (${selectedStone.brandName || selectedStone.brand || 'Stone'})`;
   }
@@ -586,6 +607,8 @@ MANDATORY REQUIREMENTS:
     if (preRenderControls) preRenderControls.style.display = 'none';
     const postRenderActions = document.getElementById('post-render-actions');
     if (postRenderActions) postRenderActions.style.display = 'flex';
+    const mainActionBar = document.getElementById('main-action-bar');
+    if (mainActionBar) mainActionBar.style.display = 'flex';
 
     // Automatically prompt user to view & share their public URL
     setTimeout(() => {
