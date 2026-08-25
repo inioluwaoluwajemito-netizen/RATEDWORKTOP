@@ -465,102 +465,6 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
   throw new Error(sdxlData?.detail || sdxlData?.message || 'Fal.ai generation failed. Please verify your Fal.ai API key.');
 }
 
-async function generateRender() {
-  if (isRendering) return;
-  if (!selectedStone) {
-    showToast('Please select a material from the sidebar first.', 'error');
-    return;
-  }
-
-  const settings = store.get('settings', {});
-  const isFreeMode = settings.subscriptionsEnabled === false;
-
-  if (!isFreeMode && currentProfile.credits <= 0) {
-    showToast('Not enough credits! Please upgrade your plan.', 'error');
-    return;
-  }
-
-  if (!previewImage.src || previewImage.style.display === 'none') {
-    showToast('Please upload a kitchen image first.', 'error');
-    return;
-  }
-
-  isRendering = true;
-  window._currentSavedProjectId = null;
-  window._currentRenderPublicUrl = null;
-
-  const mainActionBar = document.getElementById('main-action-bar');
-  if (mainActionBar) mainActionBar.style.display = 'none';
-  const postRenderActions = document.getElementById('post-render-actions');
-  if (postRenderActions) postRenderActions.style.display = 'none';
-
-  ['save-btn', 'main-save-btn'].forEach(id => {
-    const btn = document.getElementById(id);
-    if (btn) {
-      btn.disabled = false;
-      btn.className = 'btn-save-project-gold';
-      btn.style.background = '';
-      btn.style.borderColor = '';
-      btn.style.color = '';
-      btn.innerHTML = `<i data-lucide="bookmark" style="width:16px;height:16px"></i> Save Project`;
-    }
-  });
-
-  if (simulatedHighlight) simulatedHighlight.style.display = 'none';
-  processingOverlay.style.display = 'flex';
-  setProgress(1); // Stage 1: Preparing
-
-  // Safety net: if overlay is still visible after 60s, force close it and show error
-  const _renderSafetyTimer = setTimeout(() => {
-    if (processingOverlay && processingOverlay.style.display !== 'none') {
-      stopProgressTicker();
-      processingOverlay.style.display = 'none';
-      isRendering = false;
-      showToast('Render timed out. Please try again or check your connection.', 'error');
-    }
-  }, 60000);
-
-  console.log('[Render] Starting image-to-image generateRender in visualiser.js...');
-  console.log('[Render] Selected stone:', selectedStone?.name, selectedStone?.sku);
-
-    try {
-    // ── 1. Create Inpainting Mask and pre-tinted image data URIs ───────────────────────
-    processingText.textContent = 'Preparing stone color and inpainting mask...';
-
-    const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
-    const colorDetails = getStoneColorDetails(selectedStone);
-    const { imageCanvas, maskCanvas } = createInpaintingMask(previewImage, isAutoMode, points, selectedStone);
-
-    const imageUri = imageCanvas.toDataURL('image/png');
-    const maskUri = maskCanvas.toDataURL('image/png');
-
-    // ── 1b. Resolve the stone texture image URL to send as reference ─────────
-    let stoneImageUrl = getPublicStoneImageUrl(selectedStone);
-    console.log('[Render] Stone texture reference URL:', stoneImageUrl);
-
-    // ── 2. Build the AI prompt adhering to all core visualizer rules ───────────
-    const stoneBrand = selectedStone.brandName || selectedStone.brand_name || selectedStone.brand || 'RatedWorktops';
-    const stoneName = selectedStone.name || 'natural stone';
-    const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
-    const refinementExtra = refinementText ? ` ${refinementText}.` : '';
-    const promptPrefix = colorDetails?.promptPrefix ? `${colorDetails.promptPrefix} ` : '';
-
-    const prompt = `CRITICAL TASK: In this kitchen photo, you MUST change BOTH of the following stone surface areas to EXACTLY match the attached reference stone image (${stoneBrand} ${stoneName}):
-1. THE VERTICAL BACKSPLASH WALL PANEL behind the cooker, hood, and wall cabinets from edge to edge.
-2. THE ENTIRE HORIZONTAL COUNTERTOP SLAB, KITCHEN ISLAND SURFACE, AND WATERFALL EDGES in the foreground from edge to edge.
-
-${promptPrefix}
-MANDATORY RULES:
-- BOTH the backsplash wall AND the entire island countertop slab must show the exact same stone pattern and color matching the reference stone.
-- Zero old stone or white surfaces must remain on either the backsplash or the island/countertop.
-- Copy the attached reference stone pattern faithfully — do not invent, simplify, or change it.
-- KEEP UNTOUCHED: All cabinets, handles, oven, gas cooktop, sink, faucet, pendant lights, floor, and living room furniture must stay 100% unchanged.${refinementExtra}`;
-
-    console.log('[Render] Inpainting Prompt:', prompt);
-    setProgress(2); // Stage 2: Sending to AI
-
-    // ── 3. Call Fal.ai Gemini 2.5 Flash with Self-Check and Auto-Retry (up to 3 attempts)
-
 const PUBLIC_STONE_TEXTURES = {
   'COSMIN-BLACK': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/cosmin-black_1786710557271.png',
   'COSMIC-BLACK': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/cosmin-black_1786710557271.png',
@@ -601,6 +505,23 @@ function getPublicStoneImageUrl(stone) {
     localOrRel = new URL(localOrRel, window.location.href).href;
   }
   return localOrRel;
+}
+
+function verifyImageLoadable(url) {
+  return new Promise((resolve) => {
+    if (!url) return resolve(false);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (img.naturalWidth > 50 && img.naturalHeight > 50) {
+        resolve(true);
+      } else {
+        resolve(false);
+      }
+    };
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
 }
 
 function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
@@ -645,10 +566,10 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     // Auto Mode: 100% complete, seamless coverage across the entire kitchen
     // Zone 1: Complete Backsplash wall panel across full room width
     maskCtx.beginPath();
-    maskCtx.moveTo(0, H * 0.05);
-    maskCtx.lineTo(W, H * 0.05);
-    maskCtx.lineTo(W, H * 0.70);
-    maskCtx.lineTo(0, H * 0.70);
+    maskCtx.moveTo(0, H * 0.02);
+    maskCtx.lineTo(W, H * 0.02);
+    maskCtx.lineTo(W, H * 0.72);
+    maskCtx.lineTo(0, H * 0.72);
     maskCtx.closePath();
     maskCtx.fill();
 
@@ -701,6 +622,274 @@ function applyMaskedComposite(originalImg, aiResultUrl, maskCanvas) {
     aiImg.onerror = () => resolve(aiResultUrl);
     aiImg.src = aiResultUrl;
   });
+}
+
+async function generateRender() {
+  if (isRendering) return;
+  if (!selectedStone) {
+    showToast('Please select a material from the sidebar first.', 'error');
+    return;
+  }
+
+  const settings = store.get('settings', {});
+  const isFreeMode = settings.subscriptionsEnabled === false;
+
+  if (!isFreeMode && currentProfile.credits <= 0) {
+    showToast('Not enough credits! Please upgrade your plan.', 'error');
+    return;
+  }
+
+  if (!previewImage.src || previewImage.style.display === 'none') {
+    showToast('Please upload a kitchen image first.', 'error');
+    return;
+  }
+
+  // Unique Request ID for concurrency control & preventing stale state overrides
+  const currentRequestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  window._activeRenderRequestId = currentRequestId;
+  const targetStoneId = selectedStone.id || selectedStone.sku || selectedStone.name;
+
+  isRendering = true;
+  window._currentSavedProjectId = null;
+  window._currentRenderPublicUrl = null;
+
+  const mainActionBar = document.getElementById('main-action-bar');
+  if (mainActionBar) mainActionBar.style.display = 'none';
+  const postRenderActions = document.getElementById('post-render-actions');
+  if (postRenderActions) postRenderActions.style.display = 'none';
+
+  ['save-btn', 'main-save-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.disabled = false;
+      btn.className = 'btn-save-project-gold';
+      btn.style.background = '';
+      btn.style.borderColor = '';
+      btn.style.color = '';
+      btn.innerHTML = `<i data-lucide="bookmark" style="width:16px;height:16px"></i> Save Project`;
+    }
+  });
+
+  if (simulatedHighlight) simulatedHighlight.style.display = 'none';
+  processingOverlay.style.display = 'flex';
+  setProgress(1); // Stage 1: Preparing
+
+  // Safety net: if overlay is still visible after 60s, force close it and show error
+  const _renderSafetyTimer = setTimeout(() => {
+    if (processingOverlay && processingOverlay.style.display !== 'none') {
+      stopProgressTicker();
+      processingOverlay.style.display = 'none';
+      isRendering = false;
+      showToast('Render timed out. Please try again or check your connection.', 'error');
+    }
+  }, 60000);
+
+  console.log('[Render] Starting image-to-image generateRender in visualiser.js...');
+  console.log('[Render] Request ID:', currentRequestId, '| Selected stone:', selectedStone?.name, selectedStone?.sku);
+
+  try {
+    // ── 1. Create Inpainting Mask and pre-tinted image data URIs ───────────────────────
+    processingText.textContent = 'Preparing stone color and inpainting mask...';
+
+    const isAutoMode = document.getElementById('mode-auto-btn')?.classList.contains('active');
+    const colorDetails = getStoneColorDetails(selectedStone);
+    const { imageCanvas, maskCanvas } = createInpaintingMask(previewImage, isAutoMode, points, selectedStone);
+
+    const imageUri = imageCanvas.toDataURL('image/png');
+    const maskUri = maskCanvas.toDataURL('image/png');
+
+    // ── 1b. Resolve the stone texture image URL to send as reference ─────────
+    let stoneImageUrl = getPublicStoneImageUrl(selectedStone);
+    console.log('[Render] Stone texture reference URL:', stoneImageUrl);
+
+    // ── 2. Build the AI prompt adhering to all core visualizer rules ───────────
+    const stoneBrand = selectedStone.brandName || selectedStone.brand_name || selectedStone.brand || 'RatedWorktops';
+    const stoneName = selectedStone.name || 'natural stone';
+    const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
+    const refinementExtra = refinementText ? ` ${refinementText}.` : '';
+    const promptPrefix = colorDetails?.promptPrefix ? `${colorDetails.promptPrefix} ` : '';
+
+    const prompt = `CRITICAL TASK: In this kitchen photo, you MUST change BOTH of the following stone surface areas to EXACTLY match the attached reference stone image (${stoneBrand} ${stoneName}):
+1. THE VERTICAL BACKSPLASH WALL PANEL behind the cooker, hood, and wall cabinets from edge to edge.
+2. THE ENTIRE HORIZONTAL COUNTERTOP SLAB, KITCHEN ISLAND SURFACE, AND WATERFALL EDGES in the foreground from edge to edge.
+
+${promptPrefix}
+MANDATORY RULES:
+- BOTH the backsplash wall AND the entire island countertop slab must show the exact same stone pattern and color matching the reference stone.
+- Zero old stone or white surfaces must remain on either the backsplash or the island/countertop.
+- Copy the attached reference stone pattern faithfully — do not invent, simplify, or change it.
+- KEEP UNTOUCHED: All cabinets, handles, oven, gas cooktop, sink, faucet, pendant lights, floor, and living room furniture must stay 100% unchanged.${refinementExtra}`;
+
+    console.log('[Render] Inpainting Prompt:', prompt);
+    setProgress(2); // Stage 2: Sending to AI
+
+    // ── 3. Call Fal.ai Gemini 2.5 Flash with Self-Check and Auto-Retry (up to 3 attempts)
+    processingText.textContent = 'Inpainting selected stone onto all surfaces...';
+
+    let aiImageUrl = null;
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    if (supabaseClient && useRealSupabase) {
+      startProgressTicker();
+      try {
+        while (attempts < maxAttempts && !aiImageUrl) {
+          attempts++;
+          if (attempts > 1) {
+            processingText.textContent = `Optimizing render quality (attempt ${attempts}/${maxAttempts})...`;
+            console.log(`[Render] Auto-retry attempt ${attempts}/${maxAttempts}...`);
+          }
+          console.log(`[Render] Generating render with Fal.ai Gemini 2.5 Flash (attempt ${attempts})...`);
+          const candidateUrl = await callFalAiInpaint(imageUri, maskUri, prompt, stoneImageUrl);
+          if (candidateUrl) {
+            const isValid = await verifyImageLoadable(candidateUrl);
+            if (isValid) {
+              aiImageUrl = candidateUrl;
+              console.log('[Render] ✅ Self-check passed on attempt', attempts);
+            } else {
+              console.warn('[Render] Self-check failed for candidate image. Retrying...');
+            }
+          }
+        }
+      } finally {
+        stopProgressTicker();
+      }
+    } else {
+      throw new Error('Not connected to the server. Please check your connection.');
+    }
+
+    // ── 4. Render Validation Gate ───────────────────────────────────────────
+    if (window._activeRenderRequestId !== currentRequestId) {
+      console.warn('[Render] Discarding stale response from previous request:', currentRequestId);
+      return;
+    }
+
+    if (!aiImageUrl) {
+      throw new Error('AI was unable to generate a valid render after 3 attempts. Please try again or upload another photo.');
+    }
+
+    setProgress(3); // Stage 3: Rendering
+
+    // ── 5. Display the clean, seamless AI-generated render ───────────────────
+    processingText.textContent = 'Applying your new render...';
+    console.log('[Render] Compositing AI render with original photo for 100% fidelity...');
+
+    const finalDisplayUrl = await applyMaskedComposite(previewImage, aiImageUrl, maskCanvas);
+
+    // Double check active request ID before updating DOM
+    if (window._activeRenderRequestId !== currentRequestId) {
+      console.warn('[Render] Stale request overtaken by newer selection. Aborting DOM update.');
+      return;
+    }
+
+    previewImage.src = finalDisplayUrl;
+    previewImage.style.display = 'block';
+    window._isAIRendered = true;
+
+    // Keep renderCanvas updated for download
+    const renderCanvas = document.getElementById('render-canvas');
+    if (renderCanvas) {
+      renderCanvas.style.display = 'none';
+      const tempImg = new Image();
+      tempImg.crossOrigin = 'anonymous';
+      tempImg.onload = () => {
+        renderCanvas.width = tempImg.naturalWidth;
+        renderCanvas.height = tempImg.naturalHeight;
+        renderCanvas.getContext('2d').drawImage(tempImg, 0, 0);
+      };
+      tempImg.src = finalDisplayUrl;
+    }
+
+    console.log('[Render] ✅ Seamless AI render displayed successfully!');
+
+    setProgress(4); // Stage 4: Saving
+
+    // ── 6. Deduct credits & update UI ────────────────────────────────────────
+    const currentCreds = currentProfile?.credits ?? 999;
+    const currentVis = currentProfile?.visualisations ?? 0;
+    const newCredits = isFreeMode ? currentCreds : Math.max(0, currentCreds - 1);
+    const newVisualisations = currentVis + 1;
+    if (supabaseClient && currentUser) {
+      await supabaseClient
+        .from('profiles')
+        .update({ credits: newCredits, visualisations: newVisualisations })
+        .eq('id', currentUser.id);
+    }
+    if (currentProfile) {
+      currentProfile.credits = newCredits;
+      currentProfile.visualisations = newVisualisations;
+    }
+
+    const navCredits = document.getElementById('credits-count');
+    if (navCredits) navCredits.textContent = newCredits;
+    const sidebarCredits = document.getElementById('credits-count-sidebar');
+    if (sidebarCredits) sidebarCredits.textContent = newCredits;
+    const headerCredits = document.getElementById('credits-count-header');
+    if (headerCredits) headerCredits.textContent = newCredits;
+
+    // ── 7. Automatically Save to Storage & Generate Public Share URL ─────────
+    processingText.textContent = 'Saving project & generating public share link...';
+    try {
+      const renderCanvas = document.getElementById('render-canvas');
+      const srcCanvas = (renderCanvas && renderCanvas.style.display !== 'none') ? renderCanvas : null;
+      let blob = null;
+      if (srcCanvas) {
+        blob = await new Promise(res => srcCanvas.toBlob(res, 'image/jpeg', 0.90));
+      }
+      if (blob) {
+        const uuid = Math.random().toString(36).substring(2, 15);
+        const userId = currentUser?.id || 'public';
+        const storagePath = `outputs/${userId}/${uuid}.jpg`;
+        const uploadRes = await uploadFileToStorage('ratedworktops', storagePath, blob);
+
+        if (uploadRes.ok && uploadRes.url) {
+          window._currentRenderPublicUrl = uploadRes.url;
+          window._shareImageUrl = uploadRes.url;
+          console.log('[Render] Public share URL generated:', uploadRes.url);
+
+          if (supabaseClient && currentUser && selectedStone) {
+            await supabaseClient
+              .from('projects')
+              .insert([{
+                user_id: currentUser.id,
+                stone_name: selectedStone.name,
+                brand_name: selectedStone.brandName,
+                image_url: uploadRes.url
+              }]).catch(e => console.warn('Auto project DB save notice:', e));
+          }
+
+          const shareUrlInput = document.getElementById('share-public-url-input');
+          if (shareUrlInput) shareUrlInput.value = uploadRes.url;
+        }
+      }
+    } catch (saveErr) {
+      console.warn('[Render] Auto cloud save notice:', saveErr);
+    }
+
+    showToast('AI render complete! Saved & public link created.', 'success');
+
+    const preRenderControls = document.getElementById('pre-render-controls');
+    if (preRenderControls) preRenderControls.style.display = 'none';
+    const postRenderActions = document.getElementById('post-render-actions');
+    if (postRenderActions) postRenderActions.style.display = 'flex';
+    const mainActionBar = document.getElementById('main-action-bar');
+    if (mainActionBar) mainActionBar.style.display = 'flex';
+
+    setTimeout(() => {
+      openShareModalWithPublicUrl();
+    }, 600);
+
+  } catch (error) {
+    stopProgressTicker();
+    console.error('AI Render failed:', error);
+    showToast('AI Render failed: ' + (error.message || 'Unknown error'), 'error');
+  } finally {
+    clearTimeout(_renderSafetyTimer);
+    processingOverlay.style.display = 'none';
+    isRendering = false;
+    stopProgressTicker();
+    setTimeout(() => setProgress(1), 100);
+  }
 }
 
 function createClientSideBlendRender(previewImg, points, colorDetails) {

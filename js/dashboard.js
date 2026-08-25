@@ -398,6 +398,11 @@ async function generateRender() {
     }
   });
 
+  // Unique Request ID for concurrency control & preventing stale state overrides
+  const currentRequestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  window._activeRenderRequestId = currentRequestId;
+  const targetStoneId = selectedStone.id || selectedStone.sku || selectedStone.name;
+
   if (badgeStoneName && selectedStone) {
     badgeStoneName.textContent = `Applying ${selectedStone.name} (${selectedStone.brandName || selectedStone.brand || 'Stone'})`;
   }
@@ -421,7 +426,7 @@ async function generateRender() {
   }, 60000);
 
   console.log('[Render] Starting AI image-to-image render...');
-  console.log('[Render] Stone selected:', selectedStone?.name, selectedStone?.sku);
+  console.log('[Render] Request ID:', currentRequestId, '| Selected stone:', selectedStone?.name, selectedStone?.sku);
 
   try {
     // ── 1. Create Inpainting Mask and pre-tinted image data URIs ───────────────────────
@@ -493,11 +498,17 @@ MANDATORY RULES:
       throw new Error('Not connected to the server. Please check your connection.');
     }
 
+    // ── 4. Render Validation Gate ───────────────────────────────────────────
+    if (window._activeRenderRequestId !== currentRequestId) {
+      console.warn('[Render] Discarding stale response from previous request:', currentRequestId);
+      return;
+    }
+
     if (!aiImageUrl) {
       throw new Error('AI was unable to generate a valid render after 3 attempts. Please try again or upload another photo.');
     }
 
-    // ── 4. Display the clean, seamless AI-generated render ──────────────────────────
+    // ── 5. Display the clean, seamless AI-generated render ───────────────────
     stopProgressTicker();
     setProgress(4); // 100%
     processingOverlay.style.display = 'none'; // Hide overlay immediately so user sees their render right away!
@@ -512,11 +523,16 @@ MANDATORY RULES:
 
     const finalDisplayUrl = await applyMaskedComposite(previewImage, aiImageUrl, maskCanvas);
 
+    // Double check active request ID before updating DOM
+    if (window._activeRenderRequestId !== currentRequestId) {
+      console.warn('[Render] Stale request overtaken by newer selection. Aborting DOM update.');
+      return;
+    }
+
     previewImage.src = finalDisplayUrl;
     previewImage.style.display = 'block';
     window._isAIRendered = true;
 
-    // Keep renderCanvas hidden to prevent double-layer overlay seams, while holding image for download
     const renderCanvas = document.getElementById('render-canvas');
     if (renderCanvas) {
       const tempImg = new Image();
