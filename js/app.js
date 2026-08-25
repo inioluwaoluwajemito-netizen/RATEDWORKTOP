@@ -1449,11 +1449,19 @@ const STONE_IMAGES = {
   'DEK-LR': 'images/stones/laurent.png',
   'CAE-CC': 'images/stones/cloudburst_concrete.png',
   'SIL-MW': 'images/stones/miami_white.png',
-  'TSC-NP': 'images/stones/nero_marquina.png',
-  'TSC-BR': 'images/stones/arabescato_vagli.png',
-  // TSC-RL (Rosso Levanto) re-mapped to rosso viola as the closest breccia reference
+  'TSC-NP': 'images/stones/nero_picasso.jpeg',
+  'NERO-PICASSO': 'images/stones/nero_picasso.jpeg',
+  'TSC-BR': 'images/stones/blue_roma.jpeg',
+  'GRA-BLG-001': 'images/stones/blue_roma.jpeg',
   'TSC-RL': 'images/stones/rosso_viola_breccia.jpg',
-  'TSC-VB': 'images/stones/charcoal_granite.png',
+  'TRS-106': 'images/stones/rosso_viola_breccia.jpg',
+  '8263': 'images/stones/rosso_viola_breccia.jpg',
+  'TSC-VB': 'images/stones/volga_blue.jpeg',
+  'VOLGA-BLUE': 'images/stones/volga_blue.jpeg',
+  'COSMIN-BLACK': 'images/stones/cosmin_black.png',
+  'COSMIC-BLACK': 'images/stones/cosmin_black.png',
+  'AMAZONIA-GREEN': 'images/stones/amazonia_green.jpg',
+  'PATAGONIA-GOLD': 'images/stones/patagonia_gold.png',
   'TSC-PO': 'images/stones/carrara_white_marble.png',
   'TSC-ML': 'images/stones/miami_white.png',
   'TSC-V3': 'images/stones/calacatta_viola.png',
@@ -1467,14 +1475,19 @@ const STONE_IMAGES = {
 function getStoneImageByName(name) {
   if (!name) return null;
   const n = name.toLowerCase();
-  if (n.includes('rosso viola') || n.includes('breccia')) return 'images/stones/rosso_viola_breccia.jpg';
-  if (n.includes('rosso levanto')) return 'images/stones/rosso_viola_breccia.jpg';
-  if (n.includes('nero picasso') || n.includes('cosmin black') || n.includes('cosmin')) return 'images/stones/nero_marquina.png';
+  if (n.includes('amazonia')) return 'images/stones/amazonia_green.jpg';
+  if (n.includes('cosmic black') || n.includes('cosmin black') || n.includes('cosmic') || n.includes('cosmin')) return 'images/stones/cosmin_black.png';
+  if (n.includes('patagonia')) return 'images/stones/patagonia_gold.png';
+  if (n.includes('volga')) return 'images/stones/volga_blue.jpeg';
+  if (n.includes('blue roma') || (n.includes('roma') && !n.includes('armani'))) return 'images/stones/blue_roma.jpeg';
+  if (n.includes('nero picasso') || (n.includes('picasso') && !n.includes('rosso'))) return 'images/stones/nero_picasso.jpeg';
+  if (n.includes('rosso viola') || n.includes('breccia') || n.includes('8263') || (n.includes('viola') && !n.includes('calacatta'))) return 'images/stones/rosso_viola_breccia.jpg';
+  if (n.includes('rosso levanto') || n.includes('trs-106') || (n.includes('rosso') && !n.includes('viola'))) return 'images/stones/rosso_viola_breccia.jpg';
   if (n.includes('calacatta viola') || (n.includes('viola') && !n.includes('rosso'))) return 'images/stones/calacatta_viola.png';
   if (n.includes('calacatta gold') || n.includes('eternal calacatta')) return 'images/stones/eternal_calacatta_gold.png';
-  if (n.includes('nero marquina') || (n.includes('nero') && !n.includes('picasso'))) return 'images/stones/nero_marquina.png';
+  if (n.includes('nero marquina') || (n.includes('nero') && !n.includes('picasso') && !n.includes('cosmin') && !n.includes('cosmic'))) return 'images/stones/nero_marquina.png';
   if (n.includes('carrara') || n.includes('statuario') || n.includes('arabescato') || n.includes('vagli')) return 'images/stones/arabescato_vagli.png';
-  if (n.includes('charcoal') || n.includes('dark granite') || n.includes('volga')) return 'images/stones/charcoal_granite.png';
+  if (n.includes('charcoal') || n.includes('dark granite')) return 'images/stones/charcoal_granite.png';
   if (n.includes('kreta') || n.includes('concrete') || n.includes('slate')) return 'images/stones/kreta.png';
   if (n.includes('iconic black') || n.includes('absolute black') || n.includes('pure black')) return 'images/stones/iconic_black.png';
   if (n.includes('vanilla noir') || n.includes('night sky')) return 'images/stones/vanilla_noir.png';

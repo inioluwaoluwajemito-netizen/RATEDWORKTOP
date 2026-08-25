@@ -435,41 +435,28 @@ async function generateRender() {
     const maskUri = maskCanvas.toDataURL('image/png');
 
     // ── 1b. Resolve the stone texture image URL to send as reference ─────────
-    let stoneImageUrl = getStoneImage(selectedStone.sku, selectedStone);
-    // Convert relative paths to absolute URLs so Fal.ai can fetch them
-    // Skip conversion for CSS gradients (which aren't real image URLs)
-    const isGradientRef = stoneImageUrl && (stoneImageUrl.startsWith('linear-gradient') || stoneImageUrl.startsWith('radial-gradient'));
-    if (stoneImageUrl && !isGradientRef && !stoneImageUrl.startsWith('http') && !stoneImageUrl.startsWith('data:')) {
-      stoneImageUrl = new URL(stoneImageUrl, window.location.href).href;
-    }
+    let stoneImageUrl = getPublicStoneImageUrl(selectedStone);
     console.log('[Render] Stone texture reference URL:', stoneImageUrl);
 
     // ── 2. Build the AI prompt adhering to all core visualizer rules ───────────
-    const stoneDesc = getStoneVisualDescription(selectedStone);
-    const stoneBrand = selectedStone.brandName || selectedStone.brand_name || selectedStone.brand || '';
+    const stoneBrand = selectedStone.brandName || selectedStone.brand_name || selectedStone.brand || 'RatedWorktops';
     const stoneName = selectedStone.name || 'natural stone';
     const refinementText = document.getElementById('refinement-instructions')?.value?.trim() || '';
     const refinementExtra = refinementText ? ` ${refinementText}.` : '';
-    const hasRealImage = stoneImageUrl && !stoneImageUrl.startsWith('linear-gradient') && !stoneImageUrl.startsWith('radial-gradient');
     const promptPrefix = colorDetails?.promptPrefix ? `${colorDetails.promptPrefix} ` : '';
 
-    let prompt;
-    if (hasRealImage) {
-      prompt = `Change ONLY the stone surfaces to match EXACTLY the attached reference stone image (${stoneBrand} ${stoneName}). ${promptPrefix}Copy its pattern faithfully — do not invent, simplify, or change it.
-MANDATORY REQUIREMENTS:
-1. FULL COVERAGE: Repaint EVERY stone surface in the kitchen edge-to-edge — including the full vertical backsplash wall panel AND every horizontal countertop slab, worktop, and kitchen island surface. Zero patches of the old stone must remain.
-2. EXACT STONE PATTERN: Faithfully reproduce the exact color, fragments, veining, and texture of the reference stone image with realistic polished reflections.
-3. KITCHEN UNTOUCHED: Keep everything else in the photo unchanged: all cabinets, handles, appliances, oven, gas hob, sink, kettle, toaster, floor, walls, lighting, and objects must stay in their exact original positions.${refinementExtra}`;
-    } else {
-      prompt = `Change ONLY the stone surfaces to match ${stoneBrand} ${stoneName} stone (${stoneDesc}). ${promptPrefix}
-MANDATORY REQUIREMENTS:
-1. FULL COVERAGE: Repaint EVERY stone surface in the kitchen edge-to-edge — including the full vertical backsplash wall AND every horizontal countertop slab, worktop, and island.
-2. KITCHEN UNTOUCHED: Keep all cabinets, handles, appliances, oven, stove, floor, walls, and lighting exactly as they are in the original photo.${refinementExtra}`;
-    }
+    const prompt = `CRITICAL TASK: In this kitchen photo, you MUST change BOTH of the following stone surface areas to EXACTLY match the attached reference stone image (${stoneBrand} ${stoneName}):
+1. THE VERTICAL BACKSPLASH WALL PANEL behind the cooker, hood, and wall cabinets from edge to edge.
+2. THE ENTIRE HORIZONTAL COUNTERTOP SLAB, KITCHEN ISLAND SURFACE, AND WATERFALL EDGES in the foreground from edge to edge.
 
-    console.log('[Render] Stone image URL:', stoneImageUrl);
-    console.log('[Render] Has real image reference:', hasRealImage);
-    console.log('[Render] Prompt:', prompt);
+${promptPrefix}
+MANDATORY RULES:
+- BOTH the backsplash wall AND the entire island countertop slab must show the exact same stone pattern and color matching the reference stone.
+- Zero old stone or white surfaces must remain on either the backsplash or the island/countertop.
+- Copy the attached reference stone pattern faithfully — do not invent, simplify, or change it.
+- KEEP UNTOUCHED: All cabinets, handles, oven, gas cooktop, sink, faucet, pendant lights, floor, and living room furniture must stay 100% unchanged.${refinementExtra}`;
+
+    console.log('[Render] Inpainting Prompt:', prompt);
 
     // ── 3. Call Fal.ai Gemini 2.5 Flash with Self-Check and Auto-Retry (up to 3 attempts)
     setProgress(3); // 60%
@@ -640,6 +627,22 @@ function getStoneColorDetails(stone) {
   const texture = stone.texture ? stone.texture.toLowerCase() : '';
 
   // 1. Specific Unique Pattern Checks
+  if (name.includes('cosmic') || name.includes('cosmin') || sku === 'COSMIN-BLACK' || sku === 'COSMIC-BLACK') {
+    return {
+      baseColor: 'cosmic black marble',
+      hex: '#16171B',
+      promptPrefix: `DISTINCTIVE COSMIC BLACK LUXURY SURFACES: Deep solid black background with dramatic flowing gold, amber, and cream veins matching the attached reference stone image. Zero white background.`
+    };
+  }
+
+  if (name.includes('amazonia') || sku === 'AMAZONIA-GREEN') {
+    return {
+      baseColor: 'amazonia green quartzite',
+      hex: '#2F483E',
+      promptPrefix: `DISTINCTIVE AMAZONIA GREEN QUARTZITE SURFACES: Rich deep teal-green and emerald quartzite background with intricate webbed golden-beige veining matching the attached reference stone image. Zero white background.`
+    };
+  }
+
   if (name.includes('rosso viola') || name.includes('breccia') || name.includes('8263') || (name.includes('viola') && !name.includes('calacatta'))) {
     return {
       baseColor: 'rosso viola breccia',
@@ -648,7 +651,7 @@ function getStoneColorDetails(stone) {
     };
   }
 
-  if (name.includes('nero picasso') || name.includes('cosmin') || (name.includes('picasso') || (name.includes('black') && (name.includes('gold') || name.includes('amber'))))) {
+  if (name.includes('nero picasso') || (name.includes('picasso') && !name.includes('rosso'))) {
     return {
       baseColor: 'black and gold marble',
       hex: '#1C1D21',
@@ -664,7 +667,7 @@ function getStoneColorDetails(stone) {
     };
   }
 
-  if (name.includes('volga blue') || (name.includes('volga') && name.includes('blue'))) {
+  if (name.includes('volga blue') || (name.includes('volga') && name.includes('blue')) || sku === 'VOLGA-BLUE' || sku === 'TSC-VB') {
     return {
       baseColor: 'volga blue granite',
       hex: '#161922',
@@ -672,19 +675,11 @@ function getStoneColorDetails(stone) {
     };
   }
 
-  if (name.includes('patagonia')) {
+  if (name.includes('patagonia') || sku === 'PATAGONIA-GOLD') {
     return {
       baseColor: 'patagonia quartzite',
       hex: '#DDD6C8',
       promptPrefix: `PATAGONIA GOLD QUARTZITE SURFACES: Translucent cream and white quartzite with bold dark mineral patches and golden accents.`
-    };
-  }
-
-  if (name.includes('amazonia')) {
-    return {
-      baseColor: 'amazonia green quartzite',
-      hex: '#2F483E',
-      promptPrefix: `AMAZONIA GREEN QUARTZITE SURFACES: Deep teal and emerald green background with intricate golden-beige webbed veins.`
     };
   }
 
@@ -844,6 +839,48 @@ function verifyImageLoadable(url) {
   });
 }
 
+const PUBLIC_STONE_TEXTURES = {
+  'COSMIN-BLACK': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/cosmin-black_1786710557271.png',
+  'COSMIC-BLACK': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/cosmin-black_1786710557271.png',
+  'AMAZONIA-GREEN': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/amazonia-green_1786710710142.jpg',
+  'PATAGONIA-GOLD': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/patagonia-gold_1786710726438.png',
+  'VOLGA-BLUE': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/volga-blue_1786710587926.jpeg',
+  'TSC-VB': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/volga-blue_1786710587926.jpeg',
+  'GRA-BLG-001': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/gra-blg-001_1786710448160.jpeg',
+  'TSC-BR': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/gra-blg-001_1786710448160.jpeg',
+  'NERO-PICASSO': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/nero-picasso_1786710620830.jpeg',
+  'TSC-NP': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/nero-picasso_1786710620830.jpeg',
+  '8263': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/8263_1786710527471.png',
+  'TSC-RL': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/8263_1786710527471.png',
+  'TRS-106': 'https://cvzeelapjwdvpotuvbrz.supabase.co/storage/v1/object/public/ratedworktops/stone-textures/8263_1786710527471.png'
+};
+
+function getPublicStoneImageUrl(stone) {
+  if (!stone) return null;
+  const sku = (stone.sku || '').toUpperCase();
+  const name = (stone.name || '').toLowerCase();
+
+  if (sku && PUBLIC_STONE_TEXTURES[sku]) return PUBLIC_STONE_TEXTURES[sku];
+  if (name.includes('cosmic') || name.includes('cosmin')) return PUBLIC_STONE_TEXTURES['COSMIN-BLACK'];
+  if (name.includes('amazonia')) return PUBLIC_STONE_TEXTURES['AMAZONIA-GREEN'];
+  if (name.includes('patagonia')) return PUBLIC_STONE_TEXTURES['PATAGONIA-GOLD'];
+  if (name.includes('volga')) return PUBLIC_STONE_TEXTURES['VOLGA-BLUE'];
+  if (name.includes('blue roma') || (name.includes('roma') && !name.includes('armani'))) return PUBLIC_STONE_TEXTURES['GRA-BLG-001'];
+  if (name.includes('nero picasso') || (name.includes('picasso') && !name.includes('rosso'))) return PUBLIC_STONE_TEXTURES['NERO-PICASSO'];
+  if (name.includes('rosso viola') || name.includes('breccia') || name.includes('8263')) return PUBLIC_STONE_TEXTURES['8263'];
+  if (name.includes('rosso levanto') || name.includes('trs-106')) return PUBLIC_STONE_TEXTURES['8263'];
+
+  if (stone.image_url && stone.image_url.startsWith('https://') && !stone.image_url.includes('placeholder')) {
+    return stone.image_url;
+  }
+
+  let localOrRel = (typeof getStoneImage === 'function') ? getStoneImage(stone.sku, stone) : (stone.image_url || '');
+  if (localOrRel && !localOrRel.startsWith('http') && !localOrRel.startsWith('data:') && !localOrRel.startsWith('linear-gradient')) {
+    localOrRel = new URL(localOrRel, window.location.href).href;
+  }
+  return localOrRel;
+}
+
 function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
   const sourceImage = window._originalImageElement || previewImg;
   const W = sourceImage.naturalWidth || sourceImage.width || 1024;
@@ -869,12 +906,12 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
   maskCanvas.height = H;
   const maskCtx = maskCanvas.getContext('2d');
 
-  // Fill entire canvas with OPAQUE BLACK (unmasked areas)
+  // Fill entire canvas with OPAQUE BLACK (unmasked areas to keep 100% untouched)
   maskCtx.fillStyle = 'rgba(0, 0, 0, 1)';
   maskCtx.fillRect(0, 0, W, H);
 
-  // Clear targeted stone areas to TRANSPARENT (masked stone surface areas)
-  maskCtx.globalCompositeOperation = 'destination-out';
+  // Mark targeted stone surfaces in PURE WHITE (standard binary mask definition: White = stone to replace, Black = unchanged)
+  maskCtx.fillStyle = 'rgba(255, 255, 255, 1)';
 
   if (manualPoints && manualPoints.length >= 3) {
     // Manual Mode: Exact polygon selected by user
@@ -886,32 +923,30 @@ function createInpaintingMask(previewImg, isAutoMode, manualPoints, stone) {
     maskCtx.closePath();
     maskCtx.fill();
   } else {
-    // Auto Mode: Complete, seamless coverage of all kitchen stone surfaces
-    // Zone 1: Complete Backsplash panel behind hob (under hood)
+    // Auto Mode: 100% complete, seamless coverage across the entire kitchen
+    // Zone 1: Complete Backsplash wall panel across full room width
     maskCtx.beginPath();
-    maskCtx.moveTo(W * 0.40, H * 0.10);
-    maskCtx.lineTo(W * 0.96, H * 0.10);
-    maskCtx.lineTo(W * 0.96, H * 0.65);
-    maskCtx.lineTo(W * 0.40, H * 0.65);
+    maskCtx.moveTo(0, H * 0.05);
+    maskCtx.lineTo(W, H * 0.05);
+    maskCtx.lineTo(W, H * 0.70);
+    maskCtx.lineTo(0, H * 0.70);
     maskCtx.closePath();
     maskCtx.fill();
 
-    // Zone 2: Complete Countertop worktop slab (full edge-to-edge kitchen coverage)
+    // Zone 2: Complete Countertops, Islands & Waterfall returns across full room width
     maskCtx.beginPath();
-    maskCtx.moveTo(0, H * 0.40);
-    maskCtx.lineTo(W, H * 0.40);
+    maskCtx.moveTo(0, H * 0.35);
+    maskCtx.lineTo(W, H * 0.35);
     maskCtx.lineTo(W, H);
     maskCtx.lineTo(0, H);
     maskCtx.closePath();
     maskCtx.fill();
   }
 
-  maskCtx.globalCompositeOperation = 'source-over';
-
   return { imageCanvas, maskCanvas, colorDetails };
 }
 
-// Composite AI rendered stone with original image using the stone mask to guarantee 100% preservation of non-stone pixels
+// Composite AI rendered stone with original image using the binary stone mask to guarantee 100% preservation of non-stone pixels
 function applyMaskedComposite(originalImg, aiResultUrl, maskCanvas) {
   return new Promise((resolve) => {
     const orig = window._originalImageElement || originalImg;
@@ -923,7 +958,7 @@ function applyMaskedComposite(originalImg, aiResultUrl, maskCanvas) {
     canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    // Draw untouched original photo as 100% baseline
+    // 1. Draw untouched original photo as 100% baseline
     ctx.drawImage(orig, 0, 0, W, H);
 
     const aiImg = new Image();
@@ -936,23 +971,9 @@ function applyMaskedComposite(originalImg, aiResultUrl, maskCanvas) {
       const aiCtx = aiCanvas.getContext('2d');
       aiCtx.drawImage(aiImg, 0, 0, W, H);
 
-      // Create alpha mask from maskCanvas (where alpha 0 in maskCanvas represents stone)
-      // We invert: keep AI pixels where maskCanvas was cleared
-      const alphaMaskCanvas = document.createElement('canvas');
-      alphaMaskCanvas.width = W;
-      alphaMaskCanvas.height = H;
-      const aCtx = alphaMaskCanvas.getContext('2d');
-
-      // Draw maskCanvas
-      aCtx.drawImage(maskCanvas, 0, 0, W, H);
-      // Invert so stone surfaces are white (opaque) and rest is transparent
-      aCtx.globalCompositeOperation = 'difference';
-      aCtx.fillStyle = 'rgba(255, 255, 255, 1)';
-      aCtx.fillRect(0, 0, W, H);
-
-      // Apply inverted alpha mask to AI canvas
+      // Clip AI render strictly to the stone mask
       aiCtx.globalCompositeOperation = 'destination-in';
-      aiCtx.drawImage(alphaMaskCanvas, 0, 0, W, H);
+      aiCtx.drawImage(maskCanvas, 0, 0, W, H);
 
       // Composite masked AI stone onto original photo
       ctx.drawImage(aiCanvas, 0, 0, W, H);
