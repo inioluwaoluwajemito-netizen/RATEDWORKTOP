@@ -409,8 +409,15 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
         return url;
       }
     }
+    const errText = data?.detail || data?.message || '';
+    if (typeof errText === 'string' && (errText.includes('TOP_UP') || errText.toLowerCase().includes('user is locked'))) {
+      throw new Error('Fal.ai credit balance is depleted (User locked: TOP_UP). Please top up your Fal.ai account at https://fal.ai/dashboard/billing or update your API key.');
+    }
     console.warn('[Fal.ai] Gemini 2.5 Flash response notice:', data);
   } catch (e) {
+    if (e.message && (e.message.includes('TOP_UP') || e.message.toLowerCase().includes('user is locked') || e.message.includes('credit balance is depleted'))) {
+      throw e;
+    }
     console.warn('[Fal.ai] Gemini 2.5 Flash exception:', e);
   }
 
@@ -438,7 +445,15 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
       const url = data.images?.[0]?.url || data.image?.url;
       if (url) return url;
     }
-  } catch (e) {}
+    const fluxErr = data?.detail || data?.message || '';
+    if (typeof fluxErr === 'string' && (fluxErr.includes('TOP_UP') || fluxErr.toLowerCase().includes('user is locked'))) {
+      throw new Error('Fal.ai credit balance is depleted (User locked: TOP_UP). Please top up your Fal.ai account at https://fal.ai/dashboard/billing or update your API key.');
+    }
+  } catch (e) {
+    if (e.message && (e.message.includes('TOP_UP') || e.message.toLowerCase().includes('user is locked') || e.message.includes('credit balance is depleted'))) {
+      throw e;
+    }
+  }
 
   // 3. Fallback to fast-sdxl inpainting
   console.log('[Fal.ai] Fallback calling Fast SDXL inpainting...');
@@ -462,7 +477,12 @@ async function callFalAiInpaint(imageUri, maskUri, promptText, stoneImageUrl) {
     if (url) return url;
   }
 
-  throw new Error(sdxlData?.detail || sdxlData?.message || 'Fal.ai generation failed. Please verify your Fal.ai API key.');
+  const rawErr = sdxlData?.detail || sdxlData?.message || '';
+  if (typeof rawErr === 'string' && (rawErr.includes('TOP_UP') || rawErr.toLowerCase().includes('user is locked'))) {
+    throw new Error('Fal.ai credit balance is depleted (User locked: TOP_UP). Please top up your Fal.ai account at https://fal.ai/dashboard/billing or update your API key.');
+  }
+
+  throw new Error(rawErr || 'Fal.ai generation failed. Please verify your Fal.ai API key.');
 }
 
 const PUBLIC_STONE_TEXTURES = {
